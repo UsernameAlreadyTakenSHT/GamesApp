@@ -31,3 +31,9 @@ local.properties
 
 # IDE
 /.idea/
+
+# Scan / Moby Dam (draughts): cloned sources and generated assets (see scan/build.sh, mobydam/build.sh)
+/scan/src/
+/mobydam/src/
+/app/src/main/assets/scan/
+/app/src/main/assets/mobydam/
