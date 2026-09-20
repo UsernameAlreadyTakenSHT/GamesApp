@@ -3,15 +3,18 @@ package io.github.usernamealreadytakensht.games.game
 import com.github.bhlangonijr.chesslib.Side
 import org.json.JSONObject
 
-/** Engine families offered at the first level of the opponent picker. */
-enum class EngineFamily(val label: String) {
-    STOCKFISH("Stockfish"),
-    LC0("Leela Chess Zero"),
-    RECKLESS("Reckless"),
-    PLENTY("PlentyChess"),
-    BERSERK("Berserk"),
-    SUNFISH("Sunfish"),
-    MAIA("Maia"),
+/**
+ * Engine families offered at the first level of the opponent picker. `monogram` and `hue`
+ * (0-360) drive the badge drawn on the family card; `tagline` is the one-line pitch.
+ */
+enum class EngineFamily(val label: String, val tagline: String, val monogram: String, val hue: Float) {
+    STOCKFISH("Stockfish", "The reference. Adjustable Elo.", "SF", 210f),
+    LC0("Leela Chess Zero", "Neural networks, positional style.", "Lc0", 150f),
+    RECKLESS("Reckless", "Top-tier engine in Rust.", "Rk", 30f),
+    PLENTY("PlentyChess", "Top-tier engine in C++.", "Pc", 280f),
+    BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
+    SUNFISH("Sunfish", "Tiny and beatable.", "Sf", 50f),
+    MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
 }
 
 /** How the strength of an engine variant is adjusted. */
@@ -133,6 +136,39 @@ enum class EngineKind(
         return presets.minBy { kotlin.math.abs(it - value) }
     }
 
+    /** Plain-language feel of [value] for this variant, shown under the strength value. */
+    fun levelDescription(value: Int?): String = when (strength) {
+        StrengthKind.ELO, StrengthKind.HUMAN_ELO -> when {
+            value == null -> "Full strength, unbeatable"
+            value < 1000 -> "Beginner"
+            value < 1400 -> "Casual player"
+            value < 1800 -> "Club player"
+            value < 2200 -> "Strong club player"
+            value < 2500 -> "Expert"
+            else -> "Master level"
+        }
+        StrengthKind.DEPTH -> if (family == EngineFamily.SUNFISH) when {
+            value == null -> "As strong as it gets (~2000)"
+            value <= 2 -> "Beginner: hangs pieces"
+            value <= 4 -> "Casual player"
+            value <= 6 -> "Club player"
+            else -> "Strong club player"
+        } else when {
+            value == null -> "Full strength, unbeatable"
+            value <= 2 -> "Solid but blind to 2-move tactics (~1600+)"
+            value <= 5 -> "Strong club player"
+            value <= 10 -> "Expert"
+            else -> "Master level and beyond"
+        }
+        StrengthKind.NODES -> when {
+            value == null -> "Full strength (time-based)"
+            value == 1 -> "Network intuition only"
+            value <= 16 -> "Light search"
+            value <= 256 -> "Solid"
+            else -> "Strong"
+        }
+    }
+
     fun strengthLabel(value: Int?): String = when (strength) {
         StrengthKind.ELO -> if (value == null) "Max" else "Elo $value"
         StrengthKind.NODES -> if (value == null) "Max" else "$value node${if (value > 1) "s" else ""}"
@@ -201,7 +237,7 @@ sealed class TimeControl {
 /** How many moves the player may take back during a game. */
 enum class Takebacks(val label: String, val limit: Int?) {
     UNLIMITED("Unlimited", null),
-    ONCE("Once per game", 1),
+    ONCE("Once", 1),
     OFF("Off", 0),
 }
 
