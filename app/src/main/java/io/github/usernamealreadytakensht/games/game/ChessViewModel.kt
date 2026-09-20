@@ -37,8 +37,6 @@ data class GameState(
     val lastMove: Pair<Square, Square>? = null,
     val checkedKing: Square? = null,
     val pendingPromotion: Pair<Square, Square>? = null,
-    /** Move proposed but not yet confirmed (only with `confirmMoves`). */
-    val pendingMove: Pair<Square, Square>? = null,
     /** Takebacks still available, null = unlimited. */
     val takebacksLeft: Int? = null,
     val resigned: Boolean = false,
@@ -136,13 +134,12 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
         val selected = s.selected
         if (selected != null && square in s.legalTargets) {
-            // With move confirmation on, the first tap only proposes; the same tap again plays.
-            if (s.config.confirmMoves && s.pendingMove != selected to square) {
-                _state.update { it.copy(pendingMove = selected to square) }
-                publish()
-                return
+            val promotionRank = if (s.playerSide == Side.WHITE) 7 else 0
+            if (board.getPiece(selected).pieceType == PieceType.PAWN && square.rank.ordinal == promotionRank) {
+                _state.update { it.copy(pendingPromotion = selected to square) }
+            } else {
+                playPlayerMove(Move(selected, square))
             }
-            attemptMove(selected, square)
             return
         }
 
@@ -150,38 +147,10 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val piece = board.getPiece(square)
         if (piece != Piece.NONE && piece.pieceSide == s.playerSide) {
             val targets = board.legalMoves().filter { it.from == square }.map { it.to }.toSet()
-            _state.update { it.copy(selected = square, legalTargets = targets, pendingMove = null) }
+            _state.update { it.copy(selected = square, legalTargets = targets) }
         } else {
-            _state.update { it.copy(selected = null, legalTargets = emptySet(), pendingMove = null) }
+            _state.update { it.copy(selected = null, legalTargets = emptySet()) }
         }
-        publish()
-    }
-
-    /** Plays [from]-[to], asking for the promotion piece when needed. */
-    private fun attemptMove(from: Square, to: Square) {
-        val s = _state.value
-        val promotionRank = if (s.playerSide == Side.WHITE) 7 else 0
-        if (board.getPiece(from).pieceType == PieceType.PAWN && to.rank.ordinal == promotionRank) {
-            if (s.config.autoQueen) {
-                playPlayerMove(Move(from, to, Piece.make(s.playerSide, PieceType.QUEEN)))
-            } else {
-                _state.update { it.copy(pendingPromotion = from to to, pendingMove = null) }
-            }
-        } else {
-            playPlayerMove(Move(from, to))
-        }
-    }
-
-    /** Plays the move proposed under "confirm moves". */
-    fun confirmPendingMove() {
-        val (from, to) = _state.value.pendingMove ?: return
-        if (!_state.value.isPlayerTurn) return
-        attemptMove(from, to)
-    }
-
-    fun cancelPendingMove() {
-        _state.update { it.copy(pendingMove = null, selected = null, legalTargets = emptySet()) }
-        publish()
     }
 
     fun promote(type: PieceType) {
@@ -203,7 +172,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         if (board.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
         takebacksUsed++
         _state.update {
-            it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null, pendingMove = null)
+            it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null)
         }
         // The clock restarts for the side to move; time already spent is not refunded.
         restartTurnClock()
@@ -218,7 +187,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         resigned = true
         stopClock()
-        _state.update { it.copy(selected = null, legalTargets = emptySet(), pendingMove = null, pendingPromotion = null) }
+        _state.update { it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null) }
         publish()
         persist()
     }
@@ -317,7 +286,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun playPlayerMove(move: Move) {
         applyMove(move)
-        _state.update { it.copy(selected = null, legalTargets = emptySet(), pendingMove = null) }
+        _state.update { it.copy(selected = null, legalTargets = emptySet()) }
         publish()
         persist()
         maybeEngineMove()
@@ -535,7 +504,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             result == Result.DRAW -> "Draw."
             !engineReady -> "Starting $engineName…"
             thinking -> "$engineName is thinking…"
-            _state.value.pendingMove != null -> "Tap the square again or Confirm to play."
             inCheck -> "Check! Your move."
             else -> "Your move (${if (player == Side.WHITE) "white" else "black"})."
         }

@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,21 +21,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.github.bhlangonijr.chesslib.Side
@@ -57,13 +57,8 @@ import io.github.usernamealreadytakensht.games.game.TimeControl
 import kotlin.math.roundToInt
 
 private enum class ClockKind(val label: String) {
-    NONE("None"), SUDDEN_DEATH("Sudden death"), FISCHER("Fischer"), PER_MOVE("Per move"),
+    NONE("None"), SUDDEN_DEATH("Sudden"), FISCHER("Fischer"), PER_MOVE("Per move"),
 }
-
-/** Values offered by the time-control sliders. */
-private val MINUTE_PRESETS = listOf(1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90)
-private val INCREMENT_PRESETS = listOf(0, 1, 2, 3, 5, 10, 15, 20, 30)
-private val PER_MOVE_PRESETS = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120)
 
 private val TimeControl.clockKind: ClockKind
     get() = when (this) {
@@ -73,9 +68,12 @@ private val TimeControl.clockKind: ClockKind
         is TimeControl.PerMove -> ClockKind.PER_MOVE
     }
 
+/** Quick picks shown under the clock fields: label to (minutes, increment seconds). */
+private val FISCHER_PRESETS = listOf("1+0" to (1 to 0), "3+2" to (3 to 2), "5+0" to (5 to 0), "10+5" to (10 to 5), "15+10" to (15 to 10))
+
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour, clock and game options. [config] is owned by the caller. */
+/** First setup screen: colour, clock and takebacks. [config] is owned by the caller. */
 @Composable
 fun GameSetupScreen(
     config: GameConfig,
@@ -84,20 +82,17 @@ fun GameSetupScreen(
     onNext: () -> Unit,
 ) {
     val tc = config.timeControl
+    // Values remembered across clock kinds so switching does not lose what was typed.
     val minutes = ((tc as? TimeControl.SuddenDeath)?.initialMs ?: (tc as? TimeControl.Fischer)?.initialMs ?: 600_000L) / 60_000L
     val increment = ((tc as? TimeControl.Fischer)?.incrementMs ?: 5000L) / 1000L
     val perMove = ((tc as? TimeControl.PerMove)?.perMoveMs ?: 30_000L) / 1000L
-    val minutesIdx = presetIndex(MINUTE_PRESETS, minutes, 10)
-    val incrementIdx = presetIndex(INCREMENT_PRESETS, increment, 5)
-    val perMoveIdx = presetIndex(PER_MOVE_PRESETS, perMove, 30)
 
-    fun clock(kind: ClockKind, mIdx: Int = minutesIdx, iIdx: Int = incrementIdx, pIdx: Int = perMoveIdx): TimeControl =
-        when (kind) {
-            ClockKind.NONE -> TimeControl.None
-            ClockKind.SUDDEN_DEATH -> TimeControl.SuddenDeath(MINUTE_PRESETS[mIdx] * 60_000L)
-            ClockKind.FISCHER -> TimeControl.Fischer(MINUTE_PRESETS[mIdx] * 60_000L, INCREMENT_PRESETS[iIdx] * 1000L)
-            ClockKind.PER_MOVE -> TimeControl.PerMove(PER_MOVE_PRESETS[pIdx] * 1000L)
-        }
+    fun clock(kind: ClockKind, m: Long = minutes, i: Long = increment, p: Long = perMove): TimeControl = when (kind) {
+        ClockKind.NONE -> TimeControl.None
+        ClockKind.SUDDEN_DEATH -> TimeControl.SuddenDeath(m.coerceIn(1, 999) * 60_000L)
+        ClockKind.FISCHER -> TimeControl.Fischer(m.coerceIn(1, 999) * 60_000L, i.coerceIn(0, 999) * 1000L)
+        ClockKind.PER_MOVE -> TimeControl.PerMove(p.coerceIn(1, 999) * 1000L)
+    }
 
     SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
         SectionTitle("Your color")
@@ -114,75 +109,55 @@ fun GameSetupScreen(
         }
 
         SectionTitle("Time control")
-        ChipFlow(
+        Segmented(
             items = ClockKind.entries,
             selected = tc.clockKind,
             label = { it.label },
             onSelect = { onChange(config.copy(timeControl = clock(it))) },
         )
         when (tc.clockKind) {
-            ClockKind.NONE -> Hint("No time limit. Take all the time you need.")
-            ClockKind.SUDDEN_DEATH -> ValueSlider(
-                title = "Time per player", value = "${MINUTE_PRESETS[minutesIdx]} min",
-                presets = MINUTE_PRESETS, index = minutesIdx, unit = "min",
-                onIndex = { onChange(config.copy(timeControl = clock(ClockKind.SUDDEN_DEATH, mIdx = it))) },
-            )
-            ClockKind.FISCHER -> {
-                ValueSlider(
-                    title = "Initial time", value = "${MINUTE_PRESETS[minutesIdx]} min",
-                    presets = MINUTE_PRESETS, index = minutesIdx, unit = "min",
-                    onIndex = { onChange(config.copy(timeControl = clock(ClockKind.FISCHER, mIdx = it))) },
-                )
-                ValueSlider(
-                    title = "Increment per move", value = "+${INCREMENT_PRESETS[incrementIdx]} s",
-                    presets = INCREMENT_PRESETS, index = incrementIdx, unit = "s",
-                    onIndex = { onChange(config.copy(timeControl = clock(ClockKind.FISCHER, iIdx = it))) },
-                )
+            ClockKind.NONE -> Hint("No time limit.")
+            ClockKind.SUDDEN_DEATH -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField(minutes, "min", Modifier.weight(1f)) { onChange(config.copy(timeControl = clock(ClockKind.SUDDEN_DEATH, m = it))) }
+                Text("per player", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
             }
-            ClockKind.PER_MOVE -> ValueSlider(
-                title = "Time per move", value = "${PER_MOVE_PRESETS[perMoveIdx]} s",
-                presets = PER_MOVE_PRESETS, index = perMoveIdx, unit = "s",
-                onIndex = { onChange(config.copy(timeControl = clock(ClockKind.PER_MOVE, pIdx = it))) },
-            )
+            ClockKind.FISCHER -> {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField(minutes, "min", Modifier.weight(1f)) { onChange(config.copy(timeControl = clock(ClockKind.FISCHER, m = it))) }
+                    Text("+", style = MaterialTheme.typography.titleLarge)
+                    NumberField(increment, "s / move", Modifier.weight(1f)) { onChange(config.copy(timeControl = clock(ClockKind.FISCHER, i = it))) }
+                    Spacer(Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FISCHER_PRESETS.forEach { (label, mi) ->
+                        val (m, i) = mi
+                        FilterChip(
+                            selected = minutes == m.toLong() && increment == i.toLong(),
+                            onClick = { onChange(config.copy(timeControl = clock(ClockKind.FISCHER, m = m.toLong(), i = i.toLong()))) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+            ClockKind.PER_MOVE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField(perMove, "s", Modifier.weight(1f)) { onChange(config.copy(timeControl = clock(ClockKind.PER_MOVE, p = it))) }
+                Text("per move, reset each move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
+            }
         }
 
-        SectionTitle("Options")
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingLabel("Takebacks")
-                Segmented(
-                    items = Takebacks.entries,
-                    selected = config.takebacks,
-                    label = { it.label },
-                    onSelect = { onChange(config.copy(takebacks = it)) },
-                )
-                HorizontalDivider()
-                SwitchRow("Show legal moves", "Dots on the squares a selected piece can go to", config.showLegalMoves) {
-                    onChange(config.copy(showLegalMoves = it))
-                }
-                SwitchRow("Confirm moves", "Tap the destination twice (or Confirm) to play", config.confirmMoves) {
-                    onChange(config.copy(confirmMoves = it))
-                }
-                SwitchRow("Auto-queen", "Promote to a queen without asking", config.autoQueen) {
-                    onChange(config.copy(autoQueen = it))
-                }
-                HorizontalDivider()
-                SettingLabel("Engine thinking time")
-                Segmented(
-                    items = ThinkingTime.entries,
-                    selected = config.thinking,
-                    label = { "${it.label} ×${it.factor.let { f -> if (f == f.toInt().toDouble()) f.toInt().toString() else f.toString() }}" },
-                    onSelect = { onChange(config.copy(thinking = it)) },
-                )
-                Hint("Scales how long the engine thinks per move. Useful for the slower Leela networks.")
-            }
-        }
+        SectionTitle("Takebacks")
+        Segmented(
+            items = Takebacks.entries,
+            selected = config.takebacks,
+            label = { it.label },
+            onSelect = { onChange(config.copy(takebacks = it)) },
+        )
     }
 }
 
 // ---------------------------------------------------------------- screen 2: opponent
 
-/** Second setup screen: engine, version/network and strength. */
+/** Second setup screen: engine, version/network, strength and thinking time. */
 @Composable
 fun OpponentSetupScreen(
     config: GameConfig,
@@ -265,6 +240,15 @@ fun OpponentSetupScreen(
                 RangeLabels(lo, hi)
             }
         }
+
+        SectionTitle("Thinking time")
+        Segmented(
+            items = ThinkingTime.entries,
+            selected = config.thinking,
+            label = { "${it.label} ×${it.factor.let { f -> if (f == f.toInt().toDouble()) f.toInt().toString() else f.toString() }}" },
+            onSelect = { onChange(config.copy(thinking = it)) },
+        )
+        Hint("Scales how long the engine thinks per move. Useful for the slower Leela networks.")
     }
 }
 
@@ -330,13 +314,21 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun SettingLabel(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-}
-
-@Composable
 private fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Compact numeric field; empty or invalid input leaves the value unchanged. */
+@Composable
+private fun NumberField(value: Long, suffix: String, modifier: Modifier, onValue: (Long) -> Unit) {
+    OutlinedTextField(
+        value = value.toString(),
+        onValueChange = { text -> text.filter { it.isDigit() }.take(3).toLongOrNull()?.let(onValue) },
+        suffix = { Text(suffix) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier,
+    )
 }
 
 /** Selectable card showing one or two king glyphs. */
@@ -400,22 +392,6 @@ private fun SelectableCard(selected: Boolean, modifier: Modifier, onClick: () ->
 }
 
 @Composable
-private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onChecked)
-    }
-}
-
-@Composable
 private fun <T> Segmented(items: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         items.forEachIndexed { i, item ->
@@ -423,6 +399,7 @@ private fun <T> Segmented(items: List<T>, selected: T, label: (T) -> String, onS
                 selected = item == selected,
                 onClick = { onSelect(item) },
                 shape = SegmentedButtonDefaults.itemShape(index = i, count = items.size),
+                icon = {},
             ) { Text(label(item), maxLines = 1) }
         }
     }
@@ -438,31 +415,6 @@ private fun <T> ChipFlow(items: List<T>, selected: T, label: (T) -> String, onSe
     }
 }
 
-/** Slider over preset values with the current value shown as a pill on the right. */
-@Composable
-private fun ValueSlider(title: String, value: String, presets: List<Int>, index: Int, unit: String, onIndex: (Int) -> Unit) {
-    Column {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(
-                value,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-            )
-        }
-        Slider(
-            value = index.toFloat(),
-            onValueChange = { onIndex(it.roundToInt().coerceIn(presets.indices)) },
-            valueRange = 0f..(presets.size - 1).toFloat(),
-            steps = presets.size - 2,
-        )
-        RangeLabels("${presets.first()} $unit", "${presets.last()} $unit")
-    }
-}
-
 @Composable
 private fun RangeLabels(start: String, end: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -470,6 +422,3 @@ private fun RangeLabels(start: String, end: String) {
         Text(end, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-private fun presetIndex(presets: List<Int>, value: Long, fallback: Int): Int =
-    presets.indexOf(value.toInt()).takeIf { it >= 0 } ?: presets.indexOf(fallback)

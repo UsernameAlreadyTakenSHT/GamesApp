@@ -152,26 +152,21 @@ fun ChessScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (state.pendingMove != null) {
-                        Button(onClick = vm::confirmPendingMove, modifier = Modifier.weight(1f)) { Text("Confirm") }
-                        OutlinedButton(onClick = vm::cancelPendingMove, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                    } else {
-                        if (state.config.takebacks != Takebacks.OFF) {
-                            OutlinedButton(
-                                onClick = vm::undo,
-                                enabled = state.canUndo && state.engineError == null,
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
-                            }
-                        }
-                        OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
+                    if (state.config.takebacks != Takebacks.OFF) {
                         OutlinedButton(
-                            onClick = { showResign = true },
-                            enabled = state.sanMoves.isNotEmpty() || state.playerSide == Side.WHITE,
+                            onClick = vm::undo,
+                            enabled = state.canUndo && state.engineError == null,
                             modifier = Modifier.weight(1f),
-                        ) { Text("Resign") }
+                        ) {
+                            Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
+                        }
                     }
+                    OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
+                    OutlinedButton(
+                        onClick = { showResign = true },
+                        enabled = state.sanMoves.isNotEmpty() || state.playerSide == Side.WHITE,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Resign") }
                 }
             }
 
@@ -300,8 +295,7 @@ private fun Board(state: GameState, onTap: (Square) -> Unit) {
                         piece = state.pieces[square.ordinal],
                         isDark = (rank + file) % 2 == 0,
                         isSelected = state.selected == square,
-                        isTarget = state.config.showLegalMoves && square in state.legalTargets,
-                        isPending = state.pendingMove?.second == square,
+                        isTarget = square in state.legalTargets,
                         isLastMove = state.lastMove?.let { it.first == square || it.second == square } == true,
                         isCheck = state.checkedKing == square,
                         showFileLabel = row == 7,
@@ -322,7 +316,6 @@ private fun SquareCell(
     isDark: Boolean,
     isSelected: Boolean,
     isTarget: Boolean,
-    isPending: Boolean,
     isLastMove: Boolean,
     isCheck: Boolean,
     showFileLabel: Boolean,
@@ -336,7 +329,7 @@ private fun SquareCell(
         modifier = modifier
             .background(base)
             .then(if (isLastMove) Modifier.background(LastMoveTint) else Modifier)
-            .then(if (isSelected || isPending) Modifier.background(SelectedTint) else Modifier)
+            .then(if (isSelected) Modifier.background(SelectedTint) else Modifier)
             .then(if (isCheck) Modifier.background(CheckTint) else Modifier)
             .clickable(onClick = onTap),
         contentAlignment = Alignment.Center,

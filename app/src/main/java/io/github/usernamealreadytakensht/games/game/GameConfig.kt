@@ -259,9 +259,6 @@ data class GameConfig(
     val playerSide: Side? = Side.WHITE,
     val timeControl: TimeControl = TimeControl.None,
     val takebacks: Takebacks = Takebacks.UNLIMITED,
-    val showLegalMoves: Boolean = true,
-    val confirmMoves: Boolean = false,
-    val autoQueen: Boolean = false,
     val thinking: ThinkingTime = ThinkingTime.NORMAL,
 ) {
     val strengthLabel: String get() = engine.strengthLabel(strength)
@@ -276,9 +273,6 @@ data class GameConfig(
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
         put("takebacks", takebacks.name)
-        put("showLegalMoves", showLegalMoves)
-        put("confirmMoves", confirmMoves)
-        put("autoQueen", autoQueen)
         put("thinking", thinking.name)
     }
 
@@ -298,9 +292,6 @@ data class GameConfig(
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
                 takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.UNLIMITED),
-                showLegalMoves = o.optBoolean("showLegalMoves", true),
-                confirmMoves = o.optBoolean("confirmMoves", false),
-                autoQueen = o.optBoolean("autoQueen", false),
                 thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
             )
         }
