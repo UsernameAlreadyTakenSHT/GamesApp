@@ -13,8 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import io.github.usernamealreadytakensht.games.game.GameRepository
-import io.github.usernamealreadytakensht.games.ui.CheckersScreen
 import io.github.usernamealreadytakensht.games.ui.ChessLaunch
+import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsLaunch
+import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsScreen
+import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsSetupScreen
 import io.github.usernamealreadytakensht.games.ui.ChessScreen
 import io.github.usernamealreadytakensht.games.ui.GameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.OpponentSetupScreen
@@ -38,7 +40,8 @@ private sealed interface Screen {
     data object GameSetup : Screen
     data object OpponentSetup : Screen
     data class ChessGame(val launch: ChessLaunch) : Screen
-    data object Checkers : Screen
+    data object DraughtsSetup : Screen
+    data class DraughtsGame(val launch: DraughtsLaunch) : Screen
 }
 
 /** Minimal navigation: home → game setup → opponent setup → game. */
@@ -50,13 +53,16 @@ private fun App() {
     var gameCounter by remember { mutableIntStateOf(0) }
     // Settings being edited across the two setup screens; seeded from the last game played.
     var draft by remember { mutableStateOf(repo.loadLastConfig()) }
+    var draughtsDraft by remember { mutableStateOf(repo.loadLastDraughtsConfig()) }
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
             savedChess = repo.loadGame(),
+            savedDraughts = repo.loadDraughtsGame(),
             onChess = { draft = repo.loadLastConfig(); screen = Screen.GameSetup },
             onResumeChess = { screen = Screen.ChessGame(ChessLaunch.Resume) },
-            onCheckers = { screen = Screen.Checkers },
+            onDraughts = { draughtsDraft = repo.loadLastDraughtsConfig(); screen = Screen.DraughtsSetup },
+            onResumeDraughts = { screen = Screen.DraughtsGame(DraughtsLaunch.Resume) },
         )
 
         Screen.GameSetup -> {
@@ -91,9 +97,26 @@ private fun App() {
             )
         }
 
-        Screen.Checkers -> {
+        Screen.DraughtsSetup -> {
             BackHandler { screen = Screen.Home }
-            CheckersScreen(onBack = { screen = Screen.Home })
+            DraughtsSetupScreen(
+                config = draughtsDraft,
+                onChange = { draughtsDraft = it },
+                onBack = { screen = Screen.Home },
+                onPlay = {
+                    repo.saveLastDraughtsConfig(draughtsDraft)
+                    screen = Screen.DraughtsGame(DraughtsLaunch.NewGame(draughtsDraft, ++gameCounter))
+                },
+            )
+        }
+
+        is Screen.DraughtsGame -> {
+            BackHandler { screen = Screen.Home }
+            DraughtsScreen(
+                launch = s.launch,
+                onBack = { screen = Screen.Home },
+                onNewGame = { screen = Screen.DraughtsSetup },
+            )
         }
     }
 }
