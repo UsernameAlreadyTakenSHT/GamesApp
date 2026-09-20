@@ -26,4 +26,30 @@ object NetAssets {
         }
         return target
     }
+
+    /**
+     * Extracts a whole asset folder (e.g. an engine's data directory) to the files directory
+     * and returns it. Re-extracted whenever the app's version code changes.
+     */
+    fun ensureDir(context: Context, assetDir: String): File {
+        val dir = File(context.filesDir, assetDir)
+        val stamp = File(dir, ".version")
+        val version = context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toString()
+        if (dir.isDirectory && stamp.exists() && stamp.readText() == version) return dir
+        dir.deleteRecursively()
+        copyAssetTree(context, assetDir, dir)
+        stamp.writeText(version)
+        return dir
+    }
+
+    private fun copyAssetTree(context: Context, assetPath: String, target: File) {
+        val children = context.assets.list(assetPath).orEmpty()
+        if (children.isEmpty()) {
+            target.parentFile?.mkdirs()
+            context.assets.open(assetPath).use { input -> target.outputStream().use { input.copyTo(it) } }
+            return
+        }
+        target.mkdirs()
+        for (child in children) copyAssetTree(context, "$assetPath/$child", File(target, child))
+    }
 }

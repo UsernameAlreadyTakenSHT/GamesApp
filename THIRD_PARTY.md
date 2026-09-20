@@ -19,3 +19,4 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Sunfish 2026 (Kotlin port in app/.../engine/Sunfish.kt) | https://github.com/thomasahle/sunfish | GPL-3.0 |
 | Maia-3 5M model (exported to ONNX) | https://github.com/CSSLab/maia3 · https://huggingface.co/UofTCSSLab/Maia3-5M | GPL-3.0 |
 | ONNX Runtime (Android) | https://github.com/microsoft/onnxruntime | MIT |
+| Rodent V 1.2 (+ personalities, networks and opening books) | https://github.com/nescitus/Rodent-V | GPL-3.0 |

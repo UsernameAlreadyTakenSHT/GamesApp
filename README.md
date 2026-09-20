@@ -30,6 +30,7 @@ depends on how the engine can be limited.
 | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
 | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
 | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
+| **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
 
 Rough feel: the Maia models are the only opponents that play *like a human* (Maia 3 covers 600–2600, the Lc0 Maia networks 1100–1900). Stockfish's Elo
 mode is adjustable but artificial (perfect moves with random errors). The depth-limited
@@ -51,6 +52,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./reckless/build.sh       # needs rustup (installed by the script's instructions)
 ./plentychess/build.sh    # needs a running x86_64 emulator (network pre-processing)
 ./berserk/build.sh
+./rodent/build.sh         # needs Go (a plain unzip of the official SDK is enough)
 ```
 
 Maia 3 is exported from the PyTorch checkpoint with `maia3/export_onnx.py` (needs a Python venv
@@ -70,7 +72,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Reckless](https://github.com/codedeliveryservice/Reckless),
   [PlentyChess](https://github.com/Yoshie2000/PlentyChess),
   [Berserk](https://github.com/jhonnold/berserk),
-  [Sunfish](https://github.com/thomasahle/sunfish) — all GPL-3.0.
+  [Sunfish](https://github.com/thomasahle/sunfish),
+  [Rodent V](https://github.com/nescitus/Rodent-V) — all GPL-3.0.
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),

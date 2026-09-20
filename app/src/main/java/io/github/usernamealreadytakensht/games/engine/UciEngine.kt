@@ -45,9 +45,13 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
             throw IOException("${kind.label} binary not found for this ABI: ${executable.path}")
         }
         val weightsFile = weights?.let { NetAssets.ensure(context, it) }
+        // Engines with data files (Rodent's personalities, nets and books) run inside their
+        // extracted asset folder so that the relative paths in their config files resolve.
+        val workDir = kind.dataDir?.let { NetAssets.ensureDir(context, it) }
 
         val p = ProcessBuilder(executable.absolutePath)
             .redirectErrorStream(true)
+            .apply { if (workDir != null) directory(workDir) }
             .start()
         process = p
         writer = p.outputStream.bufferedWriter()
@@ -67,6 +71,10 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
                     send("setoption name Threads value $threads")
                     send("setoption name Hash value 64")
                 }
+            }
+            kind.personality?.let {
+                send("setoption name PersonalityFile value $it")
+                send("setoption name OwnBook value true") // personalities come with their own book
             }
             send("ucinewgame")
             send("isready")

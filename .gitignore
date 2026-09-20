@@ -31,3 +31,7 @@ local.properties
 
 # IDE
 /.idea/
+
+# Rodent V: cloned sources and generated data assets (see rodent/build.sh)
+/rodent/src/
+/app/src/main/assets/rodent/

@@ -15,6 +15,7 @@ enum class EngineFamily(val label: String, val tagline: String, val monogram: St
     BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
     SUNFISH("Sunfish", "Tiny and beatable.", "Sf", 50f),
     MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
+    RODENT("Rodent", "Seven personalities, seven styles.", "Ro", 100f),
 }
 
 /** How the strength of an engine variant is adjusted. */
@@ -42,6 +43,10 @@ enum class EngineKind(
     val weights: String? = null,
     val eloMin: Int = 0,
     val eloMax: Int = 0,
+    /** Asset folder extracted and used as the process working directory (engine data files). */
+    val dataDir: String? = null,
+    /** Rodent personality file, relative to [dataDir]. */
+    val personality: String? = null,
 ) {
     STOCKFISH_19(
         EngineFamily.STOCKFISH, "Stockfish 19", "libstockfish.so", StrengthKind.ELO,
@@ -90,6 +95,41 @@ enum class EngineKind(
         "Networks trained on human games of a given rating: plays (and blunders) like a human " +
             "of that level. No search.",
         eloMin = 1100, eloMax = 1900,
+    ),
+    RODENT_DEFAULT(
+        EngineFamily.RODENT, "Rodent", "librodent.so", StrengthKind.ELO,
+        "Rodent V's default personality: balanced NNUE play.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/rodent.txt",
+    ),
+    RODENT_TAL(
+        EngineFamily.RODENT, "Tal", "librodent.so", StrengthKind.ELO,
+        "Aggressive, sacrificial style on a dedicated network, with Tal's opening repertoire.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/tal_nnue.txt",
+    ),
+    RODENT_TAL_HYBRID(
+        EngineFamily.RODENT, "Tal (hybrid)", "librodent.so", StrengthKind.ELO,
+        "The attacking Tal profile on the standard network, mixed with hand-crafted terms.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/tal_hybrid.txt",
+    ),
+    RODENT_AMPERE(
+        EngineFamily.RODENT, "Ampere", "librodent.so", StrengthKind.ELO,
+        "Energetic, activity-driven personality.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/ampere.txt",
+    ),
+    RODENT_CHAOTIC(
+        EngineFamily.RODENT, "Chaotic", "librodent.so", StrengthKind.ELO,
+        "Unbalanced, tricky play with an offbeat opening book.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/chaotic.txt",
+    ),
+    RODENT_HECTOR(
+        EngineFamily.RODENT, "Hector", "librodent.so", StrengthKind.ELO,
+        "Hand-crafted evaluation only, no neural network: the classical Rodent feel.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/hector.txt",
+    ),
+    RODENT_NIMZOID(
+        EngineFamily.RODENT, "Nimzoid", "librodent.so", StrengthKind.ELO,
+        "Positional, prophylactic style in the spirit of Nimzowitsch, with a matching book.",
+        eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/nimzoid.txt",
     );
 
     /** Network file for [strength]; Maia has one network per rating. */
