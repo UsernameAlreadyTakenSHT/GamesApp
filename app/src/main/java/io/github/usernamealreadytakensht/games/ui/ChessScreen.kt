@@ -31,6 +31,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import io.github.usernamealreadytakensht.games.game.Takebacks
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -68,8 +72,14 @@ sealed interface ChessLaunch {
 
 /** Game screen. */
 @Composable
-fun ChessScreen(launch: ChessLaunch, onBack: () -> Unit, vm: ChessViewModel = viewModel()) {
+fun ChessScreen(
+    launch: ChessLaunch,
+    onBack: () -> Unit,
+    onNewGame: () -> Unit,
+    vm: ChessViewModel = viewModel(),
+) {
     val state by vm.state.collectAsStateWithLifecycle()
+    var showResign by remember { mutableStateOf(false) }
 
     LaunchedEffect(launch) {
         when (launch) {
@@ -135,20 +145,33 @@ fun ChessScreen(launch: ChessLaunch, onBack: () -> Unit, vm: ChessViewModel = vi
 
             StatusLine(state)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(onClick = { vm.startGame(state.config) }, modifier = Modifier.weight(1f)) {
-                    Text("New game")
-                }
-                OutlinedButton(
-                    onClick = vm::undo,
-                    enabled = state.canUndo && state.engineError == null,
-                    modifier = Modifier.weight(1f),
-                ) { Text("Undo") }
-                OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) {
-                    Text("Flip")
+            if (state.result != Result.ONGOING) {
+                GameOverBanner(state, onRematch = vm::rematch, onNewGame = onNewGame)
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (state.pendingMove != null) {
+                        Button(onClick = vm::confirmPendingMove, modifier = Modifier.weight(1f)) { Text("Confirm") }
+                        OutlinedButton(onClick = vm::cancelPendingMove, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    } else {
+                        if (state.config.takebacks != Takebacks.OFF) {
+                            OutlinedButton(
+                                onClick = vm::undo,
+                                enabled = state.canUndo && state.engineError == null,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
+                            }
+                        }
+                        OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
+                        OutlinedButton(
+                            onClick = { showResign = true },
+                            enabled = state.sanMoves.isNotEmpty() || state.playerSide == Side.WHITE,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Resign") }
+                    }
                 }
             }
 
@@ -158,6 +181,40 @@ fun ChessScreen(launch: ChessLaunch, onBack: () -> Unit, vm: ChessViewModel = vi
 
     state.pendingPromotion?.let {
         PromotionDialog(state.playerSide, onPick = vm::promote, onDismiss = vm::cancelPromotion)
+    }
+
+    if (showResign) {
+        AlertDialog(
+            onDismissRequest = { showResign = false },
+            title = { Text("Resign?") },
+            text = { Text("The game will be recorded as a loss.") },
+            confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
+            dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
+        )
+    }
+}
+
+/** Result banner with the two ways to continue. */
+@Composable
+private fun GameOverBanner(state: GameState, onRematch: () -> Unit, onNewGame: () -> Unit) {
+    val (title, color) = when (state.result) {
+        Result.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
+        Result.ENGINE_WINS -> "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
+        else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text("Rematch swaps colours.", style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
+            OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }
+        }
     }
 }
 
@@ -243,7 +300,8 @@ private fun Board(state: GameState, onTap: (Square) -> Unit) {
                         piece = state.pieces[square.ordinal],
                         isDark = (rank + file) % 2 == 0,
                         isSelected = state.selected == square,
-                        isTarget = square in state.legalTargets,
+                        isTarget = state.config.showLegalMoves && square in state.legalTargets,
+                        isPending = state.pendingMove?.second == square,
                         isLastMove = state.lastMove?.let { it.first == square || it.second == square } == true,
                         isCheck = state.checkedKing == square,
                         showFileLabel = row == 7,
@@ -264,6 +322,7 @@ private fun SquareCell(
     isDark: Boolean,
     isSelected: Boolean,
     isTarget: Boolean,
+    isPending: Boolean,
     isLastMove: Boolean,
     isCheck: Boolean,
     showFileLabel: Boolean,
@@ -277,7 +336,7 @@ private fun SquareCell(
         modifier = modifier
             .background(base)
             .then(if (isLastMove) Modifier.background(LastMoveTint) else Modifier)
-            .then(if (isSelected) Modifier.background(SelectedTint) else Modifier)
+            .then(if (isSelected || isPending) Modifier.background(SelectedTint) else Modifier)
             .then(if (isCheck) Modifier.background(CheckTint) else Modifier)
             .clickable(onClick = onTap),
         contentAlignment = Alignment.Center,

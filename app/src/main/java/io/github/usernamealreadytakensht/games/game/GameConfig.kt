@@ -198,6 +198,20 @@ sealed class TimeControl {
     }
 }
 
+/** How many moves the player may take back during a game. */
+enum class Takebacks(val label: String, val limit: Int?) {
+    UNLIMITED("Unlimited", null),
+    ONCE("Once per game", 1),
+    OFF("Off", 0),
+}
+
+/** Multiplier on the engine's thinking time per move. */
+enum class ThinkingTime(val label: String, val factor: Double) {
+    FAST("Fast", 0.5),
+    NORMAL("Normal", 1.0),
+    SLOW("Slow", 2.0),
+}
+
 /**
  * Settings of a chess game.
  * `strength` is an Elo or a node count depending on the engine (see [EngineKind.strength]);
@@ -208,6 +222,11 @@ data class GameConfig(
     val strength: Int? = 1500,
     val playerSide: Side? = Side.WHITE,
     val timeControl: TimeControl = TimeControl.None,
+    val takebacks: Takebacks = Takebacks.UNLIMITED,
+    val showLegalMoves: Boolean = true,
+    val confirmMoves: Boolean = false,
+    val autoQueen: Boolean = false,
+    val thinking: ThinkingTime = ThinkingTime.NORMAL,
 ) {
     val strengthLabel: String get() = engine.strengthLabel(strength)
 
@@ -220,6 +239,11 @@ data class GameConfig(
         put("strength", strength ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("takebacks", takebacks.name)
+        put("showLegalMoves", showLegalMoves)
+        put("confirmMoves", confirmMoves)
+        put("autoQueen", autoQueen)
+        put("thinking", thinking.name)
     }
 
     companion object {
@@ -237,6 +261,11 @@ data class GameConfig(
                     else -> null
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+                takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.UNLIMITED),
+                showLegalMoves = o.optBoolean("showLegalMoves", true),
+                confirmMoves = o.optBoolean("confirmMoves", false),
+                autoQueen = o.optBoolean("autoQueen", false),
+                thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
             )
         }
     }

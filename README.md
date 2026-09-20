@@ -12,7 +12,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 
 | Game | Status |
 |------|--------|
-| **Chess** | Playable against the engines below: clocks (sudden death, Fischer, per move), undo, board flip, save/resume, last-move and check highlights, promotion picker. |
+| **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Checkers** | Placeholder (pieces bundled, rules not implemented yet). |
 
 ## Chess opponents
