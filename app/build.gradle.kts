@@ -20,6 +20,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // `-PappIdSuffix=.foo` installs a side-by-side debug build (parallel work-streams on one emulator).
+            applicationIdSuffix = (project.findProperty("appIdSuffix") as String?)?.takeIf { it.isNotBlank() }
+        }
         release {
             optimization {
                 enable = false
