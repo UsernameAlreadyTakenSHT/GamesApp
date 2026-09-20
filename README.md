@@ -13,7 +13,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 | Game | Status |
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
-| **Checkers** | Placeholder (pieces bundled, rules not implemented yet). |
+| **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
 
 ## Chess opponents
 
@@ -39,6 +39,19 @@ stop seeing tactics. Sunfish is the genuinely weak one.
 Engines run as separate processes over UCI (`lib*.so` files executed from the app's native
 library directory); Sunfish is Kotlin code. Only one engine process lives at a time.
 
+## Draughts opponents
+
+Both speak the Hub protocol (Scan's `protocol.txt`); neither has a rating limiter, so
+strength is a search depth (1 → 20) or time-based Max.
+
+| Engine | Notes |
+|--------|-------|
+| **Scan** 3.1 (C++) | Fabien Letouzey's computer-olympiad champion. Ships with its opening book and evaluation weights (~11 MB), no endgame bitbases. Book randomness on for variety. |
+| **Moby Dam** (C) | Harm Jetten's engine, a notch below Scan. Evaluation tables and book (~1.5 MB). Launched with a 16 MiB transposition table (`-t 20`). |
+
+Rough feel: depth 1–3 drops material to simple shots, depth 6 is a solid club game, depth
+12+ is far beyond human level.
+
 ## Building
 
 The Android project builds with Android Studio as usual, **but the engine binaries and
@@ -51,6 +64,8 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./reckless/build.sh       # needs rustup (installed by the script's instructions)
 ./plentychess/build.sh    # needs a running x86_64 emulator (network pre-processing)
 ./berserk/build.sh
+./scan/build.sh           # draughts: Scan + its book/eval data
+./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
 ```
 
 Maia 3 is exported from the PyTorch checkpoint with `maia3/export_onnx.py` (needs a Python venv
@@ -70,7 +85,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Reckless](https://github.com/codedeliveryservice/Reckless),
   [PlentyChess](https://github.com/Yoshie2000/PlentyChess),
   [Berserk](https://github.com/jhonnold/berserk),
-  [Sunfish](https://github.com/thomasahle/sunfish) — all GPL-3.0.
+  [Sunfish](https://github.com/thomasahle/sunfish),
+  [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — all GPL-3.0.
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),

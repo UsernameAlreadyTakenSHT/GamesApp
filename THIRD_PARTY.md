@@ -19,3 +19,5 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Sunfish 2026 (Kotlin port in app/.../engine/Sunfish.kt) | https://github.com/thomasahle/sunfish | GPL-3.0 |
 | Maia-3 5M model (exported to ONNX) | https://github.com/CSSLab/maia3 · https://huggingface.co/UofTCSSLab/Maia3-5M | GPL-3.0 |
 | ONNX Runtime (Android) | https://github.com/microsoft/onnxruntime | MIT |
+| Scan 3.1 (+ book and eval data) | https://github.com/rhalbersma/scan (mirror of Fabien Letouzey's engine) | GPL-3.0 |
+| Moby Dam (+ eval tables and book) | https://github.com/rhalbersma/mobydam (mirror of Harm Jetten's engine) | GPL-3.0 |

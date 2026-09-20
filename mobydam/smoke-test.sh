@@ -14,4 +14,4 @@ DEV=/data/local/tmp/mobydam
   "$ROOT"/app/src/main/assets/mobydam/eval-ph2 "$ROOT"/app/src/main/assets/mobydam/eval-ph3 \
   "$ROOT"/app/src/main/assets/mobydam/book.opn "$DEV/" >/dev/null
 "$ADB" shell "cd $DEV && chmod 755 mobydam && (printf 'hub\ninit\npos pos=Wbbbbbbbbbbbbbbbbbbbbeeeeeeeeeewwwwwwwwwwwwwwwwwwww\nlevel move-time=1\ngo think\n'; sleep 3; printf 'quit\n') | ./mobydam -t 20 hub 2>&1" \
-  | grep -E 'id |ready|done|error|param|pong' | head -12
+  | grep -E 'id |wait|ready|done|error|param|pong' | head -12
