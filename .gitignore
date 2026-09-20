@@ -1,0 +1,33 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Stockfish: cloned sources + compiled binaries (see stockfish/build.sh)
+/stockfish/src/
+/stockfish/src11/
+/app/src/main/jniLibs/
+
+# Lc0: cloned sources, Meson tarball and downloaded networks (see lc0/build.sh)
+/lc0/src/
+/lc0/meson-*/
+/app/src/main/assets/nets/
+
+# Reckless / PlentyChess: cloned sources (see reckless/build.sh, plentychess/build.sh)
+/reckless/src/
+/plentychess/src/
+/berserk/src/
+
+# IDE
+/.idea/

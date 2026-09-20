@@ -1,0 +1,67 @@
+package io.github.usernamealreadytakensht.games.game
+
+import android.content.Context
+import com.github.bhlangonijr.chesslib.Side
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** Everything needed to resume a game in progress. Clocks are stored frozen. */
+data class SavedGame(
+    val config: GameConfig,
+    val playerSide: Side,
+    val uciMoves: List<String>,
+    val whiteMs: Long?,
+    val blackMs: Long?,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("config", config.toJson())
+        put("playerSide", playerSide.name)
+        put("moves", JSONArray(uciMoves))
+        put("whiteMs", whiteMs ?: -1L)
+        put("blackMs", blackMs ?: -1L)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject): SavedGame {
+            val moves = o.getJSONArray("moves")
+            return SavedGame(
+                config = GameConfig.fromJson(o.getJSONObject("config")),
+                playerSide = Side.valueOf(o.getString("playerSide")),
+                uciMoves = List(moves.length()) { moves.getString(it) },
+                whiteMs = o.getLong("whiteMs").takeIf { it >= 0 },
+                blackMs = o.getLong("blackMs").takeIf { it >= 0 },
+            )
+        }
+    }
+}
+
+/** Persists the single in-progress chess game and the last used settings. */
+class GameRepository(context: Context) {
+
+    private val prefs = context.applicationContext.getSharedPreferences("games", Context.MODE_PRIVATE)
+
+    fun saveGame(game: SavedGame) {
+        prefs.edit().putString(KEY_GAME, game.toJson().toString()).apply()
+    }
+
+    fun loadGame(): SavedGame? =
+        prefs.getString(KEY_GAME, null)?.let { runCatching { SavedGame.fromJson(JSONObject(it)) }.getOrNull() }
+
+    fun clearGame() {
+        prefs.edit().remove(KEY_GAME).apply()
+    }
+
+    fun saveLastConfig(config: GameConfig) {
+        prefs.edit().putString(KEY_CONFIG, config.toJson().toString()).apply()
+    }
+
+    fun loadLastConfig(): GameConfig =
+        prefs.getString(KEY_CONFIG, null)
+            ?.let { runCatching { GameConfig.fromJson(JSONObject(it)) }.getOrNull() }
+            ?: GameConfig()
+
+    private companion object {
+        const val KEY_GAME = "chess_game"
+        const val KEY_CONFIG = "chess_config"
+    }
+}
