@@ -3,7 +3,6 @@ package io.github.usernamealreadytakensht.games.ui.morris
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -13,7 +12,9 @@ import io.github.usernamealreadytakensht.games.R
 import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
+import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineFamily
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
+import io.github.usernamealreadytakensht.games.ui.ChipFlow
 import io.github.usernamealreadytakensht.games.ui.ClockSection
 import io.github.usernamealreadytakensht.games.ui.ColorCards
 import io.github.usernamealreadytakensht.games.ui.EngineBadge
@@ -71,7 +72,7 @@ private fun depthDescription(depth: Int?): String = when {
     else -> "Very hard to beat"
 }
 
-/** Second setup screen: opponent and search depth. */
+/** Second setup screen: engine family, Sanmill's algorithm, and search depth. */
 @Composable
 fun MorrisOpponentSetupScreen(
     config: MorrisConfig,
@@ -81,6 +82,7 @@ fun MorrisOpponentSetupScreen(
 ) {
     val presets = MorrisEngineKind.DEPTH_PRESETS
     val depthIdx = presets.indexOf(config.depth).coerceAtLeast(0)
+    val engine = config.engine
 
     SetupScaffold(
         title = "Opponent",
@@ -93,27 +95,37 @@ fun MorrisOpponentSetupScreen(
     ) {
         SectionTitle("Engine")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
-            MorrisEngineKind.entries.forEach { e ->
+            MorrisEngineFamily.entries.forEach { fam ->
                 OpponentCard(
-                    label = e.label,
-                    tagline = "Built into the app.",
-                    selected = config.engine == e,
+                    label = fam.label,
+                    tagline = fam.tagline,
+                    selected = engine.family == fam,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
-                    onClick = { onChange(config.copy(engine = e)) },
-                ) { EngineBadge(logo = null, monogram = "Mi", hue = 40f, icon = R.drawable.ic_engine_miller) }
+                    onClick = { if (engine.family != fam) onChange(config.copy(engine = MorrisEngineKind.of(fam).first())) },
+                ) {
+                    when (fam) {
+                        MorrisEngineFamily.SANMILL -> EngineBadge(logo = R.drawable.logo_sanmill, monogram = "Sa", hue = 30f)
+                        MorrisEngineFamily.MILLER -> EngineBadge(logo = null, monogram = "Mi", hue = 40f, icon = R.drawable.ic_engine_miller)
+                    }
+                }
             }
-            if (MorrisEngineKind.entries.size == 1) Spacer(Modifier.weight(1f))
         }
-        Hint(config.engine.description)
+        val variants = MorrisEngineKind.of(engine.family)
+        if (variants.size > 1) {
+            SectionTitle("Algorithm")
+            ChipFlow(items = variants, selected = engine, label = { it.label }, onSelect = { onChange(config.copy(engine = it)) })
+        }
+        Hint(engine.description)
 
         SectionTitle("Strength")
+        val mcts = engine == MorrisEngineKind.SANMILL_MCTS
         StrengthCard(
             big = config.depth?.toString() ?: "Max",
-            unit = if (config.depth == null) "time-based" else "plies deep",
+            unit = if (config.depth == null) "time-based" else if (mcts) "× 2048 simulations" else "plies deep",
             description = depthDescription(config.depth),
             presets = presets.size,
             index = depthIdx,
-            rangeStart = "Depth 1",
+            rangeStart = if (mcts) "Level 1" else "Depth 1",
             rangeEnd = "Max",
             onIndex = { onChange(config.copy(depth = presets[it])) },
         )

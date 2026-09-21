@@ -36,6 +36,9 @@ local.properties
 /rodent/src/
 /app/src/main/assets/rodent/
 
+# Sanmill: cloned sources (see sanmill/build.sh)
+/sanmill/src/
+
 # Scan / Moby Dam (draughts): cloned sources and generated assets (see scan/build.sh, mobydam/build.sh)
 /scan/src/
 /mobydam/src/

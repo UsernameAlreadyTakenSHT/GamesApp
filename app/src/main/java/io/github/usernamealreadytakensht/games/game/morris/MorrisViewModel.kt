@@ -4,7 +4,9 @@ import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.usernamealreadytakensht.games.engine.morris.MorrisEngine
+import io.github.usernamealreadytakensht.games.engine.morris.MillerOpponent
+import io.github.usernamealreadytakensht.games.engine.morris.MorrisOpponent
+import io.github.usernamealreadytakensht.games.engine.morris.SanmillEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedMorrisGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
 enum class MorrisResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
@@ -43,6 +47,7 @@ data class MorrisState(
     /** Moves in coordinate notation, for the move list. */
     val moves: List<String> = emptyList(),
     val thinking: Boolean = false,
+    val engineError: String? = null,
     val result: MorrisResult = MorrisResult.ONGOING,
     val statusText: String = "",
     val whiteMs: Long? = null,
@@ -61,8 +66,11 @@ data class MorrisState(
 
 class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val app = app
     private val repo = GameRepository(app)
-    private val engine = MorrisEngine()
+    private var engine: MorrisOpponent? = null
+    private val engineLock = Mutex()
+    private var engineReady = false
 
     private var position: Position = Morris.START
     private val history = ArrayList<Position>()   // positions before each move, plus current
@@ -226,7 +234,35 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         restartTurnClock()
         publish()
         persist()
-        maybeEngineMove()
+        val kind = _state.value.config.engine
+        viewModelScope.launch {
+            try {
+                engineLock.withLock {
+                    val eng = ensureEngine(kind)
+                    eng.newGame()
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(engineError = e.message ?: e.toString()) }
+                publish()
+                return@launch
+            }
+            maybeEngineMove()
+        }
+    }
+
+    /** Reuses the running engine when it is the right one, otherwise starts the right one. */
+    private suspend fun ensureEngine(kind: MorrisEngineKind): MorrisOpponent {
+        engine?.let { if (it.kind == kind && (it !is SanmillEngine || it.isRunning)) return it }
+        engineReady = false
+        engine?.quit()
+        _state.update { it.copy(engineError = null) }
+        publish()
+        val eng: MorrisOpponent = if (kind.isExternal) SanmillEngine(app, kind) else MillerOpponent(kind)
+        engine = eng
+        eng.start()
+        engineReady = true
+        publish()
+        return eng
     }
 
     private fun playPlayerMove(move: Move) {
@@ -275,18 +311,26 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Morris.Outcome.ONGOING
 
     private fun maybeEngineMove() {
+        val eng = engine ?: return
+        if (!engineReady) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
-        val pos = position
+        val history = played.toList()
         val moveTime = engineMoveTimeMs()
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val move = engine.bestMove(pos, cfg.depth, moveTime)
+            val move = try {
+                eng.bestMove(history, cfg.depth, moveTime)
+            } catch (e: Exception) {
+                _state.update { it.copy(engineError = e.message, thinking = false) }
+                publish()
+                return@launch
+            }
             if (gen != generation) return@launch
             _state.update { it.copy(thinking = false) }
-            if (move != null && !isGameOver()) applyMove(move, clock = true)
+            if (move != null && move in Morris.legalMoves(position) && !isGameOver()) applyMove(move, clock = true)
             publish()
             persist()
         }
@@ -306,8 +350,12 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun cancelSearch() {
         generation++
-        if (_state.value.thinking) engine.stop()
+        if (_state.value.thinking) engine?.stop()
         _state.update { it.copy(thinking = false) }
+    }
+
+    override fun onCleared() {
+        engine?.quit()
     }
 
     // ---------------------------------------------------------------- persistence
@@ -393,7 +441,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun publish() {
         val player = _state.value.playerSide
-        val engineName = _state.value.config.engine.label
+        val engineName = _state.value.config.engine.family.label
         val result = when (outcome()) {
             Morris.Outcome.ONGOING -> MorrisResult.ONGOING
             Morris.Outcome.DRAW -> MorrisResult.DRAW
@@ -402,6 +450,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         }
         val playerTurn = result == MorrisResult.ONGOING && position.toMove == player
         val status = when {
+            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
             result == MorrisResult.PLAYER_WINS -> if (position.onBoard(player.other) < 3) "You won: $engineName is down to two men."
@@ -409,6 +458,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             result == MorrisResult.ENGINE_WINS -> if (position.onBoard(player) < 3) "$engineName won: you are down to two men."
                                                   else "$engineName won: you cannot move."
             result == MorrisResult.DRAW -> "Draw."
+            !engineReady -> "Starting $engineName…"
             _state.value.thinking -> "$engineName is thinking…"
             playerTurn && pending != null -> "Mill! Take an enemy man."
             playerTurn && position.isPlacing(player) -> "Place a man (${position.inHand(player)} left)."

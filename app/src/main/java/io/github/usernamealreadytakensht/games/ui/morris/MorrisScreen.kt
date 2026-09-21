@@ -137,7 +137,8 @@ fun MorrisScreen(
             Row(modifier = Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.thinking) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text(state.statusText, style = MaterialTheme.typography.bodyLarge)
+                Text(state.statusText, style = MaterialTheme.typography.bodyLarge,
+                    color = if (state.engineError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
             }
 
             if (state.result != MorrisResult.ONGOING) {
@@ -145,7 +146,7 @@ fun MorrisScreen(
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.config.takebacks != Takebacks.OFF) {
-                        OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
+                        OutlinedButton(onClick = vm::undo, enabled = state.canUndo && state.engineError == null, modifier = Modifier.weight(1f)) {
                             Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
                         }
                     }
@@ -293,7 +294,7 @@ private fun formatClock(ms: Long): String {
 private fun GameOverBanner(state: MorrisState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
         MorrisResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        MorrisResult.ENGINE_WINS -> "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
+        MorrisResult.ENGINE_WINS -> "${state.config.engine.family.label} won" to MaterialTheme.colorScheme.errorContainer
         else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
     }
     Column(

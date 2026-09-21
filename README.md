@@ -14,7 +14,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
-| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the built-in "Miller". Same clocks, takebacks, resign, rematch and save/resume as the other games. |
+| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine or the built-in "Miller". Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 
 ## Chess opponents
 
@@ -54,14 +54,18 @@ strength is a search depth (1 → 20) or time-based Max.
 Rough feel: depth 1–3 drops material to simple shots, depth 6 is a solid club game, depth
 12+ is far beyond human level.
 
-## Nine Men's Morris opponent
+## Nine Men's Morris opponents
 
-No third-party engine here: rules (`game/morris/Morris.kt`) and the opponent
-(`engine/morris/MorrisEngine.kt`) are both pure Kotlin. The engine is an iterative-deepening
-alpha-beta search with a hand-written evaluation (men, mills, open twos, mobility, blocked
-men); strength is the search depth (1 → 16) or time-based Max. Depth 1–3 misses simple
-mills, 5–6 is a solid opponent, 10+ is very hard to beat. Unit tests cover the geometry,
-mill and removal rules, flying, game ends, notation and a few tactical positions.
+Rules are pure Kotlin (`game/morris/Morris.kt`), verified by unit tests (geometry, mill and
+removal rules, flying, game ends, notation, tactical positions). Strength is a search depth
+(1 → 16) or time-based Max for both engines.
+
+| | Engine | Notes |
+|--|--------|-------|
+| <img src="app/src/main/res/drawable-nodpi/logo_sanmill.png" width="32" alt=""> | **Sanmill** (Rust) | The engine of the [Sanmill](https://github.com/calcitem/Sanmill) app (`tgf uci`), run as a process over its UCI dialect. Three of its search algorithms are exposed: **MTD(f)** (its default), **Alpha-beta**, and **MCTS** (Monte-Carlo, where the strength setting scales the simulations instead of the depth). The perfect-play database is not shipped. |
+| | **Miller** (Kotlin) | The app's own iterative-deepening alpha-beta (`engine/morris/MorrisEngine.kt`) with a hand-written evaluation (men, mills, open twos, mobility, blocked men). In-process, instant start. |
+
+Rough feel: depth 1–3 misses simple mills, 5–6 is a solid opponent, 10+ is very hard to beat.
 
 ## Building
 
@@ -76,6 +80,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./plentychess/build.sh    # needs a running x86_64 emulator (network pre-processing)
 ./berserk/build.sh
 ./rodent/build.sh         # needs Go (a plain unzip of the official SDK is enough)
+./sanmill/build.sh        # morris: Sanmill's Rust engine (rustup; see the script for the Windows quirks)
 ./scan/build.sh           # draughts: Scan + its book/eval data
 ./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
 ```
@@ -99,7 +104,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Sunfish](https://github.com/thomasahle/sunfish),
   [Rodent V](https://github.com/nescitus/Rodent-V),
   [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — GPL-3.0;
-  [Reckless](https://github.com/codedeliveryservice/Reckless) — AGPL-3.0.
+  [Reckless](https://github.com/codedeliveryservice/Reckless),
+  [Sanmill](https://github.com/calcitem/Sanmill) — AGPL-3.0.
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
   [Maia 3](https://github.com/CSSLab/maia3) (AGPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
@@ -107,7 +113,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Aligning Superhuman AI with Human Behavior](https://arxiv.org/abs/2006.01855) (KDD 2020) and
   [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).
 - Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Maia icon from the
-  Maia platform, Reckless, Sunfish and Rodent V logos from their repositories. PlentyChess has
+  Maia platform, Reckless, Sunfish, Rodent V and Sanmill logos from their repositories. PlentyChess has
   no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
   get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do the
   draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
