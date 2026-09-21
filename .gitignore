@@ -35,3 +35,9 @@ local.properties
 # Rodent V: cloned sources and generated data assets (see rodent/build.sh)
 /rodent/src/
 /app/src/main/assets/rodent/
+
+# Scan / Moby Dam (draughts): cloned sources and generated assets (see scan/build.sh, mobydam/build.sh)
+/scan/src/
+/mobydam/src/
+/app/src/main/assets/scan/
+/app/src/main/assets/mobydam/

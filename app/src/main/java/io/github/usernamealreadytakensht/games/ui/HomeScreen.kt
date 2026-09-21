@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -22,15 +21,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
+import io.github.usernamealreadytakensht.games.game.SavedDraughtsGame
 import io.github.usernamealreadytakensht.games.game.SavedGame
 
-/** Main screen: pick a game. [savedChess] enables "Resume" on the chess card. */
+/** Main screen: pick a game. Saved games enable "Resume" on their card. */
 @Composable
 fun HomeScreen(
     savedChess: SavedGame?,
+    savedDraughts: SavedDraughtsGame?,
     onChess: () -> Unit,
     onResumeChess: () -> Unit,
-    onCheckers: () -> Unit,
+    onDraughts: () -> Unit,
+    onResumeDraughts: () -> Unit,
 ) {
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
         Column(
@@ -69,11 +71,23 @@ fun HomeScreen(
                 },
             )
             GameCard(
-                title = "Checkers",
-                subtitle = "Coming soon",
+                title = "Draughts",
+                subtitle = "International 10x10, against Scan or Moby Dam, offline",
                 icon = R.drawable.stone_l2,
-                onClick = onCheckers,
-                extra = { AssistChip(onClick = onCheckers, label = { Text("Placeholder") }) },
+                onClick = onDraughts,
+                extra = savedDraughts?.let { saved ->
+                    {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "In progress · ${saved.config.opponentLabel} · ${saved.moves.size} plies",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = onResumeDraughts) { Text("Resume") }
+                        }
+                    }
+                },
             )
         }
     }

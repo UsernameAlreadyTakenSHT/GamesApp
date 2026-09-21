@@ -20,6 +20,8 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Maia-3 5M model (exported to ONNX) | https://github.com/CSSLab/maia3 · https://huggingface.co/UofTCSSLab/Maia3-5M | AGPL-3.0 (repository; the Hugging Face model card states no license) |
 | ONNX Runtime (Android) | https://github.com/microsoft/onnxruntime | MIT |
 | Rodent V 1.2 (+ personalities, networks and opening books) | https://github.com/nescitus/Rodent-V | GPL-3.0 |
+| Scan 3.1 (+ book and eval data) | https://github.com/rhalbersma/scan (mirror of Fabien Letouzey's engine) | GPL-3.0 |
+| Moby Dam (+ eval tables and book) | https://github.com/rhalbersma/mobydam (mirror of Harm Jetten's engine) | GPL-3.0 |
 | Stockfish icon | https://github.com/official-stockfish/stockfish-web (`static/images/logo/`) | designed by Klein Maetschke; website MIT, no separate license stated for the icon |
 | Leela Chess Zero logo | https://github.com/LeelaChessZero/lczero.org (`static/images/logo.svg`) | no license stated in the website repository |
 | Reckless mascot | https://github.com/codedeliveryservice/Reckless (README image) | AGPL-3.0 (part of the project) |

@@ -2,6 +2,8 @@ package io.github.usernamealreadytakensht.games.game
 
 import android.content.Context
 import com.github.bhlangonijr.chesslib.Side
+import io.github.usernamealreadytakensht.games.game.draughts.Draughts
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -35,7 +37,37 @@ data class SavedGame(
     }
 }
 
-/** Persists the single in-progress chess game and the last used settings. */
+/** A draughts game in progress: settings, colour, Hub moves and frozen clocks. */
+data class SavedDraughtsGame(
+    val config: DraughtsConfig,
+    val playerSide: Draughts.Color,
+    val moves: List<String>,
+    val whiteMs: Long?,
+    val blackMs: Long?,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("config", config.toJson())
+        put("playerSide", playerSide.name)
+        put("moves", JSONArray(moves))
+        put("whiteMs", whiteMs ?: -1L)
+        put("blackMs", blackMs ?: -1L)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject): SavedDraughtsGame {
+            val moves = o.getJSONArray("moves")
+            return SavedDraughtsGame(
+                config = DraughtsConfig.fromJson(o.getJSONObject("config")),
+                playerSide = Draughts.Color.valueOf(o.getString("playerSide")),
+                moves = List(moves.length()) { moves.getString(it) },
+                whiteMs = o.getLong("whiteMs").takeIf { it >= 0 },
+                blackMs = o.getLong("blackMs").takeIf { it >= 0 },
+            )
+        }
+    }
+}
+
+/** Persists the in-progress chess and draughts games and the last used settings. */
 class GameRepository(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences("games", Context.MODE_PRIVATE)
@@ -60,8 +92,33 @@ class GameRepository(context: Context) {
             ?.let { runCatching { GameConfig.fromJson(JSONObject(it)) }.getOrNull() }
             ?: GameConfig()
 
+    // ---- draughts (same shape, separate keys)
+
+    fun saveDraughtsGame(game: SavedDraughtsGame) {
+        prefs.edit().putString(KEY_DRAUGHTS_GAME, game.toJson().toString()).apply()
+    }
+
+    fun loadDraughtsGame(): SavedDraughtsGame? =
+        prefs.getString(KEY_DRAUGHTS_GAME, null)
+            ?.let { runCatching { SavedDraughtsGame.fromJson(JSONObject(it)) }.getOrNull() }
+
+    fun clearDraughtsGame() {
+        prefs.edit().remove(KEY_DRAUGHTS_GAME).apply()
+    }
+
+    fun saveLastDraughtsConfig(config: DraughtsConfig) {
+        prefs.edit().putString(KEY_DRAUGHTS_CONFIG, config.toJson().toString()).apply()
+    }
+
+    fun loadLastDraughtsConfig(): DraughtsConfig =
+        prefs.getString(KEY_DRAUGHTS_CONFIG, null)
+            ?.let { runCatching { DraughtsConfig.fromJson(JSONObject(it)) }.getOrNull() }
+            ?: DraughtsConfig()
+
     private companion object {
         const val KEY_GAME = "chess_game"
         const val KEY_CONFIG = "chess_config"
+        const val KEY_DRAUGHTS_GAME = "draughts_game"
+        const val KEY_DRAUGHTS_CONFIG = "draughts_config"
     }
 }
