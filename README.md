@@ -14,6 +14,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
+| **Hnefatafl** | Copenhagen rules on the 11x11 board (king captured on four sides, escapes to a corner, shieldwall captures, edge forts, encirclement) against OpenTafl's AI. Rules and AI both come from OpenTafl, embedded in the app. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 | **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 
 ## Chess opponents
@@ -66,6 +67,18 @@ time-based Max.
 
 Rough feel: depth 1–3 misses simple mills, 5–6 is a solid opponent, 10+ is very hard to beat.
 
+## Hnefatafl opponent
+
+[OpenTafl](https://github.com/jslater89/OpenTafl) is written in Java, so it is not
+cross-compiled: `opentafl/build.sh` copies its engine core (rules, notation, AI — about
+18 k lines) into `opentafl/java/`, which the app compiles as an extra source set with a few
+stubs (`opentafl/stubs/`) in place of the desktop terminal-UI classes it references. Its
+`GameState` referees the game and `AiWorkspace` (iterative-deepening alpha-beta with
+transposition, killer and history tables) is the opponent; strength is a maximum depth
+(1 → 10) or time-based Max. Depth 1–2 overlooks captures, 4 plays a fair game, 6+ is strong.
+Unit tests check the start position, sliding moves, corner restrictions, a custodial capture,
+notation and an engine move.
+
 ## Building
 
 The Android project builds with Android Studio as usual, **but the engine binaries and
@@ -80,6 +93,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./berserk/build.sh
 ./rodent/build.sh         # needs Go (a plain unzip of the official SDK is enough)
 ./sanmill/build.sh        # morris: Sanmill's Rust engine (rustup; see the script for the Windows quirks)
+./opentafl/build.sh       # hnefatafl: copies OpenTafl's Java core into opentafl/java (no toolchain needed)
 ./scan/build.sh           # draughts: Scan + its book/eval data
 ./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
 ```
@@ -104,7 +118,9 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Rodent V](https://github.com/nescitus/Rodent-V),
   [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — GPL-3.0;
   [Reckless](https://github.com/codedeliveryservice/Reckless),
-  [Sanmill](https://github.com/calcitem/Sanmill) — AGPL-3.0.
+  [Sanmill](https://github.com/calcitem/Sanmill) — AGPL-3.0;
+  [OpenTafl](https://github.com/jslater89/OpenTafl) — Free-As-In-Beer license (modified: the
+  desktop UI classes its engine core references are replaced by stubs, see `opentafl/`).
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
   [Maia 3](https://github.com/CSSLab/maia3) (AGPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
@@ -117,7 +133,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do the
   draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
-  both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md).
+  both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl
+  pieces and board icons are drawn for this app.
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
 
 This app itself is distributed under the GPL-3.0 (see [LICENSE](LICENSE)), as required by the engines it bundles.

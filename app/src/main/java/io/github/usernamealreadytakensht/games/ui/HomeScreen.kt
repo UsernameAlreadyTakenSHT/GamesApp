@@ -27,6 +27,7 @@ import io.github.usernamealreadytakensht.games.R
 import io.github.usernamealreadytakensht.games.game.SavedDraughtsGame
 import io.github.usernamealreadytakensht.games.game.SavedGame
 import io.github.usernamealreadytakensht.games.game.SavedMorrisGame
+import io.github.usernamealreadytakensht.games.game.SavedTaflGame
 
 /** One tile of the home grid. */
 private class GameTile(val title: String, val icon: Int, val resumable: Boolean, val onOpen: () -> Unit, val onResume: () -> Unit)
@@ -43,11 +44,15 @@ fun HomeScreen(
     savedMorris: SavedMorrisGame?,
     onMorris: () -> Unit,
     onResumeMorris: () -> Unit,
+    savedTafl: SavedTaflGame?,
+    onTafl: () -> Unit,
+    onResumeTafl: () -> Unit,
 ) {
     val tiles = listOf(
         GameTile("Chess", R.drawable.piece_ln, savedChess != null, onChess, onResumeChess),
         GameTile("Draughts", R.drawable.stone_l2, savedDraughts != null, onDraughts, onResumeDraughts),
         GameTile("Nine Men's Morris", R.drawable.ic_morris_board, savedMorris != null, onMorris, onResumeMorris),
+        GameTile("Hnefatafl", R.drawable.ic_tafl_board, savedTafl != null, onTafl, onResumeTafl),
     )
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
         Column(

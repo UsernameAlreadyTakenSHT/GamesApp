@@ -136,11 +136,19 @@ internal fun Hint(text: String) {
  * [selected] is true/false for a side, null for random.
  */
 @Composable
-internal fun ColorCards(white: Int, black: Int, selected: Boolean?, onSelect: (Boolean?) -> Unit) {
+internal fun ColorCards(white: Int, black: Int, selected: Boolean?, onSelect: (Boolean?) -> Unit) =
+    SideCards("White" to listOf(white), "Black" to listOf(black), selected, onSelect)
+
+/**
+ * Three side cards for games whose sides are not colours: [first] and [second] are a label
+ * with the drawables to show; the third card is "Random" with the first icon of each.
+ */
+@Composable
+internal fun SideCards(first: Pair<String, List<Int>>, second: Pair<String, List<Int>>, selected: Boolean?, onSelect: (Boolean?) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ColorCard("White", listOf(white), selected == true, Modifier.weight(1f)) { onSelect(true) }
-        ColorCard("Black", listOf(black), selected == false, Modifier.weight(1f)) { onSelect(false) }
-        ColorCard("Random", listOf(white, black), selected == null, Modifier.weight(1f)) { onSelect(null) }
+        ColorCard(first.first, first.second, selected == true, Modifier.weight(1f)) { onSelect(true) }
+        ColorCard(second.first, second.second, selected == false, Modifier.weight(1f)) { onSelect(false) }
+        ColorCard("Random", listOf(first.second.first(), second.second.first()), selected == null, Modifier.weight(1f)) { onSelect(null) }
     }
 }
 

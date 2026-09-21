@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hnefatafl attacker: a dark disc with a rim highlight (our own artwork). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#40000000" android:pathData="M24,26 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FF3B3F46" android:strokeColor="#FF1E2126" android:strokeWidth="1.5"
+        android:pathData="M24,24 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FF565B63" android:pathData="M24,24 m-13,0 a13,13 0 1 0 26,0 a13,13 0 1 0 -26,0" />
+    <path android:fillColor="#30FFFFFF" android:pathData="M24,13 m-10,0 a10,5 0 1 0 20,0 a10,5 0 1 0 -20,0" />
+</vector>

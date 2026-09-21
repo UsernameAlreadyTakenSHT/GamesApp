@@ -24,6 +24,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Moby Dam (+ eval tables and book) | https://github.com/rhalbersma/mobydam (mirror of Harm Jetten's engine) | GPL-3.0 |
 | Sanmill engine (`tgf uci`, Rust) | https://github.com/calcitem/Sanmill | AGPL-3.0 |
 | Sanmill icon | https://github.com/calcitem/Sanmill (`fastlane/metadata/android/en-US/images/icon.png`) | AGPL-3.0 (part of the repository) |
+| OpenTafl engine core (Java, embedded; UI classes replaced by stubs in `opentafl/stubs/`) | https://github.com/jslater89/OpenTafl | [Stout Free-As-In-Beer License v0.6](https://github.com/jslater89/OpenTafl/blob/master/LICENSE.txt) — attribution, link and license copy required, modifications must be indicated (they are, above) |
 | Stockfish icon | https://github.com/official-stockfish/stockfish-web (`static/images/logo/`) | designed by Klein Maetschke; website MIT, no separate license stated for the icon |
 | Leela Chess Zero logo | https://github.com/LeelaChessZero/lczero.org (`static/images/logo.svg`) | no license stated in the website repository |
 | Reckless mascot | https://github.com/codedeliveryservice/Reckless (README image) | AGPL-3.0 (part of the project) |

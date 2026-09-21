@@ -59,6 +59,13 @@ android {
             useLegacyPackaging = true
         }
     }
+    sourceSets {
+        getByName("main") {
+            // OpenTafl's engine core (Java), copied by opentafl/build.sh, plus our stubs for the
+            // few desktop-UI classes it references. It referees and plays hnefatafl in-process.
+            java.srcDirs("../opentafl/java", "../opentafl/stubs")
+        }
+    }
 }
 
 dependencies {

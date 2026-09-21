@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hnefatafl defender: a light disc with a rim (our own artwork). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#40000000" android:pathData="M24,26 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FFF1E9D8" android:strokeColor="#FF8A7A5E" android:strokeWidth="1.5"
+        android:pathData="M24,24 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FFFFFBF2" android:pathData="M24,24 m-13,0 a13,13 0 1 0 26,0 a13,13 0 1 0 -26,0" />
+    <path android:fillColor="#20000000" android:pathData="M24,35 m-10,0 a10,4 0 1 0 20,0 a10,4 0 1 0 -20,0" />
+</vector>

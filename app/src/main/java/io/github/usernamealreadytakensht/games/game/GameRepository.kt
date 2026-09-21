@@ -6,6 +6,8 @@ import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
+import io.github.usernamealreadytakensht.games.game.tafl.Tafl
+import io.github.usernamealreadytakensht.games.game.tafl.TaflConfig
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -98,7 +100,36 @@ data class SavedMorrisGame(
     }
 }
 
-/** Persists the in-progress chess, draughts and morris games and the last used settings. */
+data class SavedTaflGame(
+    val config: TaflConfig,
+    val playerSide: Tafl.Side,
+    val moves: List<String>,
+    val attackersMs: Long?,
+    val defendersMs: Long?,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("config", config.toJson())
+        put("playerSide", playerSide.name)
+        put("moves", JSONArray(moves))
+        put("attackersMs", attackersMs ?: -1L)
+        put("defendersMs", defendersMs ?: -1L)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject): SavedTaflGame {
+            val moves = o.getJSONArray("moves")
+            return SavedTaflGame(
+                config = TaflConfig.fromJson(o.getJSONObject("config")),
+                playerSide = Tafl.Side.valueOf(o.getString("playerSide")),
+                moves = List(moves.length()) { moves.getString(it) },
+                attackersMs = o.getLong("attackersMs").takeIf { it >= 0 },
+                defendersMs = o.getLong("defendersMs").takeIf { it >= 0 },
+            )
+        }
+    }
+}
+
+/** Persists the in-progress games (chess, draughts, morris, hnefatafl) and the last used settings. */
 class GameRepository(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences("games", Context.MODE_PRIVATE)
@@ -169,6 +200,29 @@ class GameRepository(context: Context) {
             ?.let { runCatching { MorrisConfig.fromJson(JSONObject(it)) }.getOrNull() }
             ?: MorrisConfig()
 
+    // ---- hnefatafl
+
+    fun saveTaflGame(game: SavedTaflGame) {
+        prefs.edit().putString(KEY_TAFL_GAME, game.toJson().toString()).apply()
+    }
+
+    fun loadTaflGame(): SavedTaflGame? =
+        prefs.getString(KEY_TAFL_GAME, null)
+            ?.let { runCatching { SavedTaflGame.fromJson(JSONObject(it)) }.getOrNull() }
+
+    fun clearTaflGame() {
+        prefs.edit().remove(KEY_TAFL_GAME).apply()
+    }
+
+    fun saveLastTaflConfig(config: TaflConfig) {
+        prefs.edit().putString(KEY_TAFL_CONFIG, config.toJson().toString()).apply()
+    }
+
+    fun loadLastTaflConfig(): TaflConfig =
+        prefs.getString(KEY_TAFL_CONFIG, null)
+            ?.let { runCatching { TaflConfig.fromJson(JSONObject(it)) }.getOrNull() }
+            ?: TaflConfig()
+
     private companion object {
         const val KEY_GAME = "chess_game"
         const val KEY_CONFIG = "chess_config"
@@ -176,5 +230,7 @@ class GameRepository(context: Context) {
         const val KEY_DRAUGHTS_CONFIG = "draughts_config"
         const val KEY_MORRIS_GAME = "morris_game"
         const val KEY_MORRIS_CONFIG = "morris_config"
+        const val KEY_TAFL_GAME = "tafl_game"
+        const val KEY_TAFL_CONFIG = "tafl_config"
     }
 }
