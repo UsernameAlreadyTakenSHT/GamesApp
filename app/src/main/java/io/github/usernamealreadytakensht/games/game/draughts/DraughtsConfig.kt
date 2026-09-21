@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.game.draughts
 
+import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import org.json.JSONObject
 
@@ -37,6 +38,7 @@ data class DraughtsConfig(
     val depth: Int? = DraughtsEngineKind.DEFAULT_DEPTH,
     val playerSide: Draughts.Color? = Draughts.Color.WHITE,
     val timeControl: TimeControl = TimeControl.None,
+    val takebacks: Takebacks = Takebacks.UNLIMITED,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${DraughtsEngineKind.strengthLabel(depth)}"
 
@@ -45,6 +47,7 @@ data class DraughtsConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("takebacks", takebacks.name)
     }
 
     companion object {
@@ -57,6 +60,7 @@ data class DraughtsConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+            takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.UNLIMITED),
         )
     }
 }

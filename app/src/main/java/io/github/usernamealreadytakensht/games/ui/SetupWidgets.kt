@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +36,10 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -152,64 +158,112 @@ private fun ColorCard(label: String, icons: List<Int>, selected: Boolean, modifi
 // ---------------------------------------------------------------- clock
 
 private enum class ClockKind(val label: String) {
-    NONE("None"), SUDDEN_DEATH("Sudden"), FISCHER("Fischer"), PER_MOVE("Per move"),
+    SUDDEN_DEATH("Sudden death"), FISCHER("Fischer"), PER_MOVE("Per move"),
 }
 
 private val TimeControl.clockKind: ClockKind
     get() = when (this) {
-        TimeControl.None -> ClockKind.NONE
-        is TimeControl.SuddenDeath -> ClockKind.SUDDEN_DEATH
+        TimeControl.None, is TimeControl.SuddenDeath -> ClockKind.SUDDEN_DEATH
         is TimeControl.Fischer -> ClockKind.FISCHER
         is TimeControl.PerMove -> ClockKind.PER_MOVE
     }
 
-/** Quick picks shown under the clock fields: label to (minutes, increment seconds). */
-private val FISCHER_PRESETS = listOf("1+0" to (1 to 0), "3+2" to (3 to 2), "5+0" to (5 to 0), "10+5" to (10 to 5), "15+10" to (15 to 10))
+/** One tile of the clock grid: big label, caption, and the clock it stands for (null = custom). */
+private class ClockPreset(val title: String, val caption: String, val tc: TimeControl?)
 
-/** "Time control" section: kind selector on one line, then compact typed fields. */
+private fun fischer(min: Int, inc: Int): TimeControl =
+    if (inc == 0) TimeControl.SuddenDeath(min * 60_000L) else TimeControl.Fischer(min * 60_000L, inc * 1000L)
+
+private val CLOCK_PRESETS = listOf(
+    ClockPreset("∞", "No clock", TimeControl.None),
+    ClockPreset("1+0", "Bullet", fischer(1, 0)),
+    ClockPreset("3+2", "Blitz", fischer(3, 2)),
+    ClockPreset("5+0", "Blitz", fischer(5, 0)),
+    ClockPreset("10+5", "Rapid", fischer(10, 5)),
+    ClockPreset("15+10", "Rapid", fischer(15, 10)),
+    ClockPreset("30+0", "Classical", fischer(30, 0)),
+    ClockPreset("⋯", "Custom", null),
+)
+
+/** "Time control" section: a grid of common clocks, plus a "Custom" tile that opens typed fields. */
 @Composable
 internal fun ClockSection(tc: TimeControl, onChange: (TimeControl) -> Unit) {
+    val matched = CLOCK_PRESETS.firstOrNull { it.tc == tc }
+    // Custom stays open once chosen, even if the typed values happen to equal a preset.
+    var custom by rememberSaveable { mutableStateOf(matched == null) }
+    if (matched == null) custom = true
+
+    SectionTitle("Time control")
+    CLOCK_PRESETS.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+            row.forEach { preset ->
+                val selected = if (preset.tc == null) custom else !custom && preset === matched
+                SelectableCard(
+                    selected = selected,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = {
+                        if (preset.tc == null) {
+                            custom = true
+                            if (tc == TimeControl.None) onChange(fischer(10, 0))
+                        } else {
+                            custom = false
+                            onChange(preset.tc)
+                        }
+                    },
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(preset.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(
+                            preset.caption,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (custom) CustomClock(tc, onChange)
+}
+
+/** Typed clock fields for the "Custom" tile. */
+@Composable
+private fun CustomClock(tc: TimeControl, onChange: (TimeControl) -> Unit) {
     // Values remembered across clock kinds so switching does not lose what was typed.
     val minutes = ((tc as? TimeControl.SuddenDeath)?.initialMs ?: (tc as? TimeControl.Fischer)?.initialMs ?: 600_000L) / 60_000L
     val increment = ((tc as? TimeControl.Fischer)?.incrementMs ?: 5000L) / 1000L
     val perMove = ((tc as? TimeControl.PerMove)?.perMoveMs ?: 30_000L) / 1000L
 
     fun clock(kind: ClockKind, m: Long = minutes, i: Long = increment, p: Long = perMove): TimeControl = when (kind) {
-        ClockKind.NONE -> TimeControl.None
         ClockKind.SUDDEN_DEATH -> TimeControl.SuddenDeath(m.coerceIn(1, 999) * 60_000L)
         ClockKind.FISCHER -> TimeControl.Fischer(m.coerceIn(1, 999) * 60_000L, i.coerceIn(0, 999) * 1000L)
         ClockKind.PER_MOVE -> TimeControl.PerMove(p.coerceIn(1, 999) * 1000L)
     }
 
-    SectionTitle("Time control")
-    Segmented(items = ClockKind.entries, selected = tc.clockKind, label = { it.label }, onSelect = { onChange(clock(it)) })
-    when (tc.clockKind) {
-        ClockKind.NONE -> Hint("No time limit.")
-        ClockKind.SUDDEN_DEATH -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.SUDDEN_DEATH, m = it)) }
-            Text("per player", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
-        }
-        ClockKind.FISCHER -> {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, m = it)) }
-                Text("+", style = MaterialTheme.typography.titleLarge)
-                NumberField(increment, "s / move", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, i = it)) }
-                Spacer(Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FISCHER_PRESETS.forEach { (label, mi) ->
-                    val (m, i) = mi
-                    FilterChip(
-                        selected = minutes == m.toLong() && increment == i.toLong(),
-                        onClick = { onChange(clock(ClockKind.FISCHER, m = m.toLong(), i = i.toLong())) },
-                        label = { Text(label) },
-                    )
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Segmented(items = ClockKind.entries, selected = tc.clockKind, label = { it.label }, onSelect = { onChange(clock(it)) })
+            when (tc.clockKind) {
+                ClockKind.SUDDEN_DEATH -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.SUDDEN_DEATH, m = it)) }
+                    Text("for the whole game", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
+                }
+                ClockKind.FISCHER -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, m = it)) }
+                    Text("+", style = MaterialTheme.typography.titleLarge)
+                    NumberField(increment, "s", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, i = it)) }
+                    Text("per move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                }
+                ClockKind.PER_MOVE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField(perMove, "s", Modifier.weight(1f)) { onChange(clock(ClockKind.PER_MOVE, p = it)) }
+                    Text("per move, reset each move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
                 }
             }
-        }
-        ClockKind.PER_MOVE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(perMove, "s", Modifier.weight(1f)) { onChange(clock(ClockKind.PER_MOVE, p = it)) }
-            Text("per move, reset each move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
         }
     }
 }

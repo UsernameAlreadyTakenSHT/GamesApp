@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
+import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsEngineKind
@@ -18,6 +19,7 @@ import io.github.usernamealreadytakensht.games.ui.EngineBadge
 import io.github.usernamealreadytakensht.games.ui.Hint
 import io.github.usernamealreadytakensht.games.ui.OpponentCard
 import io.github.usernamealreadytakensht.games.ui.SectionTitle
+import io.github.usernamealreadytakensht.games.ui.Segmented
 import io.github.usernamealreadytakensht.games.ui.SetupScaffold
 import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
@@ -28,7 +30,7 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour and clock. [config] is owned by the caller. */
+/** First setup screen: colour, clock and takebacks. [config] is owned by the caller. */
 @Composable
 fun DraughtsGameSetupScreen(
     config: DraughtsConfig,
@@ -46,6 +48,14 @@ fun DraughtsGameSetupScreen(
         )
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
+
+        SectionTitle("Takebacks")
+        Segmented(
+            items = Takebacks.entries,
+            selected = config.takebacks,
+            label = { it.label },
+            onSelect = { onChange(config.copy(takebacks = it)) },
+        )
     }
 }
 
