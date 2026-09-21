@@ -4,20 +4,16 @@ import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import org.json.JSONObject
 
-/** Nine Men's Morris engine families, in display order. */
+/** Nine Men's Morris engine families (one so far), in display order. */
 enum class MorrisEngineFamily(val label: String, val tagline: String) {
     SANMILL("Sanmill", "The Sanmill app's engine, in Rust."),
-    MILLER("Miller", "Built into the app."),
 }
 
-/**
- * A morris opponent: an engine family plus, for Sanmill, the search algorithm (its UCI
- * `Algorithm` option). [binary] is null for the in-process engine.
- */
+/** A morris opponent: an engine family plus its search algorithm (Sanmill's UCI `Algorithm` option). */
 enum class MorrisEngineKind(
     val family: MorrisEngineFamily,
     val label: String,
-    val binary: String?,
+    val binary: String,
     val algorithm: Int,
     val description: String,
 ) {
@@ -32,13 +28,7 @@ enum class MorrisEngineKind(
     SANMILL_MCTS(
         MorrisEngineFamily.SANMILL, "MCTS", "libsanmill.so", 3,
         "Monte-Carlo tree search: plays from simulated games instead of an evaluation. Varied, more human, weaker in sharp tactics.",
-    ),
-    MILLER(
-        MorrisEngineFamily.MILLER, "Miller", null, 0,
-        "The app's own alpha-beta search in Kotlin. Depth 1–3 misses simple mills, 6 is a solid club opponent, 10+ is very hard to beat.",
     );
-
-    val isExternal: Boolean get() = binary != null
 
     companion object {
         /** Search depth presets; null = time-based (as deep as the thinking time allows). */
@@ -59,12 +49,9 @@ data class MorrisConfig(
     val timeControl: TimeControl = TimeControl.None,
     val takebacks: Takebacks = Takebacks.ONCE,
 ) {
-    /** "Sanmill (MTD(f)) · Depth 5", "Miller · Max". */
+    /** "Sanmill (MTD(f)) · Depth 5". */
     val opponentLabel: String
-        get() {
-            val name = if (engine.family == MorrisEngineFamily.SANMILL) "Sanmill (${engine.label})" else engine.label
-            return "$name · ${MorrisEngineKind.strengthLabel(depth)}"
-        }
+        get() = "${engine.family.label} (${engine.label}) · ${MorrisEngineKind.strengthLabel(depth)}"
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("engine", engine.name)

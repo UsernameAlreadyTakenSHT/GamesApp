@@ -1,14 +1,11 @@
 package io.github.usernamealreadytakensht.games
 
-import io.github.usernamealreadytakensht.games.engine.morris.MorrisEngine
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Color
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Move
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Position
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -130,56 +127,5 @@ class MorrisTest {
         for (m in listOf("d7", "a1-d1", "g7xa1", "a1-d1xg7")) assertEquals(m, Move.parse(m)!!.toNotation())
         assertEquals(null, Move.parse("d4"))
         assertEquals(null, Move.parse("zz"))
-    }
-
-    @Test
-    fun engineClosesAMillAndBlocksOne() = runBlocking {
-        val engine = MorrisEngine()
-        // White can close a7 d7 g7 immediately.
-        val win = play("a7", "a1", "d7", "d1")
-        val m = engine.bestMove(win, depth = 2, moveTimeMs = 2000)
-        assertNotNull(m)
-        assertEquals("g7", Morris.name(m!!.to))
-        assertTrue(m.closesMill)
-        // Black threatens a1 d1 g1; white, with no mill of its own, must block g1.
-        val block = play("a7", "a1", "b6", "d1")
-        val b = engine.bestMove(block, depth = 2, moveTimeMs = 2000)
-        assertEquals("g1", Morris.name(b!!.to))
-        assertFalse(b.closesMill)
-    }
-
-    @Test
-    fun blackBlocksTheTopLine() = runBlocking {
-        val engine = MorrisEngine()
-        val pos = play("a7", "f6", "d7")
-        val picks = (1..7).map { d -> d to Morris.name(engine.bestMove(pos, depth = d, moveTimeMs = 20000)!!.to) }
-        println("picks: $picks")
-        // The full-window scores agree: blocking is the only move that keeps material.
-        val scores = engine.analyse(pos, 5).sortedByDescending { it.second }
-        assertEquals("g7", scores[0].first.toNotation())
-        assertTrue(scores[0].second - scores[1].second > 50)
-        for ((d, name) in picks) if (d >= 2) assertEquals("depth $d", "g7", name)
-        val timed = engine.bestMove(pos, depth = null, moveTimeMs = 1500)!!
-        assertEquals("time-based", "g7", Morris.name(timed.to))
-    }
-
-    @Test
-    fun enginePlaysAWholeGameAgainstItself() = runBlocking {
-        val engine = MorrisEngine()
-        var pos = Morris.START
-        val history = ArrayList<Position>()
-        var quiet = 0
-        var plies = 0
-        while (plies < 300) {
-            val legal = Morris.legalMoves(pos)
-            if (Morris.outcome(pos, history, quiet, legal) != Morris.Outcome.ONGOING) break
-            val m = engine.bestMove(pos, depth = 3, moveTimeMs = 500)!!
-            assertTrue(m in legal)
-            history += pos
-            pos = Morris.play(pos, m)
-            quiet = if (Morris.isProgress(m)) 0 else quiet + 1
-            plies++
-        }
-        assertTrue("game should end within 300 plies", plies < 300)
     }
 }

@@ -3,6 +3,7 @@ package io.github.usernamealreadytakensht.games.ui.morris
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -102,13 +103,9 @@ fun MorrisOpponentSetupScreen(
                     selected = engine.family == fam,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = { if (engine.family != fam) onChange(config.copy(engine = MorrisEngineKind.of(fam).first())) },
-                ) {
-                    when (fam) {
-                        MorrisEngineFamily.SANMILL -> EngineBadge(logo = R.drawable.logo_sanmill, monogram = "Sa", hue = 30f)
-                        MorrisEngineFamily.MILLER -> EngineBadge(logo = null, monogram = "Mi", hue = 40f, icon = R.drawable.ic_engine_miller)
-                    }
-                }
+                ) { EngineBadge(logo = R.drawable.logo_sanmill, monogram = "Sa", hue = 30f) }
             }
+            if (MorrisEngineFamily.entries.size == 1) Spacer(Modifier.weight(1f))
         }
         val variants = MorrisEngineKind.of(engine.family)
         if (variants.size > 1) {

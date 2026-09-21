@@ -14,7 +14,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
-| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine or the built-in "Miller". Same clocks, takebacks, resign, rematch and save/resume as the other games. |
+| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 
 ## Chess opponents
 
@@ -54,16 +54,15 @@ strength is a search depth (1 → 20) or time-based Max.
 Rough feel: depth 1–3 drops material to simple shots, depth 6 is a solid club game, depth
 12+ is far beyond human level.
 
-## Nine Men's Morris opponents
+## Nine Men's Morris opponent
 
 Rules are pure Kotlin (`game/morris/Morris.kt`), verified by unit tests (geometry, mill and
-removal rules, flying, game ends, notation, tactical positions). Strength is a search depth
-(1 → 16) or time-based Max for both engines.
+removal rules, flying, game ends, notation). Strength is a search depth (1 → 16) or
+time-based Max.
 
 | | Engine | Notes |
 |--|--------|-------|
 | <img src="app/src/main/res/drawable-nodpi/logo_sanmill.png" width="32" alt=""> | **Sanmill** (Rust) | The engine of the [Sanmill](https://github.com/calcitem/Sanmill) app (`tgf uci`), run as a process over its UCI dialect. Three of its search algorithms are exposed: **MTD(f)** (its default), **Alpha-beta**, and **MCTS** (Monte-Carlo, where the strength setting scales the simulations instead of the depth). The perfect-play database is not shipped. |
-| | **Miller** (Kotlin) | The app's own iterative-deepening alpha-beta (`engine/morris/MorrisEngine.kt`) with a hand-written evaluation (men, mills, open twos, mobility, blocked men). In-process, instant start. |
 
 Rough feel: depth 1–3 misses simple mills, 5–6 is a solid opponent, 10+ is very hard to beat.
 

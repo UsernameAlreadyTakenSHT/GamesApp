@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
  */
 class SanmillEngine(private val context: Context, override val kind: MorrisEngineKind) : MorrisOpponent {
 
-    private val executable = File(context.applicationInfo.nativeLibraryDir, kind.binary!!)
+    private val executable = File(context.applicationInfo.nativeLibraryDir, kind.binary)
     private var process: Process? = null
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
@@ -30,7 +30,7 @@ class SanmillEngine(private val context: Context, override val kind: MorrisEngin
     /** Serialises command/response exchanges; `stop()` deliberately bypasses it. */
     private val ioLock = Mutex()
 
-    val isRunning: Boolean get() = process?.isAlive == true
+    override val isRunning: Boolean get() = process?.isAlive == true
 
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext

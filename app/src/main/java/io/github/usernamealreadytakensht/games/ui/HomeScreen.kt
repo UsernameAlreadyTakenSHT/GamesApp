@@ -95,7 +95,7 @@ fun HomeScreen(
             )
             GameCard(
                 title = "Nine Men's Morris",
-                subtitle = "Place, slide and mill, against Sanmill or Miller, offline",
+                subtitle = "Place, slide and mill, against the Sanmill engine, offline",
                 icon = R.drawable.ic_morris_board,
                 onClick = onMorris,
                 extra = savedMorris?.let { saved ->

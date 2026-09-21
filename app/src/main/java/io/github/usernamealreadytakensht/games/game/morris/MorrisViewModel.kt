@@ -4,7 +4,6 @@ import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.usernamealreadytakensht.games.engine.morris.MillerOpponent
 import io.github.usernamealreadytakensht.games.engine.morris.MorrisOpponent
 import io.github.usernamealreadytakensht.games.engine.morris.SanmillEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
@@ -252,12 +251,12 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Reuses the running engine when it is the right one, otherwise starts the right one. */
     private suspend fun ensureEngine(kind: MorrisEngineKind): MorrisOpponent {
-        engine?.let { if (it.kind == kind && (it !is SanmillEngine || it.isRunning)) return it }
+        engine?.let { if (it.kind == kind && it.isRunning) return it }
         engineReady = false
         engine?.quit()
         _state.update { it.copy(engineError = null) }
         publish()
-        val eng: MorrisOpponent = if (kind.isExternal) SanmillEngine(app, kind) else MillerOpponent(kind)
+        val eng: MorrisOpponent = SanmillEngine(app, kind)
         engine = eng
         eng.start()
         engineReady = true
