@@ -16,7 +16,8 @@ import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.ui.ChessLaunch
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsLaunch
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsScreen
-import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsSetupScreen
+import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsGameSetupScreen
+import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsOpponentSetupScreen
 import io.github.usernamealreadytakensht.games.ui.ChessScreen
 import io.github.usernamealreadytakensht.games.ui.GameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.OpponentSetupScreen
@@ -41,6 +42,7 @@ private sealed interface Screen {
     data object OpponentSetup : Screen
     data class ChessGame(val launch: ChessLaunch) : Screen
     data object DraughtsSetup : Screen
+    data object DraughtsOpponentSetup : Screen
     data class DraughtsGame(val launch: DraughtsLaunch) : Screen
 }
 
@@ -99,10 +101,20 @@ private fun App() {
 
         Screen.DraughtsSetup -> {
             BackHandler { screen = Screen.Home }
-            DraughtsSetupScreen(
+            DraughtsGameSetupScreen(
                 config = draughtsDraft,
                 onChange = { draughtsDraft = it },
                 onBack = { screen = Screen.Home },
+                onNext = { screen = Screen.DraughtsOpponentSetup },
+            )
+        }
+
+        Screen.DraughtsOpponentSetup -> {
+            BackHandler { screen = Screen.DraughtsSetup }
+            DraughtsOpponentSetupScreen(
+                config = draughtsDraft,
+                onChange = { draughtsDraft = it },
+                onBack = { screen = Screen.DraughtsSetup },
                 onPlay = {
                     repo.saveLastDraughtsConfig(draughtsDraft)
                     screen = Screen.DraughtsGame(DraughtsLaunch.NewGame(draughtsDraft, ++gameCounter))
