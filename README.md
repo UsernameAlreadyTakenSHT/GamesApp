@@ -20,17 +20,17 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 Picked in two steps: an engine, then a version / network, then a strength setting that
 depends on how the engine can be limited.
 
-| Engine | Versions / networks | Strength setting | Range |
-|--------|--------------------|------------------|-------|
-| **Stockfish** | 19 (NNUE), 11 (last classical evaluation) | `UCI_Elo` | 1320–3190 (SF 19), 1350–2850 (SF 11), or Max |
-| **Leela Chess Zero** 0.32.1 | Bad Gyal 8 (128x10), T1 256x10 distilled | Search nodes per move | 1 → 1000 nodes, or time-based |
-| | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
-| **Reckless** 0.9 (Rust) | — | Search depth | 1 → 20 plies, or time-based |
-| **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
-| **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
-| **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
-| **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
-| **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
+| | Engine | Versions / networks | Strength setting | Range |
+|--|--------|--------------------|------------------|-------|
+| <img src="app/src/main/res/drawable-nodpi/logo_stockfish.png" width="32" alt=""> | **Stockfish** | 19 (NNUE), 11 (last classical evaluation) | `UCI_Elo` | 1320–3190 (SF 19), 1350–2850 (SF 11), or Max |
+| <img src="app/src/main/res/drawable-nodpi/logo_lc0.png" width="32" alt=""> | **Leela Chess Zero** 0.32.1 | Bad Gyal 8 (128x10), T1 256x10 distilled | Search nodes per move | 1 → 1000 nodes, or time-based |
+| | | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
+| | **Reckless** 0.9 (Rust) | — | Search depth | 1 → 20 plies, or time-based |
+| | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
+| | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
+| <img src="app/src/main/res/drawable-nodpi/logo_sunfish.png" width="32" alt=""> | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
+| | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
+| <img src="app/src/main/res/drawable-nodpi/logo_rodent.png" width="32" alt=""> | **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
 
 Rough feel: the Maia models are the only opponents that play *like a human* (Maia 3 covers 600–2600, the Lc0 Maia networks 1100–1900). Stockfish's Elo
 mode is adjustable but artificial (perfect moves with random errors). The depth-limited
@@ -69,15 +69,21 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
 
 - Engines: [Stockfish](https://github.com/official-stockfish/Stockfish),
   [Leela Chess Zero](https://github.com/LeelaChessZero/lc0),
-  [Reckless](https://github.com/codedeliveryservice/Reckless),
   [PlentyChess](https://github.com/Yoshie2000/PlentyChess),
   [Berserk](https://github.com/jhonnold/berserk),
   [Sunfish](https://github.com/thomasahle/sunfish),
-  [Rodent V](https://github.com/nescitus/Rodent-V) — all GPL-3.0.
+  [Rodent V](https://github.com/nescitus/Rodent-V) — GPL-3.0;
+  [Reckless](https://github.com/codedeliveryservice/Reckless) — AGPL-3.0.
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
+  [Maia 3](https://github.com/CSSLab/maia3) (AGPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
+  The Maia authors ask that their papers be cited:
+  [Aligning Superhuman AI with Human Behavior](https://arxiv.org/abs/2006.01855) (KDD 2020) and
+  [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).
+- Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Sunfish and Rodent V logos
+  from their repositories. The other engines have no logo, so the app shows a monogram.
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md).
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
 
-This app itself is distributed under the GPL-3.0, as required by the engines it bundles.
+This app itself is distributed under the GPL-3.0 (see [LICENSE](LICENSE)), as required by the engines it bundles.

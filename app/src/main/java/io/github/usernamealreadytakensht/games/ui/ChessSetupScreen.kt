@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -348,7 +349,17 @@ private fun ColorCard(label: String, icons: List<Int>, selected: Boolean, modifi
     }
 }
 
-/** Engine family card: coloured monogram badge, name and tagline. */
+/** Official logo of an engine family (see THIRD_PARTY.md), or null for the monogram badge. */
+private val EngineFamily.logoRes: Int?
+    get() = when (this) {
+        EngineFamily.STOCKFISH -> R.drawable.logo_stockfish
+        EngineFamily.LC0 -> R.drawable.logo_lc0
+        EngineFamily.SUNFISH -> R.drawable.logo_sunfish
+        EngineFamily.RODENT -> R.drawable.logo_rodent
+        else -> null
+    }
+
+/** Engine family card: logo or coloured monogram badge, name and tagline. */
 @Composable
 private fun EngineCard(family: EngineFamily, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     SelectableCard(selected, modifier, onClick) {
@@ -357,13 +368,18 @@ private fun EngineCard(family: EngineFamily, selected: Boolean, modifier: Modifi
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.hsl(family.hue, 0.45f, 0.42f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(family.monogram, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            val logo = family.logoRes
+            if (logo != null) {
+                Image(painterResource(logo), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.hsl(family.hue, 0.45f, 0.42f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(family.monogram, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(family.label, style = MaterialTheme.typography.titleSmall, maxLines = 1)

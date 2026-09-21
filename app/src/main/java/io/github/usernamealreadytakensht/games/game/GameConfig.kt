@@ -15,7 +15,7 @@ enum class EngineFamily(val label: String, val tagline: String, val monogram: St
     BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
     SUNFISH("Sunfish", "Tiny and beatable.", "Sf", 50f),
     MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
-    RODENT("Rodent", "Seven personalities, seven styles.", "Ro", 100f),
+    RODENT("Rodent", "Seven personalities.", "Ro", 100f),
 }
 
 /** How the strength of an engine variant is adjusted. */
