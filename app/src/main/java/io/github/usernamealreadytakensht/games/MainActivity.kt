@@ -22,6 +22,10 @@ import io.github.usernamealreadytakensht.games.ui.ChessScreen
 import io.github.usernamealreadytakensht.games.ui.GameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.OpponentSetupScreen
 import io.github.usernamealreadytakensht.games.ui.HomeScreen
+import io.github.usernamealreadytakensht.games.ui.morris.MorrisGameSetupScreen
+import io.github.usernamealreadytakensht.games.ui.morris.MorrisLaunch
+import io.github.usernamealreadytakensht.games.ui.morris.MorrisOpponentSetupScreen
+import io.github.usernamealreadytakensht.games.ui.morris.MorrisScreen
 import io.github.usernamealreadytakensht.games.ui.theme.GamesTheme
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +48,9 @@ private sealed interface Screen {
     data object DraughtsSetup : Screen
     data object DraughtsOpponentSetup : Screen
     data class DraughtsGame(val launch: DraughtsLaunch) : Screen
+    data object MorrisSetup : Screen
+    data object MorrisOpponentSetup : Screen
+    data class MorrisGame(val launch: MorrisLaunch) : Screen
 }
 
 /** Minimal navigation: home → game setup → opponent setup → game. */
@@ -56,6 +63,7 @@ private fun App() {
     // Settings being edited across the two setup screens; seeded from the last game played.
     var draft by remember { mutableStateOf(repo.loadLastConfig()) }
     var draughtsDraft by remember { mutableStateOf(repo.loadLastDraughtsConfig()) }
+    var morrisDraft by remember { mutableStateOf(repo.loadLastMorrisConfig()) }
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
@@ -65,6 +73,9 @@ private fun App() {
             onResumeChess = { screen = Screen.ChessGame(ChessLaunch.Resume) },
             onDraughts = { draughtsDraft = repo.loadLastDraughtsConfig(); screen = Screen.DraughtsSetup },
             onResumeDraughts = { screen = Screen.DraughtsGame(DraughtsLaunch.Resume) },
+            savedMorris = repo.loadMorrisGame(),
+            onMorris = { morrisDraft = repo.loadLastMorrisConfig(); screen = Screen.MorrisSetup },
+            onResumeMorris = { screen = Screen.MorrisGame(MorrisLaunch.Resume) },
         )
 
         Screen.GameSetup -> {
@@ -128,6 +139,38 @@ private fun App() {
                 launch = s.launch,
                 onBack = { screen = Screen.Home },
                 onNewGame = { screen = Screen.DraughtsSetup },
+            )
+        }
+
+        Screen.MorrisSetup -> {
+            BackHandler { screen = Screen.Home }
+            MorrisGameSetupScreen(
+                config = morrisDraft,
+                onChange = { morrisDraft = it },
+                onBack = { screen = Screen.Home },
+                onNext = { screen = Screen.MorrisOpponentSetup },
+            )
+        }
+
+        Screen.MorrisOpponentSetup -> {
+            BackHandler { screen = Screen.MorrisSetup }
+            MorrisOpponentSetupScreen(
+                config = morrisDraft,
+                onChange = { morrisDraft = it },
+                onBack = { screen = Screen.MorrisSetup },
+                onPlay = {
+                    repo.saveLastMorrisConfig(morrisDraft)
+                    screen = Screen.MorrisGame(MorrisLaunch.NewGame(morrisDraft, ++gameCounter))
+                },
+            )
+        }
+
+        is Screen.MorrisGame -> {
+            BackHandler { screen = Screen.Home }
+            MorrisScreen(
+                launch = s.launch,
+                onBack = { screen = Screen.Home },
+                onNewGame = { screen = Screen.MorrisSetup },
             )
         }
     }

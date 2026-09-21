@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
 import io.github.usernamealreadytakensht.games.game.SavedDraughtsGame
 import io.github.usernamealreadytakensht.games.game.SavedGame
+import io.github.usernamealreadytakensht.games.game.SavedMorrisGame
 
 /** Main screen: pick a game. Saved games enable "Resume" on their card. */
 @Composable
@@ -33,6 +34,9 @@ fun HomeScreen(
     onResumeChess: () -> Unit,
     onDraughts: () -> Unit,
     onResumeDraughts: () -> Unit,
+    savedMorris: SavedMorrisGame?,
+    onMorris: () -> Unit,
+    onResumeMorris: () -> Unit,
 ) {
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
         Column(
@@ -85,6 +89,25 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             TextButton(onClick = onResumeDraughts) { Text("Resume") }
+                        }
+                    }
+                },
+            )
+            GameCard(
+                title = "Nine Men's Morris",
+                subtitle = "Place, slide and mill, against the built-in Miller, offline",
+                icon = R.drawable.ic_morris_board,
+                onClick = onMorris,
+                extra = savedMorris?.let { saved ->
+                    {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "In progress · ${saved.config.opponentLabel} · ${saved.moves.size} plies",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = onResumeMorris) { Text("Resume") }
                         }
                     }
                 },

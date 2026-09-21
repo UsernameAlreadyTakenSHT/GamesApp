@@ -1,0 +1,121 @@
+package io.github.usernamealreadytakensht.games.ui.morris
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import io.github.usernamealreadytakensht.games.R
+import io.github.usernamealreadytakensht.games.game.Takebacks
+import io.github.usernamealreadytakensht.games.game.morris.Morris
+import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
+import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
+import io.github.usernamealreadytakensht.games.ui.ClockSection
+import io.github.usernamealreadytakensht.games.ui.ColorCards
+import io.github.usernamealreadytakensht.games.ui.EngineBadge
+import io.github.usernamealreadytakensht.games.ui.Hint
+import io.github.usernamealreadytakensht.games.ui.OpponentCard
+import io.github.usernamealreadytakensht.games.ui.SectionTitle
+import io.github.usernamealreadytakensht.games.ui.Segmented
+import io.github.usernamealreadytakensht.games.ui.SetupScaffold
+import io.github.usernamealreadytakensht.games.ui.StrengthCard
+
+/*
+ * Nine Men's Morris uses the same two-step setup as chess and draughts: colour, clock and
+ * takebacks first, then the opponent and its search depth.
+ */
+
+// ---------------------------------------------------------------- screen 1: game
+
+/** First setup screen: colour, clock and takebacks. [config] is owned by the caller. */
+@Composable
+fun MorrisGameSetupScreen(
+    config: MorrisConfig,
+    onChange: (MorrisConfig) -> Unit,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+) {
+    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+        SectionTitle("Your color")
+        ColorCards(
+            white = R.drawable.stone_l1,
+            black = R.drawable.stone_d1,
+            selected = config.playerSide?.let { it == Morris.Color.WHITE },
+            onSelect = { onChange(config.copy(playerSide = it?.let { w -> if (w) Morris.Color.WHITE else Morris.Color.BLACK })) },
+        )
+
+        ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
+
+        SectionTitle("Takebacks")
+        Segmented(
+            items = Takebacks.entries,
+            selected = config.takebacks,
+            label = { it.label },
+            onSelect = { onChange(config.copy(takebacks = it)) },
+        )
+    }
+}
+
+// ---------------------------------------------------------------- screen 2: opponent
+
+private fun depthDescription(depth: Int?): String = when {
+    depth == null -> "As strong as the thinking time allows"
+    depth <= 2 -> "Misses simple mills"
+    depth <= 4 -> "Casual player"
+    depth <= 6 -> "Solid club opponent"
+    depth <= 10 -> "Strong: sees most traps"
+    else -> "Very hard to beat"
+}
+
+/** Second setup screen: opponent and search depth. */
+@Composable
+fun MorrisOpponentSetupScreen(
+    config: MorrisConfig,
+    onChange: (MorrisConfig) -> Unit,
+    onBack: () -> Unit,
+    onPlay: () -> Unit,
+) {
+    val presets = MorrisEngineKind.DEPTH_PRESETS
+    val depthIdx = presets.indexOf(config.depth).coerceAtLeast(0)
+
+    SetupScaffold(
+        title = "Opponent",
+        step = "2 / 2",
+        onBack = onBack,
+        action = "Play",
+        onAction = onPlay,
+        summary = "${config.playerSide?.let { if (it == Morris.Color.WHITE) "White" else "Black" } ?: "Random colour"} · " +
+            "${config.timeControl.label} · vs ${config.opponentLabel}",
+    ) {
+        SectionTitle("Engine")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+            MorrisEngineKind.entries.forEach { e ->
+                OpponentCard(
+                    label = e.label,
+                    tagline = "Built into the app.",
+                    selected = config.engine == e,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = { onChange(config.copy(engine = e)) },
+                ) { EngineBadge(logo = null, monogram = "Mi", hue = 40f, icon = R.drawable.ic_engine_miller) }
+            }
+            if (MorrisEngineKind.entries.size == 1) Spacer(Modifier.weight(1f))
+        }
+        Hint(config.engine.description)
+
+        SectionTitle("Strength")
+        StrengthCard(
+            big = config.depth?.toString() ?: "Max",
+            unit = if (config.depth == null) "time-based" else "plies deep",
+            description = depthDescription(config.depth),
+            presets = presets.size,
+            index = depthIdx,
+            rangeStart = "Depth 1",
+            rangeEnd = "Max",
+            onIndex = { onChange(config.copy(depth = presets[it])) },
+        )
+    }
+}

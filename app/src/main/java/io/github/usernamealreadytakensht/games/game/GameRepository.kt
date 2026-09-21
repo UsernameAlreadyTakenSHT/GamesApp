@@ -4,6 +4,8 @@ import android.content.Context
 import com.github.bhlangonijr.chesslib.Side
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
+import io.github.usernamealreadytakensht.games.game.morris.Morris
+import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -67,7 +69,36 @@ data class SavedDraughtsGame(
     }
 }
 
-/** Persists the in-progress chess and draughts games and the last used settings. */
+data class SavedMorrisGame(
+    val config: MorrisConfig,
+    val playerSide: Morris.Color,
+    val moves: List<String>,
+    val whiteMs: Long?,
+    val blackMs: Long?,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("config", config.toJson())
+        put("playerSide", playerSide.name)
+        put("moves", JSONArray(moves))
+        put("whiteMs", whiteMs ?: -1L)
+        put("blackMs", blackMs ?: -1L)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject): SavedMorrisGame {
+            val moves = o.getJSONArray("moves")
+            return SavedMorrisGame(
+                config = MorrisConfig.fromJson(o.getJSONObject("config")),
+                playerSide = Morris.Color.valueOf(o.getString("playerSide")),
+                moves = List(moves.length()) { moves.getString(it) },
+                whiteMs = o.getLong("whiteMs").takeIf { it >= 0 },
+                blackMs = o.getLong("blackMs").takeIf { it >= 0 },
+            )
+        }
+    }
+}
+
+/** Persists the in-progress chess, draughts and morris games and the last used settings. */
 class GameRepository(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences("games", Context.MODE_PRIVATE)
@@ -115,10 +146,35 @@ class GameRepository(context: Context) {
             ?.let { runCatching { DraughtsConfig.fromJson(JSONObject(it)) }.getOrNull() }
             ?: DraughtsConfig()
 
+    // ---- morris
+
+    fun saveMorrisGame(game: SavedMorrisGame) {
+        prefs.edit().putString(KEY_MORRIS_GAME, game.toJson().toString()).apply()
+    }
+
+    fun loadMorrisGame(): SavedMorrisGame? =
+        prefs.getString(KEY_MORRIS_GAME, null)
+            ?.let { runCatching { SavedMorrisGame.fromJson(JSONObject(it)) }.getOrNull() }
+
+    fun clearMorrisGame() {
+        prefs.edit().remove(KEY_MORRIS_GAME).apply()
+    }
+
+    fun saveLastMorrisConfig(config: MorrisConfig) {
+        prefs.edit().putString(KEY_MORRIS_CONFIG, config.toJson().toString()).apply()
+    }
+
+    fun loadLastMorrisConfig(): MorrisConfig =
+        prefs.getString(KEY_MORRIS_CONFIG, null)
+            ?.let { runCatching { MorrisConfig.fromJson(JSONObject(it)) }.getOrNull() }
+            ?: MorrisConfig()
+
     private companion object {
         const val KEY_GAME = "chess_game"
         const val KEY_CONFIG = "chess_config"
         const val KEY_DRAUGHTS_GAME = "draughts_game"
         const val KEY_DRAUGHTS_CONFIG = "draughts_config"
+        const val KEY_MORRIS_GAME = "morris_game"
+        const val KEY_MORRIS_CONFIG = "morris_config"
     }
 }
