@@ -38,7 +38,7 @@ data class DraughtsConfig(
     val depth: Int? = DraughtsEngineKind.DEFAULT_DEPTH,
     val playerSide: Draughts.Color? = Draughts.Color.WHITE,
     val timeControl: TimeControl = TimeControl.None,
-    val takebacks: Takebacks = Takebacks.UNLIMITED,
+    val takebacks: Takebacks = Takebacks.ONCE,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${DraughtsEngineKind.strengthLabel(depth)}"
 
@@ -60,7 +60,7 @@ data class DraughtsConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
-            takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.UNLIMITED),
+            takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.ONCE),
         )
     }
 }

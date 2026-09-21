@@ -27,8 +27,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -48,6 +48,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import kotlin.math.roundToInt
@@ -246,39 +252,84 @@ private fun CustomClock(tc: TimeControl, onChange: (TimeControl) -> Unit) {
     }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Segmented(items = ClockKind.entries, selected = tc.clockKind, label = { it.label }, onSelect = { onChange(clock(it)) })
-            when (tc.clockKind) {
-                ClockKind.SUDDEN_DEATH -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.SUDDEN_DEATH, m = it)) }
-                    Text("for the whole game", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
-                }
-                ClockKind.FISCHER -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(minutes, "min", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, m = it)) }
-                    Text("+", style = MaterialTheme.typography.titleLarge)
-                    NumberField(increment, "s", Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, i = it)) }
-                    Text("per move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                }
-                ClockKind.PER_MOVE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(perMove, "s", Modifier.weight(1f)) { onChange(clock(ClockKind.PER_MOVE, p = it)) }
-                    Text("per move, reset each move", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(2f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            ) {
+                when (tc.clockKind) {
+                    ClockKind.SUDDEN_DEATH -> TimeTile(minutes, "minutes per player", step = 1, min = 1, Modifier.weight(1f)) {
+                        onChange(clock(ClockKind.SUDDEN_DEATH, m = it))
+                    }
+                    ClockKind.FISCHER -> {
+                        TimeTile(minutes, "minutes", step = 1, min = 1, Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, m = it)) }
+                        Text("+", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TimeTile(increment, "seconds per move", step = 1, min = 0, Modifier.weight(1f)) { onChange(clock(ClockKind.FISCHER, i = it)) }
+                    }
+                    ClockKind.PER_MOVE -> TimeTile(perMove, "seconds per move", step = 5, min = 1, Modifier.weight(1f)) {
+                        onChange(clock(ClockKind.PER_MOVE, p = it))
+                    }
                 }
             }
         }
     }
 }
 
-/** Compact numeric field; empty or invalid input leaves the value unchanged. */
+/**
+ * A number to type or nudge with − / +, with a caption underneath. Typing a blank or a value
+ * below [min] keeps the tile editable without committing anything.
+ */
 @Composable
-private fun NumberField(value: Long, suffix: String, modifier: Modifier, onValue: (Long) -> Unit) {
-    OutlinedTextField(
-        value = value.toString(),
-        onValueChange = { text -> text.filter { it.isDigit() }.take(3).toLongOrNull()?.let(onValue) },
-        suffix = { Text(suffix) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+private fun TimeTile(value: Long, caption: String, step: Long, min: Long, modifier: Modifier, onValue: (Long) -> Unit) {
+    var text by remember(value) { mutableStateOf(value.toString()) }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = modifier,
-    )
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                StepButton("−", enabled = value - step >= min) { onValue(value - step) }
+                BasicTextField(
+                    value = text,
+                    onValueChange = { raw ->
+                        val digits = raw.filter { it.isDigit() }.take(3)
+                        text = digits
+                        digits.toLongOrNull()?.takeIf { it >= min }?.let(onValue)
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f),
+                )
+                StepButton("+", enabled = value + step <= 999) { onValue(value + step) }
+            }
+            Text(caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun StepButton(glyph: String, enabled: Boolean, onClick: () -> Unit) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.size(32.dp),
+    ) {
+        Text(glyph, style = MaterialTheme.typography.titleMedium)
+    }
 }
 
 // ---------------------------------------------------------------- opponent

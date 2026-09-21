@@ -298,7 +298,7 @@ data class GameConfig(
     val strength: Int? = 1500,
     val playerSide: Side? = Side.WHITE,
     val timeControl: TimeControl = TimeControl.None,
-    val takebacks: Takebacks = Takebacks.UNLIMITED,
+    val takebacks: Takebacks = Takebacks.ONCE,
     val thinking: ThinkingTime = ThinkingTime.NORMAL,
 ) {
     val strengthLabel: String get() = engine.strengthLabel(strength)
@@ -331,7 +331,7 @@ data class GameConfig(
                     else -> null
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
-                takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.UNLIMITED),
+                takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.ONCE),
                 thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
             )
         }
