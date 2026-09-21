@@ -44,3 +44,6 @@ local.properties
 /mobydam/src/
 /app/src/main/assets/scan/
 /app/src/main/assets/mobydam/
+
+# OpenTafl: cloned sources (see opentafl/build.sh)
+/opentafl/src/
