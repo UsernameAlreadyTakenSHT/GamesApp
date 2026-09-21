@@ -354,7 +354,9 @@ private val EngineFamily.logoRes: Int?
     get() = when (this) {
         EngineFamily.STOCKFISH -> R.drawable.logo_stockfish
         EngineFamily.LC0 -> R.drawable.logo_lc0
+        EngineFamily.RECKLESS -> R.drawable.logo_reckless
         EngineFamily.SUNFISH -> R.drawable.logo_sunfish
+        EngineFamily.MAIA -> R.drawable.logo_maia
         EngineFamily.RODENT -> R.drawable.logo_rodent
         else -> null
     }

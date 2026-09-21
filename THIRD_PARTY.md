@@ -22,6 +22,8 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Rodent V 1.2 (+ personalities, networks and opening books) | https://github.com/nescitus/Rodent-V | GPL-3.0 |
 | Stockfish icon | https://github.com/official-stockfish/stockfish-web (`static/images/logo/`) | designed by Klein Maetschke; website MIT, no separate license stated for the icon |
 | Leela Chess Zero logo | https://github.com/LeelaChessZero/lczero.org (`static/images/logo.svg`) | no license stated in the website repository |
+| Reckless mascot | https://github.com/codedeliveryservice/Reckless (README image) | AGPL-3.0 (part of the project) |
+| Maia icon | https://github.com/CSSLab/maia-platform-frontend (`public/maia-ios-icon.png`) | GPL-3.0 (part of the repository) |
 | Sunfish logo | https://github.com/thomasahle/sunfish (`docs/logo/`) | GPL-3.0 (part of the repository) |
 | Rodent V logo | https://github.com/nescitus/Rodent-V (`logo.png`) | GPL-3.0 (part of the repository) |
 
