@@ -79,6 +79,13 @@ private val DraughtsEngineKind.hue: Float
         DraughtsEngineKind.MOBYDAM -> 220f
     }
 
+/** Neither engine has a logo, so the badges carry glyphs drawn for this app. */
+private val DraughtsEngineKind.iconRes: Int
+    get() = when (this) {
+        DraughtsEngineKind.SCAN -> R.drawable.ic_engine_scan
+        DraughtsEngineKind.MOBYDAM -> R.drawable.ic_engine_mobydam
+    }
+
 private fun depthDescription(depth: Int?): String = when {
     depth == null -> "As strong as the thinking time allows"
     depth <= 3 -> "Blunders material"
@@ -117,7 +124,7 @@ fun DraughtsOpponentSetupScreen(
                     selected = config.engine == e,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = { onChange(config.copy(engine = e)) },
-                ) { EngineBadge(logo = null, monogram = e.monogram, hue = e.hue) }
+                ) { EngineBadge(logo = null, monogram = e.monogram, hue = e.hue, icon = e.iconRes) }
             }
         }
         Hint(config.engine.description)

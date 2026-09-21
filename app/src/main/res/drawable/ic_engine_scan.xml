@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original radar-sweep glyph for the Scan badge (the engine has no logo of its own). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.4" android:fillColor="#00000000"
+        android:pathData="M12,12 m-8,0 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0" />
+    <path android:strokeColor="#99FFFFFF" android:strokeWidth="1.4" android:fillColor="#00000000"
+        android:pathData="M12,12 m-4.5,0 a4.5,4.5 0 1 0 9,0 a4.5,4.5 0 1 0 -9,0" />
+    <path android:fillColor="#8CFFFFFF"
+        android:pathData="M12,12 L12,4 A8,8 0 0 1 19.5,9.2 Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M12,12 L19.5,9.2" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M12,12 m-1.5,0 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M8.2,9 m-1.3,0 a1.3,1.3 0 1 0 2.6,0 a1.3,1.3 0 1 0 -2.6,0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M15.5,15.2 m-1.1,0 a1.1,1.1 0 1 0 2.2,0 a1.1,1.1 0 1 0 -2.2,0" />
+</vector>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original sperm-whale glyph for the Moby Dam badge (the engine has no logo of its own).
+     The eye is cut out of the body (even-odd) so it takes the badge colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M3,10 C3,8.2 4.5,7.2 7,7.2 L12,7.6 C15,8 17,10 19,12.6 L21.4,10.4 C22,12.4 22,14.4 21.4,16.4 L19,14.4 C17,15.3 14,15.8 11,15.8 C7,15.8 3.4,15 3,12.8 Z M5.6,11 m-0.9,0 a0.9,0.9 0 1 0 1.8,0 a0.9,0.9 0 1 0 -1.8,0" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M5.4,6.4 C5.2,5 5.9,4 6.6,3.6 C6.8,4.5 6.6,5.2 6.2,5.7 C6.7,5 7.6,4.6 8.5,4.7 C8.1,5.5 7.4,6 6.6,6.2 Z" />
+    <path android:fillColor="#40000000"
+        android:pathData="M9.5,14.6 C10,15.8 11.5,16.6 13,16.2 C12,15.4 10.8,15 9.5,14.6 Z" />
+</vector>

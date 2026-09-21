@@ -99,7 +99,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
 - Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Maia icon from the
   Maia platform, Reckless, Sunfish and Rodent V logos from their repositories. PlentyChess has
   no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
-  get original glyphs drawn for this app (a cornucopia and a double-bit axe).
+  get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do the
+  draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md).
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
