@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original cornucopia glyph for the PlentyChess badge (the engine has no logo of its own). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M5,6 C11,3 19.5,8 19.5,15 C19.5,18.5 17.5,20.5 15.5,20 C17,18.5 16.5,15.5 14.5,12.5 C12.5,9.5 9.5,8.5 7,9.5 C5.5,10.2 4.5,8 5,6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M5,10.6 m-2.1,0 a2.1,2.1 0 1 0 4.2,0 a2.1,2.1 0 1 0 -4.2,0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M8.4,12.8 m-2,0 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M4.7,14.6 m-1.8,0 a1.8,1.8 0 1 0 3.6,0 a1.8,1.8 0 1 0 -3.6,0" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M8.5,16.6 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0" />
+</vector>

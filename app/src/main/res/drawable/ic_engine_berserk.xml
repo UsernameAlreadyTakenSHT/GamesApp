@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original double-bit axe glyph for the Berserk badge (the engine has no logo of its own). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3 a0.9,0.9 0 0 1 0.9,0.9 v16.7 a0.9,0.9 0 0 1 -1.8,0 V3.9 A0.9,0.9 0 0 1 12,3 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M11,5.5 C9,8 7,8.5 4.8,7.3 C3,10 3,13.4 4.8,16 C7,14.8 9,15.3 11,17.8 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M13,5.5 C15,8 17,8.5 19.2,7.3 C21,10 21,13.4 19.2,16 C17,14.8 15,15.3 13,17.8 Z" />
+</vector>

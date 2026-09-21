@@ -359,9 +359,12 @@ internal fun OpponentCard(
     }
 }
 
-/** 40 dp round badge: the [logo] drawable when there is one, else [monogram] on a coloured disc. */
+/**
+ * 40 dp round badge: the [logo] bitmap when the engine has one, else a coloured disc carrying
+ * either a white [icon] glyph or the [monogram].
+ */
 @Composable
-internal fun EngineBadge(logo: Int?, monogram: String, hue: Float) {
+internal fun EngineBadge(logo: Int?, monogram: String, hue: Float, icon: Int? = null) {
     if (logo != null) {
         Image(painterResource(logo), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
     } else {
@@ -369,7 +372,11 @@ internal fun EngineBadge(logo: Int?, monogram: String, hue: Float) {
             modifier = Modifier.size(40.dp).background(Color.hsl(hue, 0.45f, 0.42f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(monogram, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            if (icon != null) {
+                Image(painterResource(icon), contentDescription = null, modifier = Modifier.size(30.dp))
+            } else {
+                Text(monogram, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

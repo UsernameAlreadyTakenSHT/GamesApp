@@ -63,6 +63,14 @@ private val EngineFamily.logoRes: Int?
         else -> null
     }
 
+/** Glyph drawn on the coloured disc for engines without a logo (our own artwork). */
+private val EngineFamily.iconRes: Int?
+    get() = when (this) {
+        EngineFamily.BERSERK -> R.drawable.ic_engine_berserk
+        EngineFamily.PLENTY -> R.drawable.ic_engine_plenty
+        else -> null
+    }
+
 /** Second setup screen: engine, version/network, strength and thinking time. */
 @Composable
 fun OpponentSetupScreen(
@@ -101,7 +109,7 @@ fun OpponentSetupScreen(
                         selected = fam == engine.family,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = { if (fam != engine.family) pick(EngineKind.of(fam).first()) },
-                    ) { EngineBadge(fam.logoRes, fam.monogram, fam.hue) }
+                    ) { EngineBadge(fam.logoRes, fam.monogram, fam.hue, fam.iconRes) }
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }

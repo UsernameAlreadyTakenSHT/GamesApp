@@ -10,8 +10,8 @@ import org.json.JSONObject
 /** Display order: the engines you can dial to your level first, then the depth-only ones. */
 enum class EngineFamily(val label: String, val tagline: String, val monogram: String, val hue: Float) {
     STOCKFISH("Stockfish", "The reference. Adjustable Elo.", "SF", 210f),
-    MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
     LC0("Leela Chess Zero", "Neural networks, positional style.", "Lc0", 150f),
+    MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
     RODENT("Rodent", "Seven personalities.", "Ro", 100f),
     RECKLESS("Reckless", "Top-tier engine in Rust.", "Rk", 30f),
     PLENTY("PlentyChess", "Top-tier engine in C++.", "Pc", 280f),

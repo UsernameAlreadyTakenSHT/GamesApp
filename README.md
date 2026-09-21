@@ -23,9 +23,9 @@ depends on how the engine can be limited.
 | | Engine | Versions / networks | Strength setting | Range |
 |--|--------|--------------------|------------------|-------|
 | <img src="app/src/main/res/drawable-nodpi/logo_stockfish.png" width="32" alt=""> | **Stockfish** | 19 (NNUE), 11 (last classical evaluation) | `UCI_Elo` | 1320–3190 (SF 19), 1350–2850 (SF 11), or Max |
-| <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
 | <img src="app/src/main/res/drawable-nodpi/logo_lc0.png" width="32" alt=""> | **Leela Chess Zero** 0.32.1 | Bad Gyal 8 (128x10), T1 256x10 distilled | Search nodes per move | 1 → 1000 nodes, or time-based |
 | | | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
+| <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
 | <img src="app/src/main/res/drawable-nodpi/logo_rodent.png" width="32" alt=""> | **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
 | <img src="app/src/main/res/drawable-nodpi/logo_reckless.png" width="32" alt=""> | **Reckless** 0.9 (Rust) | — | Search depth | 1 → 20 plies, or time-based |
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
@@ -98,8 +98,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).
 - Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Maia icon from the
   Maia platform, Reckless, Sunfish and Rodent V logos from their repositories. PlentyChess has
-  no logo and Berserk's README art is from the manga (not ours to redistribute), so the app
-  shows a monogram for those two.
+  no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
+  get original glyphs drawn for this app (a cornucopia and a double-bit axe).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md).
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
