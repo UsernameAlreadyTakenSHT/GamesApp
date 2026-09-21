@@ -23,14 +23,14 @@ depends on how the engine can be limited.
 | | Engine | Versions / networks | Strength setting | Range |
 |--|--------|--------------------|------------------|-------|
 | <img src="app/src/main/res/drawable-nodpi/logo_stockfish.png" width="32" alt=""> | **Stockfish** | 19 (NNUE), 11 (last classical evaluation) | `UCI_Elo` | 1320–3190 (SF 19), 1350–2850 (SF 11), or Max |
+| <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
 | <img src="app/src/main/res/drawable-nodpi/logo_lc0.png" width="32" alt=""> | **Leela Chess Zero** 0.32.1 | Bad Gyal 8 (128x10), T1 256x10 distilled | Search nodes per move | 1 → 1000 nodes, or time-based |
 | | | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
+| <img src="app/src/main/res/drawable-nodpi/logo_rodent.png" width="32" alt=""> | **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
 | <img src="app/src/main/res/drawable-nodpi/logo_reckless.png" width="32" alt=""> | **Reckless** 0.9 (Rust) | — | Search depth | 1 → 20 plies, or time-based |
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
 | | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
 | <img src="app/src/main/res/drawable-nodpi/logo_sunfish.png" width="32" alt=""> | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
-| <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
-| <img src="app/src/main/res/drawable-nodpi/logo_rodent.png" width="32" alt=""> | **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
 
 Rough feel: the Maia models are the only opponents that play *like a human* (Maia 3 covers 600–2600, the Lc0 Maia networks 1100–1900). Stockfish's Elo
 mode is adjustable but artificial (perfect moves with random errors). The depth-limited
