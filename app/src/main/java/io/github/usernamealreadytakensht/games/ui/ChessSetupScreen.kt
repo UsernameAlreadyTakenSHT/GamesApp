@@ -15,12 +15,11 @@ import io.github.usernamealreadytakensht.games.game.EngineFamily
 import io.github.usernamealreadytakensht.games.game.EngineKind
 import io.github.usernamealreadytakensht.games.game.GameConfig
 import io.github.usernamealreadytakensht.games.game.StrengthKind
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.ThinkingTime
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour, clock and takebacks. [config] is owned by the caller. */
+/** First setup screen: colour and clock. [config] is owned by the caller. */
 @Composable
 fun GameSetupScreen(
     config: GameConfig,
@@ -39,13 +38,6 @@ fun GameSetupScreen(
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
-        SectionTitle("Takebacks")
-        Segmented(
-            items = Takebacks.entries,
-            selected = config.takebacks,
-            label = { it.label },
-            onSelect = { onChange(config.copy(takebacks = it)) },
-        )
     }
 }
 

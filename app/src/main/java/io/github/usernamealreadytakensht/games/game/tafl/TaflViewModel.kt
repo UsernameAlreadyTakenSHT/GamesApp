@@ -44,11 +44,8 @@ data class TaflState(
     val attackersMs: Long? = null,
     val defendersMs: Long? = null,
     val runningClock: Side? = null,
-    /** Takebacks still available, null = unlimited. */
-    val takebacksLeft: Int? = null,
 ) {
-    val canUndo: Boolean
-        get() = moves.isNotEmpty() && result == TaflResult.ONGOING && (takebacksLeft == null || takebacksLeft > 0)
+    val canUndo: Boolean get() = moves.isNotEmpty() && result == TaflResult.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == TaflResult.ONGOING && !thinking
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.ATTACKERS) attackersMs else defendersMs
@@ -62,7 +59,6 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private var game: Game = Tafl.newGame(TaflVariant.COPENHAGEN)
     private val played = ArrayList<Move>()
     private var generation = 0
-    private var takebacksUsed = 0
     private var resigned = false
     private var flagged: Side? = null
 
@@ -128,7 +124,6 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         undoOne()
         if (Tafl.sideToMove(game) != s.playerSide && played.isNotEmpty()) undoOne()
-        takebacksUsed++
         clearSelection()
         restartTurnClock()
         publish()
@@ -174,7 +169,6 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         clockPaused = false
         game = Tafl.newGame(config.variant)
         played.clear()
-        takebacksUsed = 0
         resigned = false
         flagged = null
         hasGame = true
@@ -374,7 +368,6 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                 statusText = status,
                 attackersMs = currentMs(Side.ATTACKERS),
                 defendersMs = currentMs(Side.DEFENDERS),
-                takebacksLeft = it.config.takebacks.limit?.let { limit -> (limit - takebacksUsed).coerceAtLeast(0) },
             )
         }
     }

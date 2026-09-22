@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl
 import io.github.usernamealreadytakensht.games.game.tafl.TaflConfig
 import io.github.usernamealreadytakensht.games.game.tafl.TaflEngineKind
@@ -35,12 +34,12 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 /*
  * The tafl games use the same two-step setup as the other games: variant, side, clock and
- * takebacks first, then the opponent and its search depth.
+ * clock first, then the opponent and its search depth.
  */
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: variant, side, clock and takebacks. [config] is owned by the caller. */
+/** First setup screen: variant, side and clock. [config] is owned by the caller. */
 @Composable
 fun TaflGameSetupScreen(
     config: TaflConfig,
@@ -94,13 +93,6 @@ fun TaflGameSetupScreen(
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
-        SectionTitle("Takebacks")
-        Segmented(
-            items = Takebacks.entries,
-            selected = config.takebacks,
-            label = { it.label },
-            onSelect = { onChange(config.copy(takebacks = it)) },
-        )
     }
 }
 

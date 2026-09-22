@@ -52,11 +52,8 @@ data class MorrisState(
     val whiteMs: Long? = null,
     val blackMs: Long? = null,
     val runningClock: Color? = null,
-    /** Takebacks still available, null = unlimited. */
-    val takebacksLeft: Int? = null,
 ) {
-    val canUndo: Boolean
-        get() = moves.isNotEmpty() && result == MorrisResult.ONGOING && (takebacksLeft == null || takebacksLeft > 0)
+    val canUndo: Boolean get() = moves.isNotEmpty() && result == MorrisResult.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == MorrisResult.ONGOING && !thinking
     val engineSide: Color get() = playerSide.other
     fun inHand(side: Color) = if (side == Color.WHITE) whiteInHand else blackInHand
@@ -77,7 +74,6 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     /** The move being completed by a removal choice, with `remove` still unset. */
     private var pending: Move? = null
     private var generation = 0
-    private var takebacksUsed = 0
     private var resigned = false
     private var flagged: Color? = null
 
@@ -171,7 +167,6 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         pending = null
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
-        takebacksUsed++
         clearSelection()
         restartTurnClock()
         publish()
@@ -219,7 +214,6 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         history.clear(); history += position
         played.clear()
         pending = null
-        takebacksUsed = 0
         resigned = false
         flagged = null
         hasGame = true
@@ -485,7 +479,6 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
-                takebacksLeft = it.config.takebacks.limit?.let { limit -> (limit - takebacksUsed).coerceAtLeast(0) },
             )
         }
     }

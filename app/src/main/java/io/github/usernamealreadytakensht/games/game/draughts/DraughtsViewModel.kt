@@ -48,11 +48,8 @@ data class DraughtsState(
     val whiteMs: Long? = null,
     val blackMs: Long? = null,
     val runningClock: Color? = null,
-    /** Takebacks still available, null = unlimited. */
-    val takebacksLeft: Int? = null,
 ) {
-    val canUndo: Boolean
-        get() = moves.isNotEmpty() && result == DraughtsResult.ONGOING && (takebacksLeft == null || takebacksLeft > 0)
+    val canUndo: Boolean get() = moves.isNotEmpty() && result == DraughtsResult.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == DraughtsResult.ONGOING && !thinking
     val engineSide: Color get() = playerSide.other
     fun clockMs(side: Color): Long? = if (side == Color.WHITE) whiteMs else blackMs
@@ -70,7 +67,6 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private val history = ArrayList<Position>()   // positions before each move, plus current
     private val played = ArrayList<Move>()
     private var generation = 0
-    private var takebacksUsed = 0
     private var resigned = false
     private var flagged: Color? = null
 
@@ -160,7 +156,6 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
-        takebacksUsed++
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
         restartTurnClock()
         publish()
@@ -210,7 +205,6 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         position = Draughts.START
         history.clear(); history += position
         played.clear()
-        takebacksUsed = 0
         resigned = false
         flagged = null
         hasGame = true
@@ -461,7 +455,6 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                 statusText = status,
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
-                takebacksLeft = it.config.takebacks.limit?.let { limit -> (limit - takebacksUsed).coerceAtLeast(0) },
             )
         }
     }

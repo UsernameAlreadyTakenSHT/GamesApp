@@ -39,12 +39,9 @@ data class FoxState(
     val foxMs: Long? = null,
     val huntersMs: Long? = null,
     val runningClock: Side? = null,
-    /** Takebacks still available, null = unlimited. */
-    val takebacksLeft: Int? = null,
 ) {
     val variant: FoxVariant get() = config.variant
-    val canUndo: Boolean
-        get() = moves.isNotEmpty() && result == FoxResult.ONGOING && (takebacksLeft == null || takebacksLeft > 0)
+    val canUndo: Boolean get() = moves.isNotEmpty() && result == FoxResult.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == FoxResult.ONGOING && !thinking
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.FOX) foxMs else huntersMs
@@ -59,7 +56,6 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     private val history = ArrayList<Position>()
     private val played = ArrayList<Move>()
     private var generation = 0
-    private var takebacksUsed = 0
     private var resigned = false
     private var flagged: Side? = null
 
@@ -125,7 +121,6 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
-        takebacksUsed++
         clearSelection()
         restartTurnClock()
         publish()
@@ -172,7 +167,6 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         position = Fox.start(config.variant)
         history.clear(); history += position
         played.clear()
-        takebacksUsed = 0
         resigned = false
         flagged = null
         hasGame = true
@@ -369,7 +363,6 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                 statusText = status,
                 foxMs = currentMs(Side.FOX),
                 huntersMs = currentMs(Side.HUNTERS),
-                takebacksLeft = it.config.takebacks.limit?.let { limit -> (limit - takebacksUsed).coerceAtLeast(0) },
             )
         }
     }

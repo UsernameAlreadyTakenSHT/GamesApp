@@ -275,13 +275,6 @@ sealed class TimeControl {
     }
 }
 
-/** How many moves the player may take back during a game. */
-enum class Takebacks(val label: String, val limit: Int?) {
-    UNLIMITED("Unlimited", null),
-    ONCE("Once", 1),
-    OFF("Off", 0),
-}
-
 /** Multiplier on the engine's thinking time per move. */
 enum class ThinkingTime(val label: String, val factor: Double) {
     FAST("Fast", 0.5),
@@ -299,7 +292,6 @@ data class GameConfig(
     val strength: Int? = 1500,
     val playerSide: Side? = Side.WHITE,
     val timeControl: TimeControl = TimeControl.None,
-    val takebacks: Takebacks = Takebacks.ONCE,
     val thinking: ThinkingTime = ThinkingTime.NORMAL,
 ) {
     val strengthLabel: String get() = engine.strengthLabel(strength)
@@ -313,7 +305,6 @@ data class GameConfig(
         put("strength", strength ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
-        put("takebacks", takebacks.name)
         put("thinking", thinking.name)
     }
 
@@ -332,7 +323,6 @@ data class GameConfig(
                     else -> null
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
-                takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.ONCE),
                 thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
             )
         }

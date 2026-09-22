@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineFamily
@@ -28,12 +27,12 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 /*
  * Nine Men's Morris uses the same two-step setup as chess and draughts: colour, clock and
- * takebacks first, then the opponent and its search depth.
+ * clock first, then the opponent and its search depth.
  */
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour, clock and takebacks. [config] is owned by the caller. */
+/** First setup screen: colour and clock. [config] is owned by the caller. */
 @Composable
 fun MorrisGameSetupScreen(
     config: MorrisConfig,
@@ -52,13 +51,6 @@ fun MorrisGameSetupScreen(
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
-        SectionTitle("Takebacks")
-        Segmented(
-            items = Takebacks.entries,
-            selected = config.takebacks,
-            label = { it.label },
-            onSelect = { onChange(config.copy(takebacks = it)) },
-        )
     }
 }
 

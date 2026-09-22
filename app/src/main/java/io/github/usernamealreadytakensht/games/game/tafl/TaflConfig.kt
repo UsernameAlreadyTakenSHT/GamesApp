@@ -1,6 +1,5 @@
 package io.github.usernamealreadytakensht.games.game.tafl
 
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import org.json.JSONObject
 
@@ -33,7 +32,6 @@ data class TaflConfig(
     val depth: Int? = TaflEngineKind.DEFAULT_DEPTH,
     val playerSide: Tafl.Side? = Tafl.Side.DEFENDERS,
     val timeControl: TimeControl = TimeControl.None,
-    val takebacks: Takebacks = Takebacks.ONCE,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${TaflEngineKind.strengthLabel(depth)}"
 
@@ -43,7 +41,6 @@ data class TaflConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
-        put("takebacks", takebacks.name)
     }
 
     companion object {
@@ -57,7 +54,6 @@ data class TaflConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
-            takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.ONCE),
         )
     }
 }

@@ -1,6 +1,5 @@
 package io.github.usernamealreadytakensht.games.game.morris
 
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import org.json.JSONObject
 
@@ -47,7 +46,6 @@ data class MorrisConfig(
     val depth: Int? = MorrisEngineKind.DEFAULT_DEPTH,
     val playerSide: Morris.Color? = Morris.Color.WHITE,
     val timeControl: TimeControl = TimeControl.None,
-    val takebacks: Takebacks = Takebacks.ONCE,
 ) {
     /** "Sanmill (MTD(f)) · Depth 5". */
     val opponentLabel: String
@@ -58,7 +56,6 @@ data class MorrisConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
-        put("takebacks", takebacks.name)
     }
 
     companion object {
@@ -71,7 +68,6 @@ data class MorrisConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
-            takebacks = runCatching { Takebacks.valueOf(o.getString("takebacks")) }.getOrDefault(Takebacks.ONCE),
         )
     }
 }

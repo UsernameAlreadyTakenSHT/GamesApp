@@ -48,7 +48,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.usernamealreadytakensht.games.R
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl
 import io.github.usernamealreadytakensht.games.game.tafl.TaflConfig
 import io.github.usernamealreadytakensht.games.game.tafl.TaflResult
@@ -140,10 +139,8 @@ fun TaflScreen(
                 GameOverBanner(state, onRematch = vm::rematch, onNewGame = onNewGame)
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (state.config.takebacks != Takebacks.OFF) {
-                        OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
-                            Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
-                        }
+                    OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
+                        Text("Undo")
                     }
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }

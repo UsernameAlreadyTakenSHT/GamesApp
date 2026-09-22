@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -152,14 +151,12 @@ fun ChessScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (state.config.takebacks != Takebacks.OFF) {
-                        OutlinedButton(
-                            onClick = vm::undo,
-                            enabled = state.canUndo && state.engineError == null,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(state.takebacksLeft?.let { "Undo ($it)" } ?: "Undo")
-                        }
+                    OutlinedButton(
+                        onClick = vm::undo,
+                        enabled = state.canUndo && state.engineError == null,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Undo")
                     }
                     OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
                     OutlinedButton(

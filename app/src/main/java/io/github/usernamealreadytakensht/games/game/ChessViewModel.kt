@@ -37,8 +37,6 @@ data class GameState(
     val lastMove: Pair<Square, Square>? = null,
     val checkedKing: Square? = null,
     val pendingPromotion: Pair<Square, Square>? = null,
-    /** Takebacks still available, null = unlimited. */
-    val takebacksLeft: Int? = null,
     val resigned: Boolean = false,
     val sanMoves: List<String> = emptyList(),
     val thinking: Boolean = false,
@@ -52,8 +50,7 @@ data class GameState(
     /** Side whose clock is currently running. */
     val runningClock: Side? = null,
 ) {
-    val canUndo: Boolean
-        get() = sanMoves.isNotEmpty() && result == Result.ONGOING && (takebacksLeft == null || takebacksLeft > 0)
+    val canUndo: Boolean get() = sanMoves.isNotEmpty() && result == Result.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == Result.ONGOING && !thinking
     val engineSide: Side get() = if (playerSide == Side.WHITE) Side.BLACK else Side.WHITE
     fun clockMs(side: Side): Long? = if (side == Side.WHITE) whiteMs else blackMs
@@ -86,7 +83,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private var clockPaused = false
     private var flagged: Side? = null
     private var resigned = false
-    private var takebacksUsed = 0
 
     private val _state = MutableStateFlow(GameState())
     val state: StateFlow<GameState> = _state
@@ -170,7 +166,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         undoOne()
         if (board.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
-        takebacksUsed++
         _state.update {
             it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null)
         }
@@ -232,7 +227,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         uciMoves.clear()
         flagged = null
         resigned = false
-        takebacksUsed = 0
         hasGame = true
         _state.update {
             it.copy(
@@ -517,7 +511,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 sanMoves = moveList.toSanArray().toList(),
                 result = result,
                 statusText = status,
-                takebacksLeft = it.config.takebacks.limit?.let { limit -> (limit - takebacksUsed).coerceAtLeast(0) },
                 resigned = resigned,
                 whiteMs = currentMs(Side.WHITE),
                 blackMs = currentMs(Side.BLACK),

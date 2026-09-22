@@ -20,7 +20,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
-import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.fox.Fox
 import io.github.usernamealreadytakensht.games.game.fox.FoxConfig
 import io.github.usernamealreadytakensht.games.game.fox.FoxEngineKind
@@ -38,7 +37,7 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 /*
  * The fox games use the same two-step setup as the other games: variant, side, clock and
- * takebacks first, then the opponent and its search depth.
+ * clock first, then the opponent and its search depth.
  */
 
 private val FoxVariant.icon: Int
@@ -55,7 +54,7 @@ private val FoxVariant.blurb: String
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: variant, side, clock and takebacks. [config] is owned by the caller. */
+/** First setup screen: variant, side and clock. [config] is owned by the caller. */
 @Composable
 fun FoxGameSetupScreen(
     config: FoxConfig,
@@ -92,13 +91,6 @@ fun FoxGameSetupScreen(
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
-        SectionTitle("Takebacks")
-        Segmented(
-            items = Takebacks.entries,
-            selected = config.takebacks,
-            label = { it.label },
-            onSelect = { onChange(config.copy(takebacks = it)) },
-        )
     }
 }
 
