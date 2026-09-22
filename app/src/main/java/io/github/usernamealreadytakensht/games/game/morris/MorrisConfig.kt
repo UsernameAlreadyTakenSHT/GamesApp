@@ -42,6 +42,7 @@ enum class MorrisEngineKind(
 
 /** Settings of a morris game. `depth` null = time-based; `playerSide` null = random. */
 data class MorrisConfig(
+    val variant: MorrisVariant = MorrisVariant.STANDARD,
     val engine: MorrisEngineKind = MorrisEngineKind.SANMILL_MTDF,
     val depth: Int? = MorrisEngineKind.DEFAULT_DEPTH,
     val playerSide: Morris.Color? = Morris.Color.WHITE,
@@ -52,6 +53,7 @@ data class MorrisConfig(
         get() = "${engine.family.label} (${engine.label}) · ${MorrisEngineKind.strengthLabel(depth)}"
 
     fun toJson(): JSONObject = JSONObject().apply {
+        put("variant", variant.name)
         put("engine", engine.name)
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
@@ -60,6 +62,7 @@ data class MorrisConfig(
 
     companion object {
         fun fromJson(o: JSONObject): MorrisConfig = MorrisConfig(
+            variant = runCatching { MorrisVariant.valueOf(o.getString("variant")) }.getOrDefault(MorrisVariant.STANDARD),
             engine = runCatching { MorrisEngineKind.valueOf(o.getString("engine")) }.getOrDefault(MorrisEngineKind.SANMILL_MTDF),
             depth = o.optInt("depth", MorrisEngineKind.DEFAULT_DEPTH).takeIf { it >= 0 },
             playerSide = when (o.optString("side")) {

@@ -66,6 +66,7 @@ private val LineColor = Color(0xFF6B4F35)
 private val SelectedRing = Color(0xFF20A0FF)
 private val LastMoveRing = Color(0xFFE0B020)
 private val TargetDot = Color(0x66000000)
+private val FortressTint = Color(0x33C05000)
 
 /** How the game screen is entered: a fresh game with [config], or the saved one. */
 sealed interface FoxLaunch {
@@ -170,7 +171,7 @@ fun FoxScreen(
     }
 }
 
-private fun sideName(v: FoxVariant, side: Fox.Side) = if (side == Fox.Side.FOX) "fox" else v.hunterName
+private fun sideName(v: FoxVariant, side: Fox.Side) = if (side == Fox.Side.FOX) v.foxName else v.hunterName
 
 private fun pieceRes(v: FoxVariant, piece: Int): Int = when (piece) {
     Fox.FOX -> R.drawable.fox_fox
@@ -195,8 +196,9 @@ private fun PointBoard(
         val cellDp = (side * (1f - 2 * margin)) / cells
         val originDp = side * margin
         val pieceSize = cellDp * 0.82f
-        fun cx(p: Int) = originDp + cellDp * (v.col(p) + 0.5f)
-        fun cy(p: Int) = originDp + cellDp * (v.row(p) + 0.5f)
+        val b = v.board
+        fun cx(p: Int) = originDp + cellDp * (b.col(p) + 0.5f)
+        fun cy(p: Int) = originDp + cellDp * (b.row(p) + 0.5f)
 
         Canvas(
             modifier = Modifier.fillMaxSize().pointerInput(Unit) {
@@ -204,7 +206,7 @@ private fun PointBoard(
                     val cellPx = cellDp.toPx()
                     var best = -1
                     var bestDist = cellPx * 0.5f
-                    for (p in 0 until v.points) {
+                    for (p in 0 until b.points) {
                         val d = hypot(tap.x - cx(p).toPx(), tap.y - cy(p).toPx())
                         if (d < bestDist) { best = p; bestDist = d }
                     }
@@ -228,7 +230,7 @@ private fun PointBoard(
             }
         }
 
-        for (p in 0 until v.points) {
+        for (p in 0 until b.points) {
             val piece = state.points[p]
             if (piece == Fox.EMPTY) continue
             Image(
@@ -252,23 +254,37 @@ private fun Checkerboard(state: FoxState, onTap: (Int) -> Unit) {
     }
 }
 
-/** Fox and Geese: the 33-point cross with its orthogonal and diagonal lines. */
+/** The cross board (Fox and Geese, Asalto) with its orthogonal and diagonal lines. */
 @Composable
 private fun CrossBoard(state: FoxState, onTap: (Int) -> Unit) {
     val v = state.variant
+    val b = v.board
+    val fortress = v.fortress.toSet()
     PointBoard(state, cells = 7, margin = 0.05f, onTap = onTap) { cell, origin ->
         val stroke = 2.dp.toPx()
-        fun at(p: Int) = Offset(origin + cell * (v.col(p) + 0.5f), origin + cell * (v.row(p) + 0.5f))
+        fun at(p: Int) = Offset(origin + cell * (b.col(p) + 0.5f), origin + cell * (b.row(p) + 0.5f))
+        // Asalto: shade the fortress the sepoys have to fill.
+        if (fortress.isNotEmpty()) {
+            val minCol = fortress.minOf { b.col(it) }
+            val minRow = fortress.minOf { b.row(it) }
+            val cols = fortress.map { b.col(it) }.distinct().size
+            val rows = fortress.map { b.row(it) }.distinct().size
+            drawRect(
+                FortressTint,
+                topLeft = Offset(origin + cell * minCol, origin + cell * minRow),
+                size = Size(cell * cols, cell * rows),
+            )
+        }
         // Draw each line once, from a point to its right / lower / diagonal neighbours.
-        for (p in 0 until v.points) {
-            for (d in v.directions.indices) {
-                val (dx, dy) = v.directions[d]
+        for (p in 0 until b.points) {
+            for (d in b.directions.indices) {
+                val (dx, dy) = b.directions[d]
                 if (dy < 0 || (dy == 0 && dx < 0)) continue
-                val n = v.step(p, d)
+                val n = b.step(p, d)
                 if (n >= 0) drawLine(LineColor, at(p), at(n), strokeWidth = stroke)
             }
         }
-        for (p in 0 until v.points) drawCircle(LineColor, radius = 4.dp.toPx(), center = at(p))
+        for (p in 0 until b.points) drawCircle(LineColor, radius = 4.dp.toPx(), center = at(p))
     }
 }
 

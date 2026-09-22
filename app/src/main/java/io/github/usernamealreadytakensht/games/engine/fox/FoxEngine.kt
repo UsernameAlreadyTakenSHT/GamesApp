@@ -7,10 +7,11 @@ import io.github.usernamealreadytakensht.games.game.fox.Fox.Side
 import io.github.usernamealreadytakensht.games.game.fox.FoxVariant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
- * Opponent for the fox games: iterative-deepening negamax with a transposition table.
+ * Opponent for the hunt games: iterative-deepening negamax with a transposition table.
  * The games are tiny, so a deep search plays close to perfectly; strength is the depth
  * (null = as deep as the time allows).
  */
@@ -100,20 +101,37 @@ class FoxEngine {
     /** Static evaluation from the side to move's point of view (positive = good for it). */
     private fun evaluate(pos: Position): Int {
         val v = pos.variant
-        val fox = pos.fox
-        var foxScore = 0
-        // The fox likes room to move and, with hounds, progress towards their back row.
+        val b = v.board
         val foxMoves = Fox.legalMoves(Position(v, pos.board, Side.FOX))
-        foxScore += 6 * foxMoves.size
-        if (v == FoxVariant.HOUNDS) {
-            foxScore += 12 * v.row(fox)
-        } else {
-            foxScore += 60 * (v.hunterStart.size - pos.hunters())
-            foxScore += 10 * foxMoves.count { it.isJump }
+        var foxScore = 6 * foxMoves.size
+        when (v) {
+            FoxVariant.HOUNDS -> {
+                // The fox wants to get down the board, the hounds to keep a line ahead of it.
+                foxScore += 12 * (pos.foxes().maxOfOrNull { b.row(it) } ?: 0)
+            }
+            FoxVariant.ASALTO -> {
+                // Sepoys press into the fortress; officers live off captures and room to jump.
+                foxScore += 60 * (v.hunterStart.size - pos.hunters())
+                foxScore += 10 * foxMoves.count { it.isJump }
+                val held = v.fortress.count { pos[it] == HUNTER_CODE }
+                foxScore -= 25 * held
+            }
+            else -> {
+                foxScore += 60 * (v.hunterStart.size - pos.hunters())
+                foxScore += 10 * foxMoves.count { it.isJump }
+                // Geese keep their formation tight around the foxes.
+                val foxes = pos.foxes()
+                if (foxes.isNotEmpty()) {
+                    var spread = 0
+                    for (p in 0 until b.points) {
+                        if (pos[p] != HUNTER_CODE) continue
+                        spread += foxes.minOf { abs(b.col(p) - b.col(it)) + abs(b.row(p) - b.row(it)) }
+                    }
+                    foxScore += spread
+                }
+            }
         }
-        // Hunters like to keep a compact line ahead of the fox.
-        val hunterMoves = Fox.legalMoves(Position(v, pos.board, Side.HUNTERS)).size
-        val hunterScore = 2 * hunterMoves
+        val hunterScore = 2 * Fox.legalMoves(Position(v, pos.board, Side.HUNTERS)).size
         val score = foxScore - hunterScore
         return if (pos.toMove == Side.FOX) score else -score
     }
@@ -122,5 +140,6 @@ class FoxEngine {
         private const val INF = 1_000_000
         private const val WIN = 100_000
         private const val MAX_DEPTH = 40
+        private const val HUNTER_CODE = Fox.HUNTER
     }
 }

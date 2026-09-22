@@ -33,7 +33,6 @@ object Morris {
     const val WHITE = 1
     const val BLACK = 2
 
-    const val MEN_PER_SIDE = 9
 
     enum class Color { WHITE, BLACK; val other: Color get() = if (this == WHITE) BLACK else WHITE }
 
@@ -106,8 +105,9 @@ object Morris {
         }
     }
 
-    /** Immutable position: board, side to move and men still to be placed. */
+    /** Immutable position: rules, board, side to move and men still to be placed. */
     class Position(
+        val variant: MorrisVariant,
         val board: IntArray,
         val toMove: Color,
         val whiteInHand: Int,
@@ -119,18 +119,21 @@ object Morris {
         fun onBoard(c: Color): Int = board.count { it == stone(c) }
         fun men(c: Color) = inHand(c) + onBoard(c)
 
-        /** Placing while men remain in hand; sliding or flying afterwards. */
+        /** Men still in hand. In Lasker Morris a side may also slide while placing. */
         fun isPlacing(c: Color) = inHand(c) > 0
+        fun mayPlace(c: Color) = inHand(c) > 0
+        fun mayMove(c: Color) = inHand(c) == 0 || variant.mayMoveInPlacingPhase
         fun isFlying(c: Color) = inHand(c) == 0 && onBoard(c) == 3
 
-        override fun equals(other: Any?): Boolean = other is Position &&
+        override fun equals(other: Any?): Boolean = other is Position && variant == other.variant &&
             board.contentEquals(other.board) && toMove == other.toMove &&
             whiteInHand == other.whiteInHand && blackInHand == other.blackInHand
 
         override fun hashCode(): Int = (board.contentHashCode() * 31 + toMove.ordinal) * 31 + whiteInHand * 10 + blackInHand
     }
 
-    val START = Position(IntArray(24), Color.WHITE, MEN_PER_SIDE, MEN_PER_SIDE)
+    fun start(variant: MorrisVariant) =
+        Position(variant, IntArray(24), Color.WHITE, variant.menPerSide, variant.menPerSide)
 
     fun stone(c: Color) = if (c == Color.WHITE) WHITE else BLACK
     fun colorOf(stone: Int): Color? = when (stone) { WHITE -> Color.WHITE; BLACK -> Color.BLACK; else -> null }
@@ -185,17 +188,15 @@ object Morris {
             }
         }
 
-        if (pos.isPlacing(me)) {
+        if (pos.mayPlace(me)) {
             for (to in 0 until 24) if (board[to] == EMPTY) add(-1, to)
-        } else if (pos.isFlying(me)) {
+        }
+        if (pos.mayMove(me)) {
+            val flying = pos.isFlying(me)
             for (from in 0 until 24) {
                 if (board[from] != stone) continue
-                for (to in 0 until 24) if (board[to] == EMPTY) add(from, to)
-            }
-        } else {
-            for (from in 0 until 24) {
-                if (board[from] != stone) continue
-                for (to in ADJACENT[from]) if (board[to] == EMPTY) add(from, to)
+                val destinations = if (flying) (0 until 24) else ADJACENT[from].asIterable()
+                for (to in destinations) if (board[to] == EMPTY) add(from, to)
             }
         }
         return moves
@@ -208,6 +209,7 @@ object Morris {
         board[move.to] = stone(me)
         if (move.remove >= 0) board[move.remove] = EMPTY
         return Position(
+            pos.variant,
             board,
             me.other,
             if (me == Color.WHITE && move.isPlacement) pos.whiteInHand - 1 else pos.whiteInHand,
@@ -233,4 +235,22 @@ object Morris {
         if (previous.count { it == pos } >= 2) return Outcome.DRAW
         return Outcome.ONGOING
     }
+}
+
+/** Rule sets offered for the mill games, in display order. */
+enum class MorrisVariant(
+    val label: String,
+    val menPerSide: Int,
+    val mayMoveInPlacingPhase: Boolean,
+    val tagline: String,
+    val description: String,
+) {
+    STANDARD(
+        "Nine Men's Morris", 9, false, "The classic",
+        "Nine men each: place all nine, then slide along the lines, and fly when down to three.",
+    ),
+    LASKER(
+        "Lasker Morris", 10, true, "Place or slide",
+        "Emanuel Lasker's version: ten men each, and on every turn you may either place a man from your hand or slide one already on the board. Fewer forced placements, sharper play.",
+    );
 }

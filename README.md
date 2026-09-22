@@ -12,11 +12,11 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 
 | Game | Status |
 |------|--------|
-| **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
+| **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), undo, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
-| **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
-| **Fox games** | **Fox and Hounds** (8x8, 1 fox vs 4 hounds moving forward only; the fox wins by slipping past, the hounds by trapping it — solved, hounds win with perfect play) and **Fox and Geese** (33-point cross board with diagonals, 1 fox vs 13 geese moving any direction; the fox jumps geese in chains, wins under 6 geese; the geese win by cornering it). Against the built-in "Reynard". Same clocks, takebacks, resign, rematch and save/resume. |
-| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
+| **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, undo, resign, rematch and save/resume as the other games. |
+| **Fox games** | Five hunt games against the built-in "Reynard": **Fox and Hounds** (8x8, 1 vs 4, no captures — solved, the hounds win with perfect play), **Fox and Geese** (cross board, 1 vs 13), **Fox and Geese (17)**, **Two Foxes** (2 vs 17) and **Asalto** (2 officers vs 24 sepoys storming a fortress). Same clocks, undo, resign, rematch and save/resume. |
+| **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) and **Lasker Morris** (ten men, place or slide on every turn), against the Sanmill engine. Same clocks, undo, resign, rematch and save/resume as the other games. |
 
 ## Chess opponents
 
@@ -56,11 +56,18 @@ strength is a search depth (1 → 20) or time-based Max.
 Rough feel: depth 1–3 drops material to simple shots, depth 6 is a solid club game, depth
 12+ is far beyond human level.
 
-## Nine Men's Morris opponent
+## Nine Men's Morris
+
+Two rule sets, both played natively by Sanmill (the app sends the matching UCI options):
+
+| Variant | Men | Notes |
+|---------|-----|-------|
+| **Nine Men's Morris** | 9 | The classic: place, then slide, then fly at three men. |
+| **Lasker Morris** | 10 | Emanuel Lasker's version: on every turn, place a man *or* slide one. |
 
 Rules are pure Kotlin (`game/morris/Morris.kt`), verified by unit tests (geometry, mill and
-removal rules, flying, game ends, notation). Strength is a search depth (1 → 16) or
-time-based Max.
+removal rules, flying, the Lasker placing phase, game ends, notation). Strength is a search
+depth (1 → 16) or time-based Max.
 
 | | Engine | Notes |
 |--|--------|-------|
@@ -92,13 +99,22 @@ maximum depth (1 → 10) or time-based Max. Depth 1–2 overlooks captures, 4 pl
 6+ is strong. Unit tests check each variant's start position and board size, sliding moves,
 corner restrictions, a custodial capture, notation and an engine move.
 
-## Fox games opponent
+## Fox games
 
-No third-party engine: rules (`game/fox/Fox.kt`, both variants behind `FoxVariant`) and the
+| Variant | Board | Forces | Notes |
+|---------|-------|--------|-------|
+| **Fox and Hounds** | 8x8 dark squares | 1 vs 4 | Hounds move diagonally forward only, nothing is captured. The fox wins by reaching their back row. Solved: the hounds win with perfect play. |
+| **Fox and Geese** | 33-point cross | 1 vs 13 | The fox jumps geese in chains; it wins once fewer than six geese remain, they win by cornering it. |
+| **Fox and Geese (17)** | 33-point cross | 1 vs 17 | The older, harder setting. |
+| **Two Foxes** | 33-point cross | 2 vs 17 | Two foxes, either may jump; they lose only when neither can move. |
+| **Asalto** | 33-point cross | 2 vs 24 | Officers hold the nine-point fortress; sepoys only advance or move sideways and win by filling it, the officers by taking so many sepoys that it cannot be filled. |
+
+No third-party engine: rules (`game/fox/Fox.kt`, geometry in `FoxBoard`, rules in `FoxVariant`) and the
 opponent (`engine/fox/FoxEngine.kt`, iterative-deepening negamax with a transposition table)
 are pure Kotlin. The games are small enough that depth 8+ is close to perfect play; strength
 is the depth (1 → 20) or time-based Max. Unit tests cover the geometry of both boards, hound
-direction, fox jump chains, game ends, notation and the engine's tactics.
+and sepoy directions, fox jump chains, the Asalto fortress, game ends, notation and the
+engine's tactics.
 
 ## Building
 

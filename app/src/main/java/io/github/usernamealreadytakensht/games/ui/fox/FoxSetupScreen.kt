@@ -46,12 +46,6 @@ private val FoxVariant.icon: Int
 private val FoxVariant.hunterIcon: Int
     get() = if (this == FoxVariant.HOUNDS) R.drawable.fox_hound else R.drawable.fox_goose
 
-private val FoxVariant.blurb: String
-    get() = when (this) {
-        FoxVariant.HOUNDS -> "8x8 board, 1 fox vs 4 hounds. Hounds only move forward; the fox wins by slipping past them, the hounds by trapping it. No captures."
-        FoxVariant.GEESE -> "Cross board, 1 fox vs 13 geese. The fox jumps geese to capture them, chaining jumps; the geese win by cornering it, the fox once fewer than 6 geese remain."
-    }
-
 // ---------------------------------------------------------------- screen 1: game
 
 /** First setup screen: variant, side and clock. [config] is owned by the caller. */
@@ -64,30 +58,39 @@ fun FoxGameSetupScreen(
 ) {
     SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
         SectionTitle("Game")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
-            FoxVariant.entries.forEach { v ->
-                SelectableCard(config.variant == v, Modifier.weight(1f).fillMaxHeight(), { onChange(config.copy(variant = v)) }) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Image(painterResource(v.icon), contentDescription = null, modifier = Modifier.size(48.dp))
-                        Text(v.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+        FoxVariant.entries.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+                row.forEach { v ->
+                    SelectableCard(config.variant == v, Modifier.weight(1f).fillMaxHeight(), { onChange(config.copy(variant = v)) }) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Image(painterResource(v.icon), contentDescription = null, modifier = Modifier.size(40.dp))
+                            Text(v.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1)
+                            Text(
+                                v.tagline,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
+                repeat(2 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        Hint(config.variant.blurb)
+        Hint(config.variant.description)
 
         SectionTitle("Your side")
         SideCards(
-            first = "Fox" to listOf(R.drawable.fox_fox),
+            first = config.variant.foxName.replaceFirstChar { it.uppercase() } to listOf(R.drawable.fox_fox),
             second = config.variant.hunterName.replaceFirstChar { it.uppercase() } to listOf(config.variant.hunterIcon),
             selected = config.playerSide?.let { it == Fox.Side.FOX },
             onSelect = { onChange(config.copy(playerSide = it?.let { f -> if (f) Fox.Side.FOX else Fox.Side.HUNTERS })) },
         )
-        Hint("The fox moves first.")
+        Hint(if (config.variant.foxName.endsWith("s")) "The ${config.variant.foxName} move first." else "The ${config.variant.foxName} moves first.")
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
@@ -121,7 +124,9 @@ fun FoxOpponentSetupScreen(
         onBack = onBack,
         action = "Play",
         onAction = onPlay,
-        summary = "${config.playerSide?.let { if (it == Fox.Side.FOX) "Fox" else config.variant.hunterName.replaceFirstChar { c -> c.uppercase() } } ?: "Random side"} · " +
+        summary = "${config.variant.label} · " +
+            "${config.playerSide?.let { if (it == Fox.Side.FOX) config.variant.foxName else config.variant.hunterName }
+                ?.replaceFirstChar { c -> c.uppercase() } ?: "Random side"} · " +
             "${config.timeControl.label} · vs ${config.opponentLabel}",
     ) {
         SectionTitle("Engine")

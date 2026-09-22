@@ -4,6 +4,7 @@ import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Color
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Move
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Position
+import io.github.usernamealreadytakensht.games.game.morris.MorrisVariant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,15 +12,22 @@ import org.junit.Test
 
 class MorrisTest {
 
-    private fun position(white: String, black: String, toMove: Color, whiteInHand: Int = 0, blackInHand: Int = 0): Position {
+    private fun position(
+        white: String,
+        black: String,
+        toMove: Color,
+        whiteInHand: Int = 0,
+        blackInHand: Int = 0,
+        variant: MorrisVariant = MorrisVariant.STANDARD,
+    ): Position {
         val board = IntArray(24)
         white.split(' ').filter { it.isNotBlank() }.forEach { board[Morris.pointOf(it)!!] = Morris.WHITE }
         black.split(' ').filter { it.isNotBlank() }.forEach { board[Morris.pointOf(it)!!] = Morris.BLACK }
-        return Position(board, toMove, whiteInHand, blackInHand)
+        return Position(variant, board, toMove, whiteInHand, blackInHand)
     }
 
     private fun play(vararg moves: String): Position {
-        var pos = Morris.START
+        var pos = Morris.start(MorrisVariant.STANDARD)
         for (m in moves) {
             val move = Move.parse(m)!!
             assertTrue("$m must be legal", move in Morris.legalMoves(pos))
@@ -52,7 +60,7 @@ class MorrisTest {
 
     @Test
     fun placementPhase() {
-        assertEquals(24, Morris.legalMoves(Morris.START).size)
+        assertEquals(24, Morris.legalMoves(Morris.start(MorrisVariant.STANDARD)).size)
         val pos = play("a7")
         assertEquals(8, pos.whiteInHand)
         assertEquals(Color.BLACK, pos.toMove)
@@ -120,6 +128,23 @@ class MorrisTest {
         assertEquals(Morris.Outcome.DRAW, Morris.outcome(quiet, emptyList(), 100))
         assertEquals(Morris.Outcome.DRAW, Morris.outcome(quiet, listOf(quiet, quiet), 0))
         assertEquals(Morris.Outcome.ONGOING, Morris.outcome(quiet, listOf(quiet), 0))
+    }
+
+    @Test
+    fun laskerMorrisPlacesOrSlides() {
+        val v = MorrisVariant.LASKER
+        val start = Morris.start(v)
+        assertEquals(10, start.whiteInHand)
+        // With an empty board there is nothing to slide, so only the 24 placements.
+        assertEquals(24, Morris.legalMoves(start).size)
+        // With men on the board, placements and slides are both offered from move one.
+        val pos = position("a7", "a1", Color.WHITE, whiteInHand = 9, blackInHand = 9, variant = v)
+        val moves = Morris.legalMoves(pos)
+        assertTrue(moves.any { it.isPlacement })
+        assertTrue(moves.any { !it.isPlacement && Morris.name(it.from) == "a7" })
+        // The standard game only allows placements while men remain in hand.
+        val standard = position("a7", "a1", Color.WHITE, whiteInHand = 8, blackInHand = 8)
+        assertTrue(Morris.legalMoves(standard).all { it.isPlacement })
     }
 
     @Test

@@ -1,19 +1,27 @@
 package io.github.usernamealreadytakensht.games.ui.morris
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineFamily
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
+import io.github.usernamealreadytakensht.games.game.morris.MorrisVariant
 import io.github.usernamealreadytakensht.games.ui.ChipFlow
 import io.github.usernamealreadytakensht.games.ui.ClockSection
 import io.github.usernamealreadytakensht.games.ui.ColorCards
@@ -21,6 +29,7 @@ import io.github.usernamealreadytakensht.games.ui.EngineBadge
 import io.github.usernamealreadytakensht.games.ui.Hint
 import io.github.usernamealreadytakensht.games.ui.OpponentCard
 import io.github.usernamealreadytakensht.games.ui.SectionTitle
+import io.github.usernamealreadytakensht.games.ui.SelectableCard
 import io.github.usernamealreadytakensht.games.ui.Segmented
 import io.github.usernamealreadytakensht.games.ui.SetupScaffold
 import io.github.usernamealreadytakensht.games.ui.StrengthCard
@@ -32,7 +41,7 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour and clock. [config] is owned by the caller. */
+/** First setup screen: variant, colour and clock. [config] is owned by the caller. */
 @Composable
 fun MorrisGameSetupScreen(
     config: MorrisConfig,
@@ -41,6 +50,28 @@ fun MorrisGameSetupScreen(
     onNext: () -> Unit,
 ) {
     SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+        SectionTitle("Variant")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+            MorrisVariant.entries.forEach { v ->
+                SelectableCard(config.variant == v, Modifier.weight(1f).fillMaxHeight(), { onChange(config.copy(variant = v)) }) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(v.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                        Text(
+                            "${v.menPerSide} men · ${v.tagline}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+        Hint(config.variant.description)
+
         SectionTitle("Your color")
         ColorCards(
             white = R.drawable.stone_l1,
@@ -83,7 +114,8 @@ fun MorrisOpponentSetupScreen(
         onBack = onBack,
         action = "Play",
         onAction = onPlay,
-        summary = "${config.playerSide?.let { if (it == Morris.Color.WHITE) "White" else "Black" } ?: "Random colour"} · " +
+        summary = "${config.variant.label} · " +
+            "${config.playerSide?.let { if (it == Morris.Color.WHITE) "White" else "Black" } ?: "Random colour"} · " +
             "${config.timeControl.label} · vs ${config.opponentLabel}",
     ) {
         SectionTitle("Engine")

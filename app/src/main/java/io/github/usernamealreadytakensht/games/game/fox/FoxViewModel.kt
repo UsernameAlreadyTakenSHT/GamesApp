@@ -347,15 +347,17 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             _state.value.thinking -> "$engineName is thinking…"
             position.toMove == player -> when {
                 player == Side.FOX && v == FoxVariant.HOUNDS -> "Your move: slip past the hounds."
-                player == Side.FOX -> "Your move: jump the geese (${position.hunters()} left)."
+                player == Side.FOX && v == FoxVariant.ASALTO -> "Your move: thin out the sepoys (${position.hunters()} left)."
+                player == Side.FOX -> "Your move: jump the ${v.hunterName} (${position.hunters()} left)."
                 v == FoxVariant.HOUNDS -> "Your move: close the net."
-                else -> "Your move: corner the fox (${position.hunters()} geese)."
+                v == FoxVariant.ASALTO -> "Your move: press into the fortress."
+                else -> "Your move: corner the ${v.foxName} (${position.hunters()} geese)."
             }
             else -> "$engineName to move."
         }
         _state.update {
             it.copy(
-                points = List(v.points) { p -> position[p] },
+                points = List(v.board.points) { p -> position[p] },
                 sideToMove = position.toMove,
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> Fox.notation(v, m) },

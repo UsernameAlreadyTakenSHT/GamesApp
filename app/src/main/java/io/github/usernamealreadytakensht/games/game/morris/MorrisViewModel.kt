@@ -30,8 +30,8 @@ data class MorrisState(
     val config: MorrisConfig = MorrisConfig(),
     /** Stone per point (0..23), see [Morris.EMPTY] / [Morris.WHITE] / [Morris.BLACK]. */
     val points: List<Int> = List(24) { Morris.EMPTY },
-    val whiteInHand: Int = Morris.MEN_PER_SIDE,
-    val blackInHand: Int = Morris.MEN_PER_SIDE,
+    val whiteInHand: Int = MorrisVariant.STANDARD.menPerSide,
+    val blackInHand: Int = MorrisVariant.STANDARD.menPerSide,
     val playerSide: Color = Color.WHITE,
     val sideToMove: Color = Color.WHITE,
     /** Own man picked up (sliding / flying phase). */
@@ -68,7 +68,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private val engineLock = Mutex()
     private var engineReady = false
 
-    private var position: Position = Morris.START
+    private var position: Position = Morris.start(MorrisVariant.STANDARD)
     private val history = ArrayList<Position>()   // positions before each move, plus current
     private val played = ArrayList<Move>()
     /** The move being completed by a removal choice, with `remove` still unset. */
@@ -210,7 +210,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         stopClock()
         clockPaused = false
-        position = Morris.START
+        position = Morris.start(config.variant)
         history.clear(); history += position
         played.clear()
         pending = null
@@ -227,11 +227,11 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         restartTurnClock()
         publish()
         persist()
-        val kind = _state.value.config.engine
+        val cfg = _state.value.config
         viewModelScope.launch {
             try {
                 engineLock.withLock {
-                    val eng = ensureEngine(kind)
+                    val eng = ensureEngine(cfg.engine, cfg.variant)
                     eng.newGame()
                 }
             } catch (e: Exception) {
@@ -244,13 +244,13 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Reuses the running engine when it is the right one, otherwise starts the right one. */
-    private suspend fun ensureEngine(kind: MorrisEngineKind): MorrisOpponent {
-        engine?.let { if (it.kind == kind && it.isRunning) return it }
+    private suspend fun ensureEngine(kind: MorrisEngineKind, variant: MorrisVariant): MorrisOpponent {
+        engine?.let { if (it.kind == kind && it.variant == variant && it.isRunning) return it }
         engineReady = false
         engine?.quit()
         _state.update { it.copy(engineError = null) }
         publish()
-        val eng: MorrisOpponent = SanmillEngine(app, kind)
+        val eng: MorrisOpponent = SanmillEngine(app, kind, variant)
         engine = eng
         eng.start()
         engineReady = true
@@ -454,13 +454,15 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             !engineReady -> "Starting $engineName…"
             _state.value.thinking -> "$engineName is thinking…"
             playerTurn && pending != null -> "Mill! Take an enemy man."
+            playerTurn && position.mayPlace(player) && position.mayMove(player) ->
+                "Place a man (${position.inHand(player)} left) or slide one."
             playerTurn && position.isPlacing(player) -> "Place a man (${position.inHand(player)} left)."
             playerTurn && position.isFlying(player) -> "Three men left: you may fly anywhere."
             playerTurn -> "Slide a man along a line."
             else -> "$engineName to move."
         }
         // While placing, every empty point is a target (shown as dots).
-        val placingTargets = if (playerTurn && pending == null && position.isPlacing(player))
+        val placingTargets = if (playerTurn && pending == null && position.mayPlace(player))
             (0 until 24).filter { position[it] == Morris.EMPTY }.toSet() else null
         _state.update {
             it.copy(

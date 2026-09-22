@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
+import io.github.usernamealreadytakensht.games.game.morris.MorrisVariant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,7 +21,11 @@ import java.util.concurrent.TimeUnit
  * `xa4` (remove); a removal is a separate action, so a mill-closing move takes two `go`s.
  * The coordinate labels are the same as ours (a7 top-left, g1 bottom-right).
  */
-class SanmillEngine(private val context: Context, override val kind: MorrisEngineKind) : MorrisOpponent {
+class SanmillEngine(
+    private val context: Context,
+    override val kind: MorrisEngineKind,
+    override val variant: MorrisVariant,
+) : MorrisOpponent {
 
     private val executable = File(context.applicationInfo.nativeLibraryDir, kind.binary)
     private var process: Process? = null
@@ -49,6 +54,9 @@ class SanmillEngine(private val context: Context, override val kind: MorrisEngin
             readUntil("uciok")
             send("setoption name Algorithm value ${kind.algorithm}")
             send("setoption name Shuffling value true") // vary equal moves between games
+            // Rule switches of the variant (Sanmill plays them all natively).
+            send("setoption name PiecesCount value ${variant.menPerSide}")
+            send("setoption name MayMoveInPlacingPhase value ${variant.mayMoveInPlacingPhase}")
             send("isready")
             readUntil("readyok")
         }
@@ -64,7 +72,7 @@ class SanmillEngine(private val context: Context, override val kind: MorrisEngin
 
     override suspend fun bestMove(history: List<Morris.Move>, depth: Int?, moveTimeMs: Int): Morris.Move? =
         withContext(Dispatchers.IO) {
-            var pos = Morris.START
+            var pos = Morris.start(variant)
             for (m in history) pos = Morris.play(pos, m)
             val legal = Morris.legalMoves(pos)
             if (legal.isEmpty()) return@withContext null

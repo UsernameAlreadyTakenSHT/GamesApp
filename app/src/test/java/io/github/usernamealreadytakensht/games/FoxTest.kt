@@ -24,16 +24,16 @@ class FoxTest {
     @Test
     fun houndsGeometry() {
         val v = FoxVariant.HOUNDS
-        assertEquals(32, v.points)
-        for (p in 0 until 32) assertEquals("dark squares only", 1, (v.row(p) + v.col(p)) % 2)
-        assertEquals("a1", v.name(28))
-        assertEquals("g1", v.name(31))
-        assertEquals("d8", v.name(v.foxStart))
+        assertEquals(32, v.board.points)
+        for (p in 0 until 32) assertEquals("dark squares only", 1, (v.board.row(p) + v.board.col(p)) % 2)
+        assertEquals("a1", v.board.name(28))
+        assertEquals("g1", v.board.name(31))
+        assertEquals("d8", v.board.name(v.foxStart.single()))
         val start = Fox.start(v)
         assertEquals(4, start.hunters())
         assertEquals(Side.FOX, start.toMove)
         // Fox on the top edge: two diagonal steps down.
-        assertEquals(setOf("c7", "e7"), Fox.legalMoves(start).map { v.name(it.to) }.toSet())
+        assertEquals(setOf("c7", "e7"), Fox.legalMoves(start).map { v.board.name(it.to) }.toSet())
     }
 
     @Test
@@ -42,7 +42,7 @@ class FoxTest {
         val pos = play(v, "d8-c7")
         val moves = Fox.legalMoves(pos)
         assertEquals(Side.HUNTERS, pos.toMove)
-        assertTrue(moves.all { v.row(it.to) < v.row(it.from) })
+        assertTrue(moves.all { v.board.row(it.to) < v.board.row(it.from) })
         assertEquals(7, moves.size) // a1: b2; c1: b2 d2; e1: d2 f2; g1: f2 h2
     }
 
@@ -58,7 +58,7 @@ class FoxTest {
     fun houndsWinByTrappingTheFox() {
         val v = FoxVariant.HOUNDS
         val board = IntArray(32)
-        fun at(name: String) = (0 until 32).first { v.name(it) == name }
+        fun at(name: String) = (0 until 32).first { v.board.name(it) == name }
         board[at("b8")] = Fox.FOX // its only neighbours are a7 and c7
         board[at("a7")] = Fox.HUNTER
         board[at("c7")] = Fox.HUNTER
@@ -72,15 +72,16 @@ class FoxTest {
     @Test
     fun geeseGeometryAndDiagonals() {
         val v = FoxVariant.GEESE
-        assertEquals(33, v.points)
+        assertEquals(33, v.board.points)
         val start = Fox.start(v)
         assertEquals(13, start.hunters())
-        assertEquals("d4", v.name(v.foxStart))
+        assertEquals("d4", v.board.name(v.foxStart.single()))
         // The centre has all eight neighbours; a point with an odd row+col has only four.
-        val centre = v.foxStart
-        assertEquals(8, v.directions.indices.count { v.step(centre, it) >= 0 })
-        val odd = (0 until 33).first { (v.row(it) + v.col(it)) % 2 == 1 && v.row(it) == 3 && v.col(it) == 2 }
-        assertEquals(4, v.directions.indices.count { v.step(odd, it) >= 0 })
+        val b = v.board
+        val centre = v.foxStart.single()
+        assertEquals(8, b.directions.indices.count { b.step(centre, it) >= 0 })
+        val odd = (0 until 33).first { (b.row(it) + b.col(it)) % 2 == 1 && b.row(it) == 3 && b.col(it) == 2 }
+        assertEquals(4, b.directions.indices.count { b.step(odd, it) >= 0 })
         // Fox in the centre facing the geese on row 2: it can step to the free points around it.
         assertTrue(Fox.legalMoves(start).all { !it.isJump })
     }
@@ -89,7 +90,7 @@ class FoxTest {
     fun foxJumpsAndChains() {
         val v = FoxVariant.GEESE
         val board = IntArray(33)
-        fun at(name: String) = (0 until 33).first { v.name(it) == name }
+        fun at(name: String) = (0 until 33).first { v.board.name(it) == name }
         board[at("d4")] = Fox.FOX
         board[at("d5")] = Fox.HUNTER // straight up: jump to d6 …
         board[at("c5")] = Fox.HUNTER // … then from d6 (a diagonal point) over c5 down-left to b4
@@ -110,7 +111,7 @@ class FoxTest {
         b2[at("d5")] = Fox.HUNTER
         val p2 = Fox.Position(v, b2, Side.FOX)
         val chain = Fox.legalMoves(p2).filter { it.isJump }.maxByOrNull { it.captures.size }!!
-        assertEquals(listOf("d2", "d4", "d6"), chain.path.map { v.name(it) })
+        assertEquals(listOf("d2", "d4", "d6"), chain.path.map { v.board.name(it) })
         assertEquals("d2xd4xd6", Fox.notation(v, chain))
     }
 
@@ -118,7 +119,7 @@ class FoxTest {
     fun foxWinsWithFewGeese() {
         val v = FoxVariant.GEESE
         val board = IntArray(33)
-        board[v.foxStart] = Fox.FOX
+        board[v.foxStart.single()] = Fox.FOX
         for (p in v.hunterStart.take(5)) board[p] = Fox.HUNTER
         assertEquals(Fox.Outcome.FOX_WINS, Fox.outcome(Fox.Position(v, board, Side.HUNTERS)))
         for (p in v.hunterStart.take(6)) board[p] = Fox.HUNTER
@@ -135,11 +136,56 @@ class FoxTest {
     }
 
     @Test
+    fun seventeenGeeseAndTwoFoxes() {
+        val g17 = Fox.start(FoxVariant.GEESE_17)
+        assertEquals(17, g17.hunters())
+        assertEquals(1, g17.foxes().size)
+        val two = Fox.start(FoxVariant.TWO_FOXES)
+        assertEquals(17, two.hunters())
+        assertEquals(2, two.foxes().size)
+        // Both foxes can move, so the move list covers two starting squares.
+        val froms = Fox.legalMoves(two).map { it.from }.toSet()
+        assertEquals(2, froms.size)
+        assertEquals(two.foxes().toSet(), froms)
+        // Losing one fox is not losing the game: the other keeps playing.
+        val board = two.board.copyOf()
+        board[two.foxes()[0]] = Fox.EMPTY
+        val oneLeft = Fox.Position(FoxVariant.TWO_FOXES, board, Fox.Side.FOX)
+        assertEquals(Fox.Outcome.ONGOING, Fox.outcome(oneLeft))
+    }
+
+    @Test
+    fun asaltoSetsUpAFortressAndSepoysNeverGoBackwards() {
+        val v = FoxVariant.ASALTO
+        val start = Fox.start(v)
+        assertEquals(9, v.fortress.size)
+        assertEquals(2, start.foxes().size)
+        assertEquals(24, start.hunters())
+        // Officers start inside the fortress, sepoys everywhere else.
+        assertTrue(start.foxes().all { it in v.fortress.toSet() })
+        assertTrue(v.fortress.none { start[it] == Fox.HUNTER })
+        // Sepoys move forward or sideways only.
+        val b = v.board
+        val sepoyMoves = Fox.legalMoves(Fox.Position(v, start.board, Fox.Side.HUNTERS))
+        assertTrue(sepoyMoves.isNotEmpty())
+        assertTrue(sepoyMoves.all { b.row(it.to) <= b.row(it.from) })
+        // The sepoys win by filling the fortress.
+        val filled = IntArray(b.points)
+        for (p in v.fortress) filled[p] = Fox.HUNTER
+        assertEquals(Fox.Outcome.HUNTERS_WINS, Fox.outcome(Fox.Position(v, filled, Fox.Side.FOX)))
+        // The officers win once too few sepoys remain to fill it.
+        val thin = IntArray(b.points)
+        thin[v.foxStart[0]] = Fox.FOX
+        for (p in v.hunterStart.take(8)) thin[p] = Fox.HUNTER
+        assertEquals(Fox.Outcome.FOX_WINS, Fox.outcome(Fox.Position(v, thin, Fox.Side.HUNTERS)))
+    }
+
+    @Test
     fun engineTakesAFreeGooseAndHoundsCloseTheNet() = runBlocking {
         val engine = FoxEngine()
         val v = FoxVariant.GEESE
         val board = IntArray(33)
-        fun at(name: String) = (0 until 33).first { v.name(it) == name }
+        fun at(name: String) = (0 until 33).first { v.board.name(it) == name }
         board[at("d2")] = Fox.FOX
         board[at("d3")] = Fox.HUNTER
         board[at("d5")] = Fox.HUNTER
