@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hound piece: a slate disc with a paw print (our own artwork). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#40000000" android:pathData="M24,26 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FF4A5568" android:strokeColor="#FF1F2733" android:strokeWidth="1.5"
+        android:pathData="M24,24 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <!-- paw: pad + four toes -->
+    <path android:fillColor="#FFE8ECF2" android:pathData="M24,33 C18,33 15,29 16,25 C17,22 21,21 24,23 C27,21 31,22 32,25 C33,29 30,33 24,33 Z" />
+    <path android:fillColor="#FFE8ECF2"
+        android:pathData="M13.5,21 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0 M19.5,15 m-2.8,0 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 M28.5,15 m-2.8,0 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 M34.5,21 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0" />
+</vector>

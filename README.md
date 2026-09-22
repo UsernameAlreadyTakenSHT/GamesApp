@@ -15,6 +15,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
 | **Hnefatafl** | Copenhagen rules on the 11x11 board (king captured on four sides, escapes to a corner, shieldwall captures, edge forts, encirclement) against OpenTafl's AI. Rules and AI both come from OpenTafl, embedded in the app. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
+| **Fox games** | **Fox and Hounds** (8x8, 1 fox vs 4 hounds moving forward only; the fox wins by slipping past, the hounds by trapping it — solved, hounds win with perfect play) and **Fox and Geese** (33-point cross board with diagonals, 1 fox vs 13 geese moving any direction; the fox jumps geese in chains, wins under 6 geese; the geese win by cornering it). Against the built-in "Reynard". Same clocks, takebacks, resign, rematch and save/resume. |
 | **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 
 ## Chess opponents
@@ -79,6 +80,14 @@ transposition, killer and history tables) is the opponent; strength is a maximum
 Unit tests check the start position, sliding moves, corner restrictions, a custodial capture,
 notation and an engine move.
 
+## Fox games opponent
+
+No third-party engine: rules (`game/fox/Fox.kt`, both variants behind `FoxVariant`) and the
+opponent (`engine/fox/FoxEngine.kt`, iterative-deepening negamax with a transposition table)
+are pure Kotlin. The games are small enough that depth 8+ is close to perfect play; strength
+is the depth (1 → 20) or time-based Max. Unit tests cover the geometry of both boards, hound
+direction, fox jump chains, game ends, notation and the engine's tactics.
+
 ## Building
 
 The Android project builds with Android Studio as usual, **but the engine binaries and
@@ -134,7 +143,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl
-  pieces and board icons are drawn for this app.
+  and fox-game pieces and board icons are drawn for this app.
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
 
 This app itself is distributed under the GPL-3.0 (see [LICENSE](LICENSE)), as required by the engines it bundles.

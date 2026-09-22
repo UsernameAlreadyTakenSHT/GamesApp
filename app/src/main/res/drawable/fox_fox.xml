@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fox piece: an orange disc with a fox face (our own artwork). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#40000000" android:pathData="M24,26 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <path android:fillColor="#FFE07A2E" android:strokeColor="#FF8A3E10" android:strokeWidth="1.5"
+        android:pathData="M24,24 m-19,0 a19,19 0 1 0 38,0 a19,19 0 1 0 -38,0" />
+    <!-- ears -->
+    <path android:fillColor="#FFB85A1E" android:pathData="M11,22 L14,9 L22,17 Z M37,22 L34,9 L26,17 Z" />
+    <!-- muzzle -->
+    <path android:fillColor="#FFFFF1E0" android:pathData="M24,36 C17,36 12,31 12,25 L24,29 L36,25 C36,31 31,36 24,36 Z" />
+    <path android:fillColor="#FF222222" android:pathData="M24,34 m-2.2,0 a2.2,2.2 0 1 0 4.4,0 a2.2,2.2 0 1 0 -4.4,0" />
+    <!-- eyes -->
+    <path android:fillColor="#FF222222" android:pathData="M18,23 m-1.8,0 a1.8,1.8 0 1 0 3.6,0 a1.8,1.8 0 1 0 -3.6,0 M30,23 m-1.8,0 a1.8,1.8 0 1 0 3.6,0 a1.8,1.8 0 1 0 -3.6,0" />
+</vector>

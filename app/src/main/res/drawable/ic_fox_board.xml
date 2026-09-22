@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home tile / variant icon: a checkerboard with the fox facing four hounds. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp" android:height="56dp"
+    android:viewportWidth="56" android:viewportHeight="56">
+    <path android:fillColor="#FFEAD9C0" android:pathData="M4,4 h48 v48 h-48 z" />
+    <path android:fillColor="#FF8B6B4A"
+        android:pathData="M10,4 h6 v6 h-6 z M22,4 h6 v6 h-6 z M34,4 h6 v6 h-6 z M46,4 h6 v6 h-6 z M4,10 h6 v6 h-6 z M16,10 h6 v6 h-6 z M28,10 h6 v6 h-6 z M40,10 h6 v6 h-6 z M10,16 h6 v6 h-6 z M22,16 h6 v6 h-6 z M34,16 h6 v6 h-6 z M46,16 h6 v6 h-6 z M4,22 h6 v6 h-6 z M16,22 h6 v6 h-6 z M28,22 h6 v6 h-6 z M40,22 h6 v6 h-6 z M10,28 h6 v6 h-6 z M22,28 h6 v6 h-6 z M34,28 h6 v6 h-6 z M46,28 h6 v6 h-6 z M4,34 h6 v6 h-6 z M16,34 h6 v6 h-6 z M28,34 h6 v6 h-6 z M40,34 h6 v6 h-6 z M10,40 h6 v6 h-6 z M22,40 h6 v6 h-6 z M34,40 h6 v6 h-6 z M46,40 h6 v6 h-6 z M4,46 h6 v6 h-6 z M16,46 h6 v6 h-6 z M28,46 h6 v6 h-6 z M40,46 h6 v6 h-6 z" />
+    <path android:fillColor="#FFE07A2E" android:strokeColor="#FF8A3E10" android:strokeWidth="0.8"
+        android:pathData="M25,7 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0" />
+    <path android:fillColor="#FF4A5568" android:strokeColor="#FF1F2733" android:strokeWidth="0.8"
+        android:pathData="M7,49 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0 M19,49 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0 M31,49 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0 M43,49 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0" />
+</vector>

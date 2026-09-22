@@ -30,6 +30,10 @@ import io.github.usernamealreadytakensht.games.ui.tafl.TaflGameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.tafl.TaflLaunch
 import io.github.usernamealreadytakensht.games.ui.tafl.TaflOpponentSetupScreen
 import io.github.usernamealreadytakensht.games.ui.tafl.TaflScreen
+import io.github.usernamealreadytakensht.games.ui.fox.FoxGameSetupScreen
+import io.github.usernamealreadytakensht.games.ui.fox.FoxLaunch
+import io.github.usernamealreadytakensht.games.ui.fox.FoxOpponentSetupScreen
+import io.github.usernamealreadytakensht.games.ui.fox.FoxScreen
 import io.github.usernamealreadytakensht.games.ui.theme.GamesTheme
 
 class MainActivity : ComponentActivity() {
@@ -58,6 +62,9 @@ private sealed interface Screen {
     data object TaflSetup : Screen
     data object TaflOpponentSetup : Screen
     data class TaflGame(val launch: TaflLaunch) : Screen
+    data object FoxSetup : Screen
+    data object FoxOpponentSetup : Screen
+    data class FoxGame(val launch: FoxLaunch) : Screen
 }
 
 /** Minimal navigation: home → game setup → opponent setup → game. */
@@ -72,6 +79,7 @@ private fun App() {
     var draughtsDraft by remember { mutableStateOf(repo.loadLastDraughtsConfig()) }
     var morrisDraft by remember { mutableStateOf(repo.loadLastMorrisConfig()) }
     var taflDraft by remember { mutableStateOf(repo.loadLastTaflConfig()) }
+    var foxDraft by remember { mutableStateOf(repo.loadLastFoxConfig()) }
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
@@ -87,6 +95,9 @@ private fun App() {
             savedTafl = repo.loadTaflGame(),
             onTafl = { taflDraft = repo.loadLastTaflConfig(); screen = Screen.TaflSetup },
             onResumeTafl = { screen = Screen.TaflGame(TaflLaunch.Resume) },
+            savedFox = repo.loadFoxGame(),
+            onFox = { foxDraft = repo.loadLastFoxConfig(); screen = Screen.FoxSetup },
+            onResumeFox = { screen = Screen.FoxGame(FoxLaunch.Resume) },
         )
 
         Screen.GameSetup -> {
@@ -214,6 +225,38 @@ private fun App() {
                 launch = s.launch,
                 onBack = { screen = Screen.Home },
                 onNewGame = { screen = Screen.TaflSetup },
+            )
+        }
+
+        Screen.FoxSetup -> {
+            BackHandler { screen = Screen.Home }
+            FoxGameSetupScreen(
+                config = foxDraft,
+                onChange = { foxDraft = it },
+                onBack = { screen = Screen.Home },
+                onNext = { screen = Screen.FoxOpponentSetup },
+            )
+        }
+
+        Screen.FoxOpponentSetup -> {
+            BackHandler { screen = Screen.FoxSetup }
+            FoxOpponentSetupScreen(
+                config = foxDraft,
+                onChange = { foxDraft = it },
+                onBack = { screen = Screen.FoxSetup },
+                onPlay = {
+                    repo.saveLastFoxConfig(foxDraft)
+                    screen = Screen.FoxGame(FoxLaunch.NewGame(foxDraft, ++gameCounter))
+                },
+            )
+        }
+
+        is Screen.FoxGame -> {
+            BackHandler { screen = Screen.Home }
+            FoxScreen(
+                launch = s.launch,
+                onBack = { screen = Screen.Home },
+                onNewGame = { screen = Screen.FoxSetup },
             )
         }
     }
