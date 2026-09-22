@@ -22,11 +22,13 @@ import kotlin.random.Random
 
 enum class TaflResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
-/** Immutable snapshot of the hnefatafl game, consumed by the UI. */
+/** Immutable snapshot of the tafl game, consumed by the UI. */
 data class TaflState(
     val config: TaflConfig = TaflConfig(),
     /** Piece code per square, row by row from the top (see [Tafl.EMPTY] …). */
-    val squares: List<Int> = List(Tafl.SIZE * Tafl.SIZE) { Tafl.EMPTY },
+    val squares: List<Int> = emptyList(),
+    /** Board size of the variant being played. */
+    val size: Int = TaflVariant.COPENHAGEN.size,
     val playerSide: Side = Side.DEFENDERS,
     val sideToMove: Side = Side.ATTACKERS,
     val selected: Pair<Int, Int>? = null,
@@ -57,7 +59,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = GameRepository(app)
     private val engine = OpenTaflEngine()
 
-    private var game: Game = Tafl.newGame()
+    private var game: Game = Tafl.newGame(TaflVariant.COPENHAGEN)
     private val played = ArrayList<Move>()
     private var generation = 0
     private var takebacksUsed = 0
@@ -94,7 +96,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         if (hasGame) { resumeClock(); return true }
         val saved = repo.loadTaflGame() ?: return false
         resetGame(saved.config, saved.playerSide)
-        val (g, moves) = Tafl.replay(saved.moves)
+        val (g, moves) = Tafl.replay(saved.config.variant, saved.moves)
         game = g
         played += moves
         attackersBaseMs = saved.attackersMs ?: 0L
@@ -170,7 +172,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         stopClock()
         clockPaused = false
-        game = Tafl.newGame()
+        game = Tafl.newGame(config.variant)
         played.clear()
         takebacksUsed = 0
         resigned = false
@@ -206,7 +208,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     /** OpenTafl's game object has no undo: rebuild it from the shortened move list. */
     private fun undoOne() {
         played.removeAt(played.size - 1)
-        val (g, moves) = Tafl.replay(played.map { it.toNotation() })
+        val (g, moves) = Tafl.replay(_state.value.config.variant, played.map { it.toNotation() })
         game = g
         played.clear(); played += moves
     }
@@ -354,12 +356,16 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
             result == TaflResult.ENGINE_WINS -> "$engineName won" + (if (player == Side.ATTACKERS) ": the king escaped." else ": the king is taken.")
             result == TaflResult.DRAW -> "Draw."
             _state.value.thinking -> "$engineName is thinking…"
-            toMove == player -> if (player == Side.DEFENDERS) "Your move: get the king to a corner." else "Your move: surround the king."
+            toMove == player -> if (player == Side.DEFENDERS) {
+                if (_state.value.config.variant.escapeToCorners) "Your move: get the king to a corner."
+                else "Your move: get the king to an edge."
+            } else "Your move: surround the king."
             else -> "$engineName to move."
         }
         _state.update {
             it.copy(
                 squares = Tafl.board(game),
+                size = Tafl.size(game),
                 sideToMove = toMove,
                 lastMove = played.lastOrNull(),
                 captured = Tafl.lastCaptures(game),

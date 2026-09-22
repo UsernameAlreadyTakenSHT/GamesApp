@@ -14,7 +14,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), takebacks (unlimited / once / off), move confirmation, auto-queen, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
-| **Hnefatafl** | Copenhagen rules on the 11x11 board (king captured on four sides, escapes to a corner, shieldwall captures, edge forts, encirclement) against OpenTafl's AI. Rules and AI both come from OpenTafl, embedded in the app. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
+| **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 | **Fox games** | **Fox and Hounds** (8x8, 1 fox vs 4 hounds moving forward only; the fox wins by slipping past, the hounds by trapping it — solved, hounds win with perfect play) and **Fox and Geese** (33-point cross board with diagonals, 1 fox vs 13 geese moving any direction; the fox jumps geese in chains, wins under 6 geese; the geese win by cornering it). Against the built-in "Reynard". Same clocks, takebacks, resign, rematch and save/resume. |
 | **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) against the Sanmill engine. Same clocks, takebacks, resign, rematch and save/resume as the other games. |
 
@@ -68,17 +68,29 @@ time-based Max.
 
 Rough feel: depth 1–3 misses simple mills, 5–6 is a solid opponent, 10+ is very hard to beat.
 
-## Hnefatafl opponent
+## Hnefatafl variants and opponent
+
+| Variant | Board | Escape | Notes |
+|---------|-------|--------|-------|
+| **Copenhagen** | 11x11 | Corners | The modern tournament standard: strong king, shieldwall captures, edge forts. |
+| **Fetlar** | 11x11 | Corners | The Fetlar Hnefatafl Panel rules: same forces, no shieldwall or edge forts. |
+| **Tawlbwrdd** | 11x11 | Edges | Welsh: the king is weak (two attackers take him) and any edge square wins. |
+| **Tablut** | 9x9 | Edges | Linnaeus' Sámi game: armed king, strong only on the throne. Shorter games. |
+| **Sea Battle** | 9x9 | Edges | The king takes no part in captures at all. |
+| **Brandub** | 7x7 | Corners | The Irish game, 8 vs 4 and a king: a couple of minutes per game. |
+
+All six come from OpenTafl's own rule sets (`rules/…`), so the app only picks one and draws
+the board at its size.
 
 [OpenTafl](https://github.com/jslater89/OpenTafl) is written in Java, so it is not
 cross-compiled: `opentafl/build.sh` copies its engine core (rules, notation, AI — about
 18 k lines) into `opentafl/java/`, which the app compiles as an extra source set with a few
 stubs (`opentafl/stubs/`) in place of the desktop terminal-UI classes it references. Its
 `GameState` referees the game and `AiWorkspace` (iterative-deepening alpha-beta with
-transposition, killer and history tables) is the opponent; strength is a maximum depth
-(1 → 10) or time-based Max. Depth 1–2 overlooks captures, 4 plays a fair game, 6+ is strong.
-Unit tests check the start position, sliding moves, corner restrictions, a custodial capture,
-notation and an engine move.
+transposition, killer and history tables) is the opponent for every variant; strength is a
+maximum depth (1 → 10) or time-based Max. Depth 1–2 overlooks captures, 4 plays a fair game,
+6+ is strong. Unit tests check each variant's start position and board size, sliding moves,
+corner restrictions, a custodial capture, notation and an engine move.
 
 ## Fox games opponent
 

@@ -111,7 +111,7 @@ fun TaflScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
-                    Text("Hnefatafl", style = MaterialTheme.typography.titleLarge)
+                    Text(state.config.variant.label, style = MaterialTheme.typography.titleLarge)
                 }
                 Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
             }
@@ -122,7 +122,7 @@ fun TaflScreen(
                 active = state.runningClock == state.engineSide, lost = state.result == TaflResult.PLAYER_WINS,
             )
 
-            Board(state, onTap = vm::onSquareTapped)
+            if (state.squares.isNotEmpty()) Board(state, onTap = vm::onSquareTapped)
 
             ClockRow(
                 "You · ${sideName(state.playerSide)}", state.playerSide,
@@ -171,13 +171,16 @@ private fun Board(state: TaflState, onTap: (Int, Int) -> Unit) {
     val last = state.lastMove
     val lastSquares = last?.let { setOf(it.fromX to it.fromY, it.toX to it.toY) } ?: emptySet()
     val captured = state.captured.toSet()
+    val size = state.size
     Column(
         modifier = Modifier.fillMaxWidth().aspectRatio(1f).border(2.dp, SpecialSquare, RoundedCornerShape(4.dp)).padding(2.dp),
     ) {
-        for (y in 0 until Tafl.SIZE) {
+        for (y in 0 until size) {
             Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                for (x in 0 until Tafl.SIZE) {
-                    val special = Tafl.isCorner(x, y) || Tafl.isThrone(x, y)
+                for (x in 0 until size) {
+                    // Corners are the king's goal in corner variants; elsewhere they are just
+                    // restricted squares. The throne is marked in every variant.
+                    val special = Tafl.isCorner(size, x, y) || Tafl.isThrone(size, x, y)
                     val base = if (special) SpecialSquare else if ((x + y) % 2 == 0) Square else SquareAlt
                     val sq = x to y
                     Box(
@@ -195,7 +198,7 @@ private fun Board(state: TaflState, onTap: (Int, Int) -> Unit) {
                         if (sq in state.targets) {
                             Box(modifier = Modifier.fillMaxSize(0.3f).background(Color(0x66000000), CircleShape))
                         }
-                        val piece = state.squares[y * Tafl.SIZE + x]
+                        val piece = state.squares[y * size + x]
                         if (piece != Tafl.EMPTY) {
                             val res = when (piece) {
                                 Tafl.ATTACKER -> R.drawable.tafl_attacker

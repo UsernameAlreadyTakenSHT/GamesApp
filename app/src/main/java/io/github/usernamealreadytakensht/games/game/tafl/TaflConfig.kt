@@ -4,9 +4,9 @@ import io.github.usernamealreadytakensht.games.game.Takebacks
 import io.github.usernamealreadytakensht.games.game.TimeControl
 import org.json.JSONObject
 
-/** Hnefatafl opponents. There is one: OpenTafl's AI, running in-process. */
+/** Tafl opponents. There is one: OpenTafl's AI, running in-process. */
 enum class TaflEngineKind(val label: String, val description: String) {
-    OPENTAFL("OpenTafl", "OpenTafl's alpha-beta search (transposition, killer and history tables) with its Copenhagen evaluation. Depth 1–2 is beatable, 4 plays a fair game, 6+ is strong.");
+    OPENTAFL("OpenTafl", "OpenTafl's alpha-beta search (transposition, killer and history tables) with its own evaluation, which covers every variant. Depth 1–2 is beatable, 4 plays a fair game, 6+ is strong.");
 
     companion object {
         /** Search depth presets; null = time-based (as deep as the thinking time allows). */
@@ -26,8 +26,9 @@ enum class TaflEngineKind(val label: String, val description: String) {
     }
 }
 
-/** Settings of a hnefatafl game. `depth` null = time-based; `playerSide` null = random. */
+/** Settings of a tafl game. `depth` null = time-based; `playerSide` null = random. */
 data class TaflConfig(
+    val variant: TaflVariant = TaflVariant.COPENHAGEN,
     val engine: TaflEngineKind = TaflEngineKind.OPENTAFL,
     val depth: Int? = TaflEngineKind.DEFAULT_DEPTH,
     val playerSide: Tafl.Side? = Tafl.Side.DEFENDERS,
@@ -37,6 +38,7 @@ data class TaflConfig(
     val opponentLabel: String get() = "${engine.label} · ${TaflEngineKind.strengthLabel(depth)}"
 
     fun toJson(): JSONObject = JSONObject().apply {
+        put("variant", variant.name)
         put("engine", engine.name)
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
@@ -46,6 +48,7 @@ data class TaflConfig(
 
     companion object {
         fun fromJson(o: JSONObject): TaflConfig = TaflConfig(
+            variant = runCatching { TaflVariant.valueOf(o.getString("variant")) }.getOrDefault(TaflVariant.COPENHAGEN),
             engine = runCatching { TaflEngineKind.valueOf(o.getString("engine")) }.getOrDefault(TaflEngineKind.OPENTAFL),
             depth = o.optInt("depth", TaflEngineKind.DEFAULT_DEPTH).takeIf { it >= 0 },
             playerSide = when (o.optString("side")) {
