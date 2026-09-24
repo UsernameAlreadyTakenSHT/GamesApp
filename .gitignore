@@ -54,3 +54,6 @@ local.properties
 /marcher/marcher-*
 /marcher/dbgen-*
 /app/src/main/assets/marcher/
+
+# Fairy-Stockfish: cloned sources (see fairy/build.sh)
+/fairy/src/

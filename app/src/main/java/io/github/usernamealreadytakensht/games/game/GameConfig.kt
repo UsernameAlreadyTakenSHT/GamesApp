@@ -17,6 +17,15 @@ enum class EngineFamily(val label: String, val tagline: String, val monogram: St
     PLENTY("PlentyChess", "Top-tier engine in C++.", "Pc", 280f),
     BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
     SUNFISH("Sunfish", "Tiny and beatable.", "Sf", 50f),
+    FAIRY("Fairy-Stockfish", "Stockfish for chess variants. Adjustable Elo.", "FS", 190f),
+    ;
+
+    /** Families that can play [chess960] games: only Fairy-Stockfish plays Fischer random. */
+    fun plays(chess960: Boolean): Boolean = (this == FAIRY) == chess960
+
+    companion object {
+        fun forRules(chess960: Boolean): List<EngineFamily> = entries.filter { it.plays(chess960) }
+    }
 }
 
 /** How the strength of an engine variant is adjusted. */
@@ -126,6 +135,11 @@ enum class EngineKind(
         EngineFamily.RODENT, "Hector", "librodent.so", StrengthKind.ELO,
         "Hand-crafted evaluation only, no neural network: the classical Rodent feel.",
         eloMin = 800, eloMax = 3000, dataDir = "rodent", personality = "personalities/hector.txt",
+    ),
+    FAIRY_STOCKFISH(
+        EngineFamily.FAIRY, "Fairy-Stockfish", "libfairy.so", StrengthKind.ELO,
+        "Stockfish fork for chess variants, here playing Chess960 with its classical evaluation.",
+        eloMin = 500, eloMax = 2850,
     ),
     RODENT_NIMZOID(
         EngineFamily.RODENT, "Nimzoid", "librodent.so", StrengthKind.ELO,
@@ -293,7 +307,16 @@ data class GameConfig(
     val playerSide: Side? = Side.WHITE,
     val timeControl: TimeControl = TimeControl.None,
     val thinking: ThinkingTime = ThinkingTime.NORMAL,
+    /** Fischer random chess: a random start position, played against Fairy-Stockfish. */
+    val chess960: Boolean = false,
 ) {
+    /** Same settings under the other rules, with an engine that plays them. */
+    fun withChess960(on: Boolean): GameConfig {
+        if (on == chess960) return this
+        val next = if (on) EngineKind.FAIRY_STOCKFISH else EngineKind.STOCKFISH_19
+        return copy(chess960 = on, engine = next, strength = next.carryOver(strength, engine))
+    }
+
     val strengthLabel: String get() = engine.strengthLabel(strength)
 
     /** "Stockfish 19 · Elo 1500", "Bad Gyal 8 · 64 nodes", "Maia 1500". */
@@ -306,6 +329,7 @@ data class GameConfig(
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
         put("thinking", thinking.name)
+        put("chess960", chess960)
     }
 
     companion object {
@@ -324,7 +348,12 @@ data class GameConfig(
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
                 thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
-            )
+            ).let { c ->
+                // Keep the engine consistent with the rules (an older save, or a family change).
+                val chess960 = o.optBoolean("chess960", false)
+                if (c.engine.family.plays(chess960)) c.copy(chess960 = chess960)
+                else c.copy(chess960 = !chess960).withChess960(chess960)
+            }
         }
     }
 }

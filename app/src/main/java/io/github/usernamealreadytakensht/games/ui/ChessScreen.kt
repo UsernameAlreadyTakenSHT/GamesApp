@@ -119,7 +119,7 @@ fun ChessScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
-                    Text("Chess", style = MaterialTheme.typography.titleLarge)
+                    Text(if (state.config.chess960) "Chess960" else "Chess", style = MaterialTheme.typography.titleLarge)
                 }
                 Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
             }

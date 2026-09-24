@@ -22,7 +22,7 @@ class SunfishEngine(override val kind: EngineKind) : ChessEngine {
         searcher = Sunfish.Searcher() // drops the killer table between games
     }
 
-    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?): String? =
+    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?, startFen: String?): String? =
         withContext(Dispatchers.Default) {
             val hist = Sunfish.history(moves)
             val s = searcher

@@ -16,6 +16,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Reckless 0.9.0 | https://github.com/codedeliveryservice/Reckless | AGPL-3.0 |
 | PlentyChess 8.0.0 (+ network 0178r) | https://github.com/Yoshie2000/PlentyChess | GPL-3.0 |
 | Berserk 14 (dev 2026-09, + network 9b84c340af7e) | https://github.com/jhonnold/berserk | GPL-3.0 |
+| Fairy-Stockfish (master 2024-09-26, largeboards build, classical evaluation) | https://github.com/fairy-stockfish/Fairy-Stockfish | GPL-3.0 |
 | Sunfish 2026 (Kotlin port in app/.../engine/Sunfish.kt) | https://github.com/thomasahle/sunfish | GPL-3.0 |
 | Maia-3 5M model (exported to ONNX) | https://github.com/CSSLab/maia3 · https://huggingface.co/UofTCSSLab/Maia3-5M | AGPL-3.0 (repository; the Hugging Face model card states no license) |
 | ONNX Runtime (Android) | https://github.com/microsoft/onnxruntime | MIT |

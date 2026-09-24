@@ -22,11 +22,17 @@ interface ChessEngine {
     suspend fun newGame()
 
     /**
-     * Searches the best move from the start position after [moves] (UCI notation), within
+     * Searches the best move from the start position ([startFen], or the standard one) after [moves] (UCI notation), within
      * [moveTimeMs] and, when given, at most [nodes] nodes or [depth] plies.
      * Returns the move in UCI (e.g. "e7e8q"), or null when there is none.
      */
-    suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int? = null, depth: Int? = null): String?
+    suspend fun bestMove(
+        moves: List<String>,
+        moveTimeMs: Int,
+        nodes: Int? = null,
+        depth: Int? = null,
+        startFen: String? = null,
+    ): String?
 
     /** Aborts the running search; [bestMove] then returns promptly. */
     fun stop()

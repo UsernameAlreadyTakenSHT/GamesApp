@@ -12,7 +12,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 
 | Game | Status |
 |------|--------|
-| **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), undo, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
+| **Chess** | Standard chess against the engines below, or **Chess960** (Fischer random: one of the 960 start positions drawn at random, same position kept for the rematch) against Fairy-Stockfish. Two-step setup (rules, colour and clock; then opponent). Clocks (sudden death, Fischer, per move), undo, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | Two rule sets: **International** 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam, and **English checkers** 8x8 (American rules: no flying kings, men capture forward only, free choice of capture) against Marcher. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Both rule sets are pure Kotlin, verified by perft (depth 1–8 from the start position). |
 | **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, undo, resign, rematch and save/resume as the other games. |
 | **Fox games** | Five hunt games against the built-in "Reynard": **Fox and Hounds** (8x8, 1 vs 4, no captures — solved, the hounds win with perfect play), **Fox and Geese** (cross board, 1 vs 13), **Fox and Geese (17)**, **Two Foxes** (2 vs 17) and **Asalto** (2 officers vs 24 sepoys storming a fortress). Same clocks, undo, resign, rematch and save/resume. |
@@ -34,6 +34,11 @@ depends on how the engine can be limited.
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
 | | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
 | <img src="app/src/main/res/drawable-nodpi/logo_sunfish.png" width="32" alt=""> | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
+| | **Fairy-Stockfish** (Chess960 only) | Classical evaluation | `UCI_Elo` | 500–2850, or Max |
+
+Chess960 rules are chesslib's move generation plus Fischer-random castling written for this
+app (`game/ChessSession.kt`: chesslib 1.3.x gets 960 castling wrong), checked by perft against
+Fairy-Stockfish. Castling is played by tapping the rook (or the king's destination square).
 
 Rough feel: the Maia models are the only opponents that play *like a human* (Maia 3 covers 600–2600, the Lc0 Maia networks 1100–1900). Stockfish's Elo
 mode is adjustable but artificial (perfect moves with random errors). The depth-limited
@@ -134,6 +139,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./marcher/build.sh        # English checkers: Marcher + its endgame database (generated on a running emulator)
 ./scan/build.sh           # draughts: Scan + its book/eval data
 ./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
+./fairy/build.sh          # Chess960: Fairy-Stockfish (largeboards build)
 ```
 
 Maia 3 is exported from the PyTorch checkpoint with `maia3/export_onnx.py` (needs a Python venv
@@ -154,6 +160,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Berserk](https://github.com/jhonnold/berserk),
   [Sunfish](https://github.com/thomasahle/sunfish),
   [Rodent V](https://github.com/nescitus/Rodent-V),
+  [Fairy-Stockfish](https://github.com/fairy-stockfish/Fairy-Stockfish),
   [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — GPL-3.0;
   [Marcher](https://github.com/Stermere/Checkers-Engine) — MIT;
   [Reckless](https://github.com/codedeliveryservice/Reckless),
@@ -169,8 +176,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
 - Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Maia icon from the
   Maia platform, Reckless, Sunfish, Rodent V and Sanmill logos from their repositories. PlentyChess has
   no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
-  get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do the
-  draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
+  get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do
+  Fairy-Stockfish (sparkles, no logo upstream) and the draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl
   and fox-game pieces and board icons are drawn for this app.

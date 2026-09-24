@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original sparkle glyph for the Fairy-Stockfish badge (the engine has no logo of its own). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Main four-point star. -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M10,3 C10.6,8.2 11.8,9.4 17,10 C11.8,10.6 10.6,11.8 10,17 C9.4,11.8 8.2,10.6 3,10 C8.2,9.4 9.4,8.2 10,3 Z" />
+    <!-- Two small sparkles. -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M17.5,13.5 C17.8,15.8 18.2,16.2 20.5,16.5 C18.2,16.8 17.8,17.2 17.5,19.5 C17.2,17.2 16.8,16.8 14.5,16.5 C16.8,16.2 17.2,15.8 17.5,13.5 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M18,3 C18.2,4.5 18.5,4.8 20,5 C18.5,5.2 18.2,5.5 18,7 C17.8,5.5 17.5,5.2 16,5 C17.5,4.8 17.8,4.5 18,3 Z" />
+</vector>

@@ -20,11 +20,14 @@ data class SavedGame(
     val uciMoves: List<String>,
     val whiteMs: Long?,
     val blackMs: Long?,
+    /** Chess960 start position (Shredder-FEN); null for standard chess. */
+    val startFen: String? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("config", config.toJson())
         put("playerSide", playerSide.name)
         put("moves", JSONArray(uciMoves))
+        startFen?.let { put("startFen", it) }
         put("whiteMs", whiteMs ?: -1L)
         put("blackMs", blackMs ?: -1L)
     }
@@ -38,6 +41,7 @@ data class SavedGame(
                 uciMoves = List(moves.length()) { moves.getString(it) },
                 whiteMs = o.getLong("whiteMs").takeIf { it >= 0 },
                 blackMs = o.getLong("blackMs").takeIf { it >= 0 },
+                startFen = o.optString("startFen").takeIf { it.isNotEmpty() },
             )
         }
     }

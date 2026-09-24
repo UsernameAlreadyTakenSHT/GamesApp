@@ -48,7 +48,7 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
 
     override suspend fun newGame() = Unit
 
-    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?): String? =
+    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?, startFen: String?): String? =
         withContext(Dispatchers.Default) {
             val s = session ?: error("${kind.label} not started")
             val e = env!!

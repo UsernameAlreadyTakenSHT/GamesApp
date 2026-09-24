@@ -1,13 +1,20 @@
 package io.github.usernamealreadytakensht.games.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.github.bhlangonijr.chesslib.Side
 import io.github.usernamealreadytakensht.games.R
@@ -19,7 +26,13 @@ import io.github.usernamealreadytakensht.games.game.ThinkingTime
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour and clock. [config] is owned by the caller. */
+/** The two rule sets: label, tagline, and whether it is Chess960. */
+private val CHESS_RULES = listOf(
+    Triple("Standard", "Classical setup", false),
+    Triple("Chess960", "Random back rank", true),
+)
+
+/** First setup screen: rules, colour and clock. [config] is owned by the caller. */
 @Composable
 fun GameSetupScreen(
     config: GameConfig,
@@ -28,6 +41,30 @@ fun GameSetupScreen(
     onNext: () -> Unit,
 ) {
     SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+        SectionTitle("Rules")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+            CHESS_RULES.forEach { (label, tagline, is960) ->
+                SelectableCard(config.chess960 == is960, Modifier.weight(1f).fillMaxHeight(), { onChange(config.withChess960(is960)) }) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                        Text(
+                            tagline,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+        if (config.chess960) {
+            Hint("Fischer random: the pieces of the back rank are shuffled (bishops on opposite colours, king between the rooks), one of 960 setups drawn at random. Castling puts king and rook on their usual squares. Played against Fairy-Stockfish.")
+        }
+
         SectionTitle("Your color")
         ColorCards(
             white = R.drawable.piece_lk,
@@ -60,6 +97,7 @@ private val EngineFamily.iconRes: Int?
     get() = when (this) {
         EngineFamily.BERSERK -> R.drawable.ic_engine_berserk
         EngineFamily.PLENTY -> R.drawable.ic_engine_plenty
+        EngineFamily.FAIRY -> R.drawable.ic_engine_fairy
         else -> null
     }
 
@@ -84,12 +122,13 @@ fun OpponentSetupScreen(
         onBack = onBack,
         action = "Play",
         onAction = onPlay,
-        summary = "${config.playerSide?.let { if (it == Side.WHITE) "White" else "Black" } ?: "Random colour"} · " +
+        summary = (if (config.chess960) "Chess960 · " else "") +
+            "${config.playerSide?.let { if (it == Side.WHITE) "White" else "Black" } ?: "Random colour"} · " +
             "${config.timeControl.label} · vs ${config.opponentLabel}",
     ) {
         SectionTitle("Engine")
         // Two cards per row.
-        EngineFamily.entries.chunked(2).forEach { pair ->
+        EngineFamily.forRules(config.chess960).chunked(2).forEach { pair ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.height(IntrinsicSize.Max),

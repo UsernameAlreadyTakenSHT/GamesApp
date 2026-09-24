@@ -72,6 +72,9 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
                     send("setoption name Hash value 64")
                 }
             }
+            // Fairy-Stockfish is only offered for Chess960 (castling as king-takes-rook);
+            // without an EvalFile it plays with its classical evaluation.
+            if (kind.family == EngineFamily.FAIRY) send("setoption name UCI_Chess960 value true")
             kind.personality?.let {
                 send("setoption name PersonalityFile value $it")
                 send("setoption name OwnBook value true") // personalities come with their own book
@@ -113,12 +116,11 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
      * within [moveTimeMs] and, when given, at most [nodes] nodes or [depth] plies.
      * Returns the move in UCI (e.g. "e7e8q"), or null when the engine answers `(none)`.
      */
-    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?): String? =
+    override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?, startFen: String?): String? =
         withContext(Dispatchers.IO) {
             ioLock.withLock {
-                val pos = if (moves.isEmpty()) "position startpos"
-                          else "position startpos moves ${moves.joinToString(" ")}"
-                send(pos)
+                val start = if (startFen == null) "position startpos" else "position fen $startFen"
+                send(if (moves.isEmpty()) start else "$start moves ${moves.joinToString(" ")}")
                 val limit = when {
                     nodes != null -> " nodes $nodes"
                     depth != null -> " depth $depth"

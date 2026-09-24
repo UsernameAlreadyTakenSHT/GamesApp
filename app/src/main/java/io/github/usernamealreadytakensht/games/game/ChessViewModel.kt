@@ -5,13 +5,10 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.usernamealreadytakensht.games.engine.ChessEngine
-import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.PieceType
 import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.Square
-import com.github.bhlangonijr.chesslib.move.Move
-import com.github.bhlangonijr.chesslib.move.MoveList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,9 +60,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     /** Serialises engine start / switch / configure sequences. */
     private val engineLock = Mutex()
     private val repo = GameRepository(app)
-    private val board = Board()
-    private val moveList = MoveList()
-    private val uciMoves = mutableListOf<String>()
+    /** Rules and move history; replaced on every new game (standard or Chess960). */
+    private var session: ChessSession = StandardChess()
+    private val uciMoves: List<String> get() = session.uciMoves
 
     /** Bumped on every new game / undo: invalidates in-flight searches. */
     private var generation = 0
@@ -93,8 +90,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- UI actions
 
-    fun startGame(config: GameConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.WHITE else Side.BLACK)
+    fun startGame(config: GameConfig, startFen: String? = null) {
+        val fen = if (config.chess960) startFen ?: Chess960.startFen(Random.nextInt(960)) else null
+        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.WHITE else Side.BLACK, fen)
         val initial = config.timeControl.startingMs
         whiteBaseMs = initial ?: 0L
         blackBaseMs = initial ?: 0L
@@ -111,12 +109,10 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             return true
         }
         val saved = repo.loadGame() ?: return false
-        resetGame(saved.config, saved.playerSide)
+        resetGame(saved.config, saved.playerSide, saved.startFen)
         for (uci in saved.uciMoves) {
-            val move = parseUci(uci) ?: break
-            board.doMove(move)
-            moveList.add(move)
-            uciMoves += uci
+            val move = session.parseUci(uci) ?: break
+            session.play(move)
         }
         whiteBaseMs = saved.whiteMs ?: 0L
         blackBaseMs = saved.blackMs ?: 0L
@@ -130,20 +126,19 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
         val selected = s.selected
         if (selected != null && square in s.legalTargets) {
-            val promotionRank = if (s.playerSide == Side.WHITE) 7 else 0
-            if (board.getPiece(selected).pieceType == PieceType.PAWN && square.rank.ordinal == promotionRank) {
+            val moves = movesFrom(selected).filter { it.value == square }.map { it.key }
+            if (moves.any { it.promotion != Piece.NONE }) {
                 _state.update { it.copy(pendingPromotion = selected to square) }
             } else {
-                playPlayerMove(Move(selected, square))
+                playPlayerMove(moves.first())
             }
             return
         }
 
         // Select / re-select one of the player's pieces.
-        val piece = board.getPiece(square)
+        val piece = session.pieceAt(square)
         if (piece != Piece.NONE && piece.pieceSide == s.playerSide) {
-            val targets = board.legalMoves().filter { it.from == square }.map { it.to }.toSet()
-            _state.update { it.copy(selected = square, legalTargets = targets) }
+            _state.update { it.copy(selected = square, legalTargets = movesFrom(square).values.toSet()) }
         } else {
             _state.update { it.copy(selected = null, legalTargets = emptySet()) }
         }
@@ -152,7 +147,22 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     fun promote(type: PieceType) {
         val (from, to) = _state.value.pendingPromotion ?: return
         _state.update { it.copy(pendingPromotion = null) }
-        playPlayerMove(Move(from, to, Piece.make(_state.value.playerSide, type)))
+        playPlayerMove(ChessMove(from, to, Piece.make(_state.value.playerSide, type)))
+    }
+
+    /**
+     * Legal moves of the piece on [from], each with the square to tap for it. A castle is
+     * played by tapping the rook, or the king's destination when no other king move goes there.
+     */
+    private fun movesFrom(from: Square): Map<ChessMove, Square> {
+        val moves = session.legalMoves().filter { it.from == from }
+        val plain = moves.filter { !it.isCastle }.map { it.to }.toSet()
+        val out = LinkedHashMap<ChessMove, Square>()
+        for (m in moves) {
+            out[m] = m.to
+            if (m.isCastle && m.castleKingTo != m.to && m.castleKingTo !in plain) out[m.copy(to = m.castleKingTo)] = m.castleKingTo
+        }
+        return out
     }
 
     fun cancelPromotion() {
@@ -165,7 +175,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         if (uciMoves.isEmpty() || s.result != Result.ONGOING || !s.canUndo) return
         cancelSearch()
         undoOne()
-        if (board.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
+        if (session.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
         _state.update {
             it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null)
         }
@@ -187,10 +197,10 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         persist()
     }
 
-    /** New game with the same settings and the colours swapped. */
+    /** New game with the same settings (and Chess960 start position) and the colours swapped. */
     fun rematch() {
         val s = _state.value
-        startGame(s.config.copy(playerSide = s.engineSide))
+        startGame(s.config.copy(playerSide = s.engineSide), session.startFen)
     }
 
     fun flipBoard() = _state.update { it.copy(flipped = !it.flipped) }
@@ -218,13 +228,11 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- game logic
 
-    private fun resetGame(config: GameConfig, side: Side) {
+    private fun resetGame(config: GameConfig, side: Side, startFen: String?) {
         cancelSearch()
         stopClock()
         clockPaused = false
-        board.loadFromFen(START_FEN)
-        moveList.clear()
-        uciMoves.clear()
+        session = if (config.chess960 && startFen != null) Chess960(startFen) else StandardChess()
         flagged = null
         resigned = false
         hasGame = true
@@ -278,7 +286,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         return eng
     }
 
-    private fun playPlayerMove(move: Move) {
+    private fun playPlayerMove(move: ChessMove) {
         applyMove(move)
         _state.update { it.copy(selected = null, legalTargets = emptySet()) }
         publish()
@@ -286,35 +294,34 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         maybeEngineMove()
     }
 
-    private fun applyMove(move: Move) {
-        val mover = board.sideToMove
-        board.doMove(move)
-        moveList.add(move)
-        uciMoves += move.toUci()
+    private fun applyMove(move: ChessMove) {
+        val mover = session.sideToMove
+        // The king-square alias of a castle (see movesFrom) is played as the real move.
+        val real = if (move.isCastle) move.copy(to = move.castleRook!!) else move
+        session.play(real)
         onMovePlayed(mover)
     }
 
     private fun undoOne() {
-        board.undoMove()
-        moveList.removeLast()
-        uciMoves.removeLast()
+        session.undo()
     }
 
     private fun maybeEngineMove() {
         val eng = engine ?: return
         if (!engineReady) return
-        if (board.sideToMove == _state.value.playerSide || isGameOver()) return
+        if (session.sideToMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
         val moves = uciMoves.toList()
         val moveTime = engineMoveTimeMs()
         val nodes = eng.nodesFor(_state.value.config.strength)
         val depth = eng.depthFor(_state.value.config.strength)
+        val startFen = if (session.chess960) session.startFen else null
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
             val uci = try {
-                eng.bestMove(moves, moveTime, nodes, depth)
+                eng.bestMove(moves, moveTime, nodes, depth, startFen)
             } catch (e: Exception) {
                 _state.update { it.copy(engineError = e.message, thinking = false) }
                 publish()
@@ -322,7 +329,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (gen != generation) return@launch // game changed meanwhile
             _state.update { it.copy(thinking = false) }
-            val move = uci?.let { parseUci(it) }
+            val move = uci?.let { session.parseUci(it) }
             if (move != null && !isGameOver()) {
                 applyMove(move)
             }
@@ -335,7 +342,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private fun engineMoveTimeMs(): Int {
         val cfg = _state.value.config
         val base = ((engine?.moveTimeMs(cfg.strength) ?: 1000) * cfg.thinking.factor).toLong()
-        val remaining = currentMs(board.sideToMove) ?: return base.toInt()
+        val remaining = currentMs(session.sideToMove) ?: return base.toInt()
         val budget = when (val tc = _state.value.config.timeControl) {
             is TimeControl.PerMove -> tc.perMoveMs / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
@@ -351,7 +358,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun isGameOver() =
-        resigned || flagged != null || board.isMated || board.isStaleMate || board.isDraw
+        resigned || flagged != null || session.isMate || session.isDraw || session.isStalemate
 
     // ---------------------------------------------------------------- persistence
 
@@ -368,6 +375,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 uciMoves = uciMoves.toList(),
                 whiteMs = currentMs(Side.WHITE),
                 blackMs = currentMs(Side.BLACK),
+                startFen = if (session.chess960) session.startFen else null,
             ),
         )
     }
@@ -413,7 +421,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         turnStartedAt = SystemClock.elapsedRealtime()
-        _state.update { it.copy(runningClock = board.sideToMove) }
+        _state.update { it.copy(runningClock = session.sideToMove) }
         ensureClockTicking()
     }
 
@@ -451,40 +459,17 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- helpers
 
-    private fun parseUci(uci: String): Move? {
-        if (uci.length < 4) return null
-        val from = Square.fromValue(uci.substring(0, 2).uppercase())
-        val to = Square.fromValue(uci.substring(2, 4).uppercase())
-        val promo = uci.getOrNull(4)?.let { c ->
-            val type = when (c.lowercaseChar()) {
-                'q' -> PieceType.QUEEN
-                'r' -> PieceType.ROOK
-                'b' -> PieceType.BISHOP
-                'n' -> PieceType.KNIGHT
-                else -> return null
-            }
-            Piece.make(board.sideToMove, type)
-        }
-        val move = if (promo != null) Move(from, to, promo) else Move(from, to)
-        return board.legalMoves().firstOrNull { it == move }
-    }
-
-    private fun Move.toUci(): String {
-        val p = if (promotion != Piece.NONE) promotion.pieceType.sanSymbol.lowercase() else ""
-        return from.value().lowercase() + to.value().lowercase() + p
-    }
-
     /** Recomputes the snapshot from the board. */
     private fun publish() {
         val player = _state.value.playerSide
         val result = when {
             resigned -> Result.ENGINE_WINS
             flagged != null -> if (flagged == player) Result.ENGINE_WINS else Result.PLAYER_WINS
-            board.isMated -> if (board.sideToMove == player) Result.ENGINE_WINS else Result.PLAYER_WINS
-            board.isStaleMate || board.isDraw -> Result.DRAW
+            session.isMate -> if (session.sideToMove == player) Result.ENGINE_WINS else Result.PLAYER_WINS
+            session.isStalemate || session.isDraw -> Result.DRAW
             else -> Result.ONGOING
         }
-        val inCheck = board.isKingAttacked
+        val inCheck = session.inCheck
         val thinking = _state.value.thinking
         val engineName = _state.value.config.engine.label
         val status = when {
@@ -494,21 +479,20 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             flagged != null -> "Time's up — you win!"
             result == Result.PLAYER_WINS -> "Checkmate — you win!"
             result == Result.ENGINE_WINS -> "Checkmate — $engineName wins."
-            board.isStaleMate -> "Stalemate — draw."
+            result == Result.DRAW && session.isStalemate -> "Stalemate — draw."
             result == Result.DRAW -> "Draw."
             !engineReady -> "Starting $engineName…"
             thinking -> "$engineName is thinking…"
             inCheck -> "Check! Your move."
             else -> "Your move (${if (player == Side.WHITE) "white" else "black"})."
         }
-        val lastMove = moveList.lastOrNull()?.let { it.from to it.to }
         _state.update {
             it.copy(
-                pieces = List(64) { i -> board.getPiece(Square.squareAt(i)) },
-                sideToMove = board.sideToMove,
-                lastMove = lastMove,
-                checkedKing = if (inCheck) board.getKingSquare(board.sideToMove) else null,
-                sanMoves = moveList.toSanArray().toList(),
+                pieces = List(64) { i -> session.pieceAt(Square.squareAt(i)) },
+                sideToMove = session.sideToMove,
+                lastMove = session.lastMove,
+                checkedKing = if (inCheck) session.kingSquare(session.sideToMove) else null,
+                sanMoves = session.sanMoves,
                 result = result,
                 statusText = status,
                 resigned = resigned,
@@ -522,7 +506,4 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         engine?.quit()
     }
 
-    companion object {
-        private const val START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    }
 }
