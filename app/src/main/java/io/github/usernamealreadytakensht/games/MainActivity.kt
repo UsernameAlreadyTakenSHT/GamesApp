@@ -13,8 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import io.github.usernamealreadytakensht.games.game.GameRepository
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
 import io.github.usernamealreadytakensht.games.ui.ChessLaunch
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsLaunch
+import io.github.usernamealreadytakensht.games.ui.draughts.CheckersScreen
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsScreen
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsGameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsOpponentSetupScreen
@@ -157,11 +159,24 @@ private fun App() {
 
         is Screen.DraughtsGame -> {
             BackHandler { screen = Screen.Home }
-            DraughtsScreen(
-                launch = s.launch,
-                onBack = { screen = Screen.Home },
-                onNewGame = { screen = Screen.DraughtsSetup },
-            )
+            // A new game carries its rules; a resumed one takes them from the save.
+            val variant = when (val l = s.launch) {
+                is DraughtsLaunch.NewGame -> l.config.variant
+                DraughtsLaunch.Resume -> repo.loadDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
+            }
+            if (variant == DraughtsVariant.ENGLISH) {
+                CheckersScreen(
+                    launch = s.launch,
+                    onBack = { screen = Screen.Home },
+                    onNewGame = { screen = Screen.DraughtsSetup },
+                )
+            } else {
+                DraughtsScreen(
+                    launch = s.launch,
+                    onBack = { screen = Screen.Home },
+                    onNewGame = { screen = Screen.DraughtsSetup },
+                )
+            }
         }
 
         Screen.MorrisSetup -> {

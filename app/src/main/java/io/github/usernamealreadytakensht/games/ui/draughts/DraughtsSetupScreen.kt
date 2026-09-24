@@ -1,23 +1,33 @@
 package io.github.usernamealreadytakensht.games.ui.draughts
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsEngineKind
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
 import io.github.usernamealreadytakensht.games.ui.ClockSection
 import io.github.usernamealreadytakensht.games.ui.ColorCards
 import io.github.usernamealreadytakensht.games.ui.EngineBadge
 import io.github.usernamealreadytakensht.games.ui.Hint
 import io.github.usernamealreadytakensht.games.ui.OpponentCard
 import io.github.usernamealreadytakensht.games.ui.SectionTitle
+import io.github.usernamealreadytakensht.games.ui.SelectableCard
 import io.github.usernamealreadytakensht.games.ui.Segmented
 import io.github.usernamealreadytakensht.games.ui.SetupScaffold
 import io.github.usernamealreadytakensht.games.ui.StrengthCard
@@ -29,7 +39,7 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
 
 // ---------------------------------------------------------------- screen 1: game
 
-/** First setup screen: colour and clock. [config] is owned by the caller. */
+/** First setup screen: rules, colour and clock. [config] is owned by the caller. */
 @Composable
 fun DraughtsGameSetupScreen(
     config: DraughtsConfig,
@@ -38,6 +48,28 @@ fun DraughtsGameSetupScreen(
     onNext: () -> Unit,
 ) {
     SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+        SectionTitle("Rules")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
+            DraughtsVariant.entries.forEach { v ->
+                SelectableCard(config.variant == v, Modifier.weight(1f).fillMaxHeight(), { onChange(config.withVariant(v)) }) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(v.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                        Text(
+                            v.tagline,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+        Hint(config.variant.description)
+
         SectionTitle("Your color")
         ColorCards(
             white = R.drawable.stone_l1,
@@ -47,7 +79,6 @@ fun DraughtsGameSetupScreen(
         )
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
-
     }
 }
 
@@ -57,25 +88,29 @@ private val DraughtsEngineKind.tagline: String
     get() = when (this) {
         DraughtsEngineKind.SCAN -> "Computer-olympiad champion."
         DraughtsEngineKind.MOBYDAM -> "Strong, different style."
+        DraughtsEngineKind.MARCHER -> "NNUE checkers engine."
     }
 
 private val DraughtsEngineKind.monogram: String
     get() = when (this) {
         DraughtsEngineKind.SCAN -> "Sc"
         DraughtsEngineKind.MOBYDAM -> "MD"
+        DraughtsEngineKind.MARCHER -> "Ma"
     }
 
 private val DraughtsEngineKind.hue: Float
     get() = when (this) {
         DraughtsEngineKind.SCAN -> 170f
         DraughtsEngineKind.MOBYDAM -> 220f
+        DraughtsEngineKind.MARCHER -> 280f
     }
 
-/** Neither engine has a logo, so the badges carry glyphs drawn for this app. */
+/** None of the engines has a logo, so the badges carry glyphs drawn for this app. */
 private val DraughtsEngineKind.iconRes: Int
     get() = when (this) {
         DraughtsEngineKind.SCAN -> R.drawable.ic_engine_scan
         DraughtsEngineKind.MOBYDAM -> R.drawable.ic_engine_mobydam
+        DraughtsEngineKind.MARCHER -> R.drawable.ic_engine_marcher
     }
 
 private fun depthDescription(depth: Int?): String = when {
@@ -104,12 +139,14 @@ fun DraughtsOpponentSetupScreen(
         onBack = onBack,
         action = "Play",
         onAction = onPlay,
-        summary = "${config.playerSide?.let { if (it == Draughts.Color.WHITE) "White" else "Black" } ?: "Random colour"} · " +
+        summary = "${config.variant.label} · " +
+            "${config.playerSide?.let { if (it == Draughts.Color.WHITE) "White" else "Black" } ?: "Random colour"} · " +
             "${config.timeControl.label} · vs ${config.opponentLabel}",
     ) {
         SectionTitle("Engine")
+        val engines = DraughtsEngineKind.of(config.variant)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
-            DraughtsEngineKind.entries.forEach { e ->
+            engines.forEach { e ->
                 OpponentCard(
                     label = e.label,
                     tagline = e.tagline,
@@ -118,6 +155,7 @@ fun DraughtsOpponentSetupScreen(
                     onClick = { onChange(config.copy(engine = e)) },
                 ) { EngineBadge(logo = null, monogram = e.monogram, hue = e.hue, icon = e.iconRes) }
             }
+            if (engines.size == 1) Spacer(Modifier.weight(1f))
         }
         Hint(config.engine.description)
 
@@ -132,6 +170,6 @@ fun DraughtsOpponentSetupScreen(
             rangeEnd = "Max",
             onIndex = { onChange(config.copy(depth = presets[it])) },
         )
-        Hint("Neither engine has a rating limiter: depth is the only handicap.")
+        Hint("No rating limiter: depth is the handicap.")
     }
 }

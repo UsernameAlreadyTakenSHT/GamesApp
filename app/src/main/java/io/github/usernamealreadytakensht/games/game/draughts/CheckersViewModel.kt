@@ -4,14 +4,13 @@ import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.usernamealreadytakensht.games.engine.draughts.DraughtsEngine
-import io.github.usernamealreadytakensht.games.engine.draughts.HubEngine
+import io.github.usernamealreadytakensht.games.engine.draughts.MarcherEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedDraughtsGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
+import io.github.usernamealreadytakensht.games.game.draughts.Checkers.Move
+import io.github.usernamealreadytakensht.games.game.draughts.Checkers.Position
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts.Color
-import io.github.usernamealreadytakensht.games.game.draughts.Draughts.Move
-import io.github.usernamealreadytakensht.games.game.draughts.Draughts.Position
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,22 +22,20 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.random.Random
 
-enum class DraughtsResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
-
-/** Immutable snapshot of the draughts game, consumed by the UI. */
-data class DraughtsState(
-    val config: DraughtsConfig = DraughtsConfig(),
-    /** Piece codes per square (index 1..50, see [Draughts]). */
-    val squares: List<Int> = List(51) { Draughts.EMPTY },
-    val playerSide: Color = Color.WHITE,
-    val sideToMove: Color = Color.WHITE,
+/** Immutable snapshot of an English-checkers game, consumed by the UI. */
+data class CheckersState(
+    val config: DraughtsConfig = DraughtsConfig(variant = DraughtsVariant.ENGLISH, engine = DraughtsEngineKind.MARCHER),
+    /** Piece codes per square 0..63 (see [Checkers]). */
+    val squares: List<Int> = List(64) { Checkers.EMPTY },
+    val playerSide: Color = Color.BLACK,
+    val sideToMove: Color = Color.BLACK,
     val selected: Int? = null,
     /** Landing squares chosen so far of a multi-capture being entered. */
     val partialPath: List<Int> = emptyList(),
     /** Squares the current selection may go to next (or finish on). */
     val targets: Set<Int> = emptySet(),
     val lastMove: Move? = null,
-    /** Moves in Hub notation, for the move list. */
+    /** Moves in standard notation ("11-15", "22x15"), for the move list. */
     val moves: List<String> = emptyList(),
     val thinking: Boolean = false,
     val result: DraughtsResult = DraughtsResult.ONGOING,
@@ -55,15 +52,16 @@ data class DraughtsState(
     fun clockMs(side: Color): Long? = if (side == Color.WHITE) whiteMs else blackMs
 }
 
-class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
+/** English checkers against Marcher. Same flow as [DraughtsViewModel], on the 8x8 rules. */
+class CheckersViewModel(app: Application) : AndroidViewModel(app) {
 
     private val app = app
     private val repo = GameRepository(app)
-    private var engine: DraughtsEngine? = null
+    private var engine: MarcherEngine? = null
     private val engineLock = Mutex()
     private var engineReady = false
 
-    private var position: Position = Draughts.START
+    private var position: Position = Checkers.START
     private val history = ArrayList<Position>()   // positions before each move, plus current
     private val played = ArrayList<Move>()
     private var generation = 0
@@ -73,15 +71,14 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     var hasGame = false
         private set
 
-    // Clock: remaining time frozen at the start of the turn + when the turn started.
     private var whiteBaseMs = 0L
     private var blackBaseMs = 0L
     private var turnStartedAt = 0L
     private var clockJob: Job? = null
     private var clockPaused = false
 
-    private val _state = MutableStateFlow(DraughtsState())
-    val state: StateFlow<DraughtsState> = _state
+    private val _state = MutableStateFlow(CheckersState())
+    val state: StateFlow<CheckersState> = _state
 
     init { publish() }
 
@@ -95,13 +92,12 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         finishLoad()
     }
 
-    /** Resumes the saved game if any; a game already held by this ViewModel is kept. */
     fun resumeGame(): Boolean {
         if (hasGame) { resumeClock(); return true }
-        val saved = repo.loadDraughtsGame()?.takeIf { it.config.variant == DraughtsVariant.INTERNATIONAL } ?: return false
+        val saved = repo.loadDraughtsGame()?.takeIf { it.config.variant == DraughtsVariant.ENGLISH } ?: return false
         resetGame(saved.config, saved.playerSide)
-        for (hub in saved.moves) {
-            val m = Draughts.parseHub(position, hub) ?: break
+        for (text in saved.moves) {
+            val m = Checkers.parse(position, text) ?: break
             applyMove(m, clock = false)
         }
         whiteBaseMs = saved.whiteMs ?: 0L
@@ -112,16 +108,16 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onSquareTapped(sq: Int) {
         val s = _state.value
-        if (!s.isPlayerTurn || sq !in 1..50) return
+        if (!s.isPlayerTurn || sq !in 0 until 64 || !Checkers.isDark(sq)) return
         val selected = s.selected
 
         if (selected != null) {
             val candidates = candidatesFor(selected, s.partialPath)
-            // Candidates whose next landing square is the tapped one: step into the capture,
-            // playing it outright when only one move continues that way.
-            val stepping = candidates.filter { it.path.getOrNull(s.partialPath.size) == sq }
+            // The path entered so far always starts with the selected piece's square.
+            val entered = if (s.partialPath.isEmpty()) listOf(selected) else s.partialPath
+            val stepping = candidates.filter { it.path.getOrNull(entered.size) == sq }
             if (stepping.isNotEmpty()) {
-                val path = s.partialPath + sq
+                val path = entered + sq
                 val complete = stepping.filter { it.path == path }
                 if (stepping.size == 1) { playPlayerMove(stepping[0]); return }
                 if (complete.size == stepping.size) { playPlayerMove(complete[0]); return }
@@ -131,25 +127,27 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             // A tap on a final square that identifies one move plays it (skipping the steps).
             val finishing = candidates.filter { it.to == sq }
             if (finishing.size == 1) { playPlayerMove(finishing[0]); return }
-            if (finishing.size > 1) return // ambiguous: the user has to tap the intermediate squares
+            if (finishing.size > 1) return
         }
 
-        // Select / re-select one of the player's pieces.
-        val moves = Draughts.legalMoves(position).filter { it.from == sq }
-        if (Draughts.colorOf(position[sq]) == s.playerSide && moves.isNotEmpty()) {
-            _state.update { it.copy(selected = sq, partialPath = emptyList(), targets = targetsFor(moves, emptyList())) }
+        val moves = Checkers.legalMoves(position).filter { it.from == sq }
+        if (Checkers.colorOf(position[sq]) == s.playerSide && moves.isNotEmpty()) {
+            _state.update { it.copy(selected = sq, partialPath = emptyList(), targets = targetsFor(moves, listOf(sq))) }
         } else {
             _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
         }
     }
 
-    private fun candidatesFor(from: Int, partial: List<Int>): List<Move> =
-        Draughts.legalMoves(position).filter { it.from == from && it.path.take(partial.size) == partial }
+    /** Legal moves from [from] that follow the path entered so far ([partial] starts with [from]). */
+    private fun candidatesFor(from: Int, partial: List<Int>): List<Move> {
+        val prefix = if (partial.isEmpty()) listOf(from) else partial
+        return Checkers.legalMoves(position).filter { it.from == from && it.path.take(prefix.size) == prefix }
+    }
 
-    private fun targetsFor(candidates: List<Move>, partial: List<Int>): Set<Int> =
-        candidates.mapNotNull { it.path.getOrNull(partial.size) }.toSet() + candidates.map { it.to }
+    /** Next landing squares after [path], plus every final square. */
+    private fun targetsFor(candidates: List<Move>, path: List<Int>): Set<Int> =
+        candidates.mapNotNull { it.path.getOrNull(path.size) }.toSet() + candidates.map { it.to }
 
-    /** Takes back the player's last move (and the engine's reply, if any). */
     fun undo() {
         val s = _state.value
         if (played.isEmpty() || !s.canUndo) return
@@ -202,14 +200,15 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         stopClock()
         clockPaused = false
-        position = Draughts.START
+        position = Checkers.START
         history.clear(); history += position
         played.clear()
         resigned = false
         flagged = null
         hasGame = true
+        // Black starts at the bottom of our board: flip when the player takes White.
         _state.update {
-            it.copy(config = config, playerSide = side, flipped = side == Color.BLACK,
+            it.copy(config = config, playerSide = side, flipped = side == Color.WHITE,
                 selected = null, partialPath = emptyList(), targets = emptySet(), runningClock = null)
         }
     }
@@ -221,10 +220,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         val config = _state.value.config
         viewModelScope.launch {
             try {
-                engineLock.withLock {
-                    val eng = ensureEngine(config.engine)
-                    eng.newGame()
-                }
+                engineLock.withLock { ensureEngine(config.engine) }
             } catch (e: Exception) {
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
@@ -234,13 +230,13 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun ensureEngine(kind: DraughtsEngineKind): DraughtsEngine {
+    private suspend fun ensureEngine(kind: DraughtsEngineKind): MarcherEngine {
         engine?.let { if (it.kind == kind && it.isRunning) return it }
         engineReady = false
         engine?.quit()
         _state.update { it.copy(engineError = null) }
         publish()
-        val eng = HubEngine(app, kind)
+        val eng = MarcherEngine(app, kind)
         engine = eng
         eng.start()
         engineReady = true
@@ -258,7 +254,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applyMove(move: Move, clock: Boolean) {
         val mover = position.toMove
-        position = Draughts.play(position, move)
+        position = Checkers.play(position, move)
         history += position
         played += move
         if (clock) onMovePlayed(mover)
@@ -270,24 +266,23 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         position = history.last()
     }
 
-    /** Consecutive plies without a capture or a man move (draw counter, repetition window). */
-    private val quietKingMoves: Int
+    private val quietPlies: Int
         get() {
             var n = 0
             for (i in played.indices.reversed()) {
-                if (Draughts.isProgress(history[i], played[i])) break
+                if (Checkers.isProgress(history[i], played[i])) break
                 n++
             }
             return n
         }
 
-    private fun outcome(): Draughts.Outcome = when {
-        resigned -> if (_state.value.playerSide == Color.WHITE) Draughts.Outcome.BLACK_WINS else Draughts.Outcome.WHITE_WINS
-        flagged != null -> if (flagged == Color.WHITE) Draughts.Outcome.BLACK_WINS else Draughts.Outcome.WHITE_WINS
-        else -> Draughts.outcome(position, history.dropLast(1), quietKingMoves)
+    private fun outcome(): Checkers.Outcome = when {
+        resigned -> if (_state.value.playerSide == Color.WHITE) Checkers.Outcome.BLACK_WINS else Checkers.Outcome.WHITE_WINS
+        flagged != null -> if (flagged == Color.WHITE) Checkers.Outcome.BLACK_WINS else Checkers.Outcome.WHITE_WINS
+        else -> Checkers.outcome(position, history.dropLast(1), quietPlies)
     }
 
-    private fun isGameOver() = outcome() != Draughts.Outcome.ONGOING
+    private fun isGameOver() = outcome() != Checkers.Outcome.ONGOING
 
     private fun maybeEngineMove() {
         val eng = engine ?: return
@@ -297,15 +292,12 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         val gen = ++generation
         val cfg = _state.value.config
         val pos = position
-        // Reversible moves since the last capture / man move, for repetition detection.
-        val n = quietKingMoves
-        val kingMoves = played.takeLast(n).map { it.toHub() }
         val moveTime = engineMoveTimeMs()
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val hub = try {
-                eng.bestMove(pos, kingMoves, cfg.depth, moveTime)
+            val move = try {
+                engineLock.withLock { eng.bestMove(pos, cfg.depth, moveTime) }
             } catch (e: Exception) {
                 _state.update { it.copy(engineError = e.message, thinking = false) }
                 publish()
@@ -313,8 +305,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (gen != generation) return@launch
             _state.update { it.copy(thinking = false) }
-            val move = hub?.let { Draughts.parseHub(position, it) }
-            if (move != null && !isGameOver()) applyMove(move, clock = true)
+            if (move != null && move in Checkers.legalMoves(position) && !isGameOver()) applyMove(move, clock = true)
             publish()
             persist()
         }
@@ -322,7 +313,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun engineMoveTimeMs(): Int {
         val cfg = _state.value.config
-        val base = if (cfg.depth == null) 1500L else 8000L
+        val base = if (cfg.depth == null) 1500L else 6000L
         val remaining = currentMs(position.toMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
             is TimeControl.PerMove -> tc.perMoveMs / 2
@@ -334,7 +325,6 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun cancelSearch() {
         generation++
-        if (_state.value.thinking) engine?.stop()
         _state.update { it.copy(thinking = false) }
     }
 
@@ -347,7 +337,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             SavedDraughtsGame(
                 config = _state.value.config,
                 playerSide = _state.value.playerSide,
-                moves = played.map { it.toHub() },
+                moves = played.map { Checkers.notation(it) },
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
             ),
@@ -422,15 +412,14 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private fun publish() {
         val player = _state.value.playerSide
         val engineName = _state.value.config.engine.label
-        val out = outcome()
-        val result = when (out) {
-            Draughts.Outcome.ONGOING -> DraughtsResult.ONGOING
-            Draughts.Outcome.DRAW -> DraughtsResult.DRAW
-            Draughts.Outcome.WHITE_WINS -> if (player == Color.WHITE) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
-            Draughts.Outcome.BLACK_WINS -> if (player == Color.BLACK) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
+        val result = when (outcome()) {
+            Checkers.Outcome.ONGOING -> DraughtsResult.ONGOING
+            Checkers.Outcome.DRAW -> DraughtsResult.DRAW
+            Checkers.Outcome.WHITE_WINS -> if (player == Color.WHITE) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
+            Checkers.Outcome.BLACK_WINS -> if (player == Color.BLACK) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
         }
         val mustCapture = result == DraughtsResult.ONGOING && position.toMove == player &&
-            Draughts.legalMoves(position).firstOrNull()?.isCapture == true
+            Checkers.legalMoves(position).firstOrNull()?.isCapture == true
         val status = when {
             _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned — $engineName wins."
@@ -447,10 +436,10 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.update {
             it.copy(
-                squares = List(51) { i -> if (i == 0) Draughts.EMPTY else position[i] },
+                squares = List(64) { i -> position[i] },
                 sideToMove = position.toMove,
                 lastMove = played.lastOrNull(),
-                moves = played.map { m -> m.toHub() },
+                moves = played.map { m -> Checkers.notation(m) },
                 result = result,
                 statusText = status,
                 whiteMs = currentMs(Color.WHITE),

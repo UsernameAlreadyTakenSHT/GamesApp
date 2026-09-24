@@ -13,7 +13,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 | Game | Status |
 |------|--------|
 | **Chess** | Playable against the engines below. Two-step setup (colour, clock and options; then opponent). Clocks (sudden death, Fischer, per move), undo, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
-| **Draughts** | International 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Rules are a pure-Kotlin engine verified by perft (depth 1–8 from the start position). |
+| **Draughts** | Two rule sets: **International** 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam, and **English checkers** 8x8 (American rules: no flying kings, men capture forward only, free choice of capture) against Marcher. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Both rule sets are pure Kotlin, verified by perft (depth 1–8 from the start position). |
 | **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, undo, resign, rematch and save/resume as the other games. |
 | **Fox games** | Five hunt games against the built-in "Reynard": **Fox and Hounds** (8x8, 1 vs 4, no captures — solved, the hounds win with perfect play), **Fox and Geese** (cross board, 1 vs 13), **Fox and Geese (17)**, **Two Foxes** (2 vs 17) and **Asalto** (2 officers vs 24 sepoys storming a fortress). Same clocks, undo, resign, rematch and save/resume. |
 | **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) and **Lasker Morris** (ten men, place or slide on every turn), against the Sanmill engine. Same clocks, undo, resign, rematch and save/resume as the other games. |
@@ -45,13 +45,13 @@ library directory); Sunfish is Kotlin code. Only one engine process lives at a t
 
 ## Draughts opponents
 
-Both speak the Hub protocol (Scan's `protocol.txt`); neither has a rating limiter, so
-strength is a search depth (1 → 20) or time-based Max.
+None of them has a rating limiter, so strength is a search depth (1 → 20) or time-based Max.
 
-| Engine | Notes |
-|--------|-------|
-| **Scan** 3.1 (C++) | Fabien Letouzey's computer-olympiad champion. Ships with its opening book and evaluation weights (~11 MB), no endgame bitbases. Book randomness on for variety. |
-| **Moby Dam** (C) | Harm Jetten's engine, a notch below Scan. Evaluation tables and book (~1.5 MB). Launched with a 16 MiB transposition table (`-t 20`). |
+| | Engine | Rules | Notes |
+|--|--------|-------|-------|
+| | **Scan** 3.1 (C++) | International | Fabien Letouzey's computer-olympiad champion, over the Hub protocol (Scan's `protocol.txt`). Ships with its opening book and evaluation weights (~11 MB), no endgame bitbases. Book randomness on for variety. |
+| | **Moby Dam** (C) | International | Harm Jetten's engine, a notch below Scan, also over Hub. Evaluation tables and book (~1.5 MB). Launched with a 16 MiB transposition table (`-t 20`). |
+| | **Marcher** (C) | English checkers | Collin Kees' engine: alpha-beta with an NNUE evaluation, about KingsRow's strength (−50 Elo at 0.5 s/move by its author's tests). It has no command-line host, so `marcher/cli.c` adds a small stdin/stdout protocol; captures are played one jump per search, continued with the engine's `forced` square. Ships with its own 4-piece endgame database (~18 MB, ~4 MB compressed), generated at build time by the engine's `db_gen.c`. |
 
 Rough feel: depth 1–3 drops material to simple shots, depth 6 is a solid club game, depth
 12+ is far beyond human level.
@@ -131,6 +131,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./rodent/build.sh         # needs Go (a plain unzip of the official SDK is enough)
 ./sanmill/build.sh        # morris: Sanmill's Rust engine (rustup; see the script for the Windows quirks)
 ./opentafl/build.sh       # hnefatafl: copies OpenTafl's Java core into opentafl/java (no toolchain needed)
+./marcher/build.sh        # English checkers: Marcher + its endgame database (generated on a running emulator)
 ./scan/build.sh           # draughts: Scan + its book/eval data
 ./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
 ```
@@ -154,6 +155,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Sunfish](https://github.com/thomasahle/sunfish),
   [Rodent V](https://github.com/nescitus/Rodent-V),
   [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — GPL-3.0;
+  [Marcher](https://github.com/Stermere/Checkers-Engine) — MIT;
   [Reckless](https://github.com/codedeliveryservice/Reckless),
   [Sanmill](https://github.com/calcitem/Sanmill) — AGPL-3.0;
   [OpenTafl](https://github.com/jslater89/OpenTafl) — Free-As-In-Beer license (modified: the

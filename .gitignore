@@ -48,3 +48,9 @@ local.properties
 # OpenTafl: cloned sources (see opentafl/build.sh)
 /opentafl/src/
 /opentafl/java/
+
+# Marcher (checkers): cloned sources, build outputs, generated endgame database (see marcher/build.sh)
+/marcher/src/
+/marcher/marcher-*
+/marcher/dbgen-*
+/app/src/main/assets/marcher/
