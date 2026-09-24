@@ -1,6 +1,5 @@
 package io.github.usernamealreadytakensht.games.ui.fox
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -10,13 +9,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.usernamealreadytakensht.games.R
@@ -39,9 +36,6 @@ import io.github.usernamealreadytakensht.games.ui.StrengthCard
  * The fox games use the same two-step setup as the other games: variant, side, clock and
  * clock first, then the opponent and its search depth.
  */
-
-private val FoxVariant.icon: Int
-    get() = if (this == FoxVariant.HOUNDS) R.drawable.ic_fox_board else R.drawable.ic_geese_board
 
 private val FoxVariant.hunterIcon: Int
     get() = if (this == FoxVariant.HOUNDS) R.drawable.fox_hound else R.drawable.fox_goose
@@ -67,7 +61,6 @@ fun FoxGameSetupScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Image(painterResource(v.icon), contentDescription = null, modifier = Modifier.size(40.dp))
                             Text(v.label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1)
                             Text(
                                 v.tagline,
