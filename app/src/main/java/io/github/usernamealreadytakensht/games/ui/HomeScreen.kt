@@ -2,6 +2,8 @@ package io.github.usernamealreadytakensht.games.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -16,7 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,17 +85,30 @@ fun HomeScreen(
 @Composable
 private fun GameCard(tile: GameTile, modifier: Modifier) {
     Card(onClick = tile.onOpen, modifier = modifier) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 12.dp, start = 12.dp, end = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Image(painterResource(tile.icon), contentDescription = null, modifier = Modifier.size(64.dp))
-            Text(tile.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 16.dp, start = 12.dp, end = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Image(painterResource(tile.icon), contentDescription = null, modifier = Modifier.size(64.dp))
+                Text(tile.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+            }
+            // The resume link sits over the top-right corner, so a saved game never resizes the tile.
             if (tile.resumable) {
-                TextButton(onClick = tile.onResume) { Text("Resume") }
-            } else {
-                Spacer(Modifier.height(4.dp))
+                Surface(
+                    onClick = tile.onResume,
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                ) {
+                    Text(
+                        "Resume",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
             }
         }
     }
