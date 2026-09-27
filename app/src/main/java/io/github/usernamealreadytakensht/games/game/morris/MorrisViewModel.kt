@@ -178,6 +178,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
         _state.update { it.copy(engineError = null) }
+        // Time already spent on this turn is not refunded.
+        chargeRunningClock()
         restartTurnClock()
         publish()
         persist()
@@ -214,14 +216,17 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
 
+    /** Freezes the running side's remaining time as its base (the turn's time is spent). */
+    private fun chargeRunningClock() {
+        val running = _state.value.runningClock ?: return
+        val left = currentMs(running) ?: 0L
+        if (running == Color.WHITE) whiteBaseMs = left else blackBaseMs = left
+    }
+
     fun pauseClock() {
         if (!hasClock() || clockPaused) return
         clockPaused = true
-        val running = _state.value.runningClock
-        if (running != null) {
-            val left = currentMs(running) ?: 0L
-            if (running == Color.WHITE) whiteBaseMs = left else blackBaseMs = left
-        }
+        chargeRunningClock()
         stopClock()
         persist()
     }

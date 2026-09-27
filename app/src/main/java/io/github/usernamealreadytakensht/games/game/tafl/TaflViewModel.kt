@@ -125,6 +125,8 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         undoOne()
         if (Tafl.sideToMove(game) != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
+        // Time already spent on this turn is not refunded.
+        chargeRunningClock()
         restartTurnClock()
         publish()
         persist()
@@ -143,14 +145,17 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
 
+    /** Freezes the running side's remaining time as its base (the turn's time is spent). */
+    private fun chargeRunningClock() {
+        val running = _state.value.runningClock ?: return
+        val left = currentMs(running) ?: 0L
+        if (running == Side.ATTACKERS) attackersBaseMs = left else defendersBaseMs = left
+    }
+
     fun pauseClock() {
         if (!hasClock() || clockPaused) return
         clockPaused = true
-        val running = _state.value.runningClock
-        if (running != null) {
-            val left = currentMs(running) ?: 0L
-            if (running == Side.ATTACKERS) attackersBaseMs = left else defendersBaseMs = left
-        }
+        chargeRunningClock()
         stopClock()
         persist()
     }

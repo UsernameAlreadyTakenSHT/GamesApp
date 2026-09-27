@@ -186,6 +186,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null, engineError = null)
         }
         // The clock restarts for the side to move; time already spent is not refunded.
+        chargeRunningClock()
         restartTurnClock()
         publish()
         persist()
@@ -229,15 +230,18 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     fun flipBoard() = _state.update { it.copy(flipped = !it.flipped) }
 
+    /** Freezes the running side's remaining time as its base (the turn's time is spent). */
+    private fun chargeRunningClock() {
+        val running = _state.value.runningClock ?: return
+        val left = currentMs(running) ?: 0L
+        if (running == Side.WHITE) whiteBaseMs = left else blackBaseMs = left
+    }
+
     /** Freezes the running clock (app in background, screen left). */
     fun pauseClock() {
         if (!hasClock() || clockPaused) return
         clockPaused = true
-        val running = _state.value.runningClock
-        if (running != null) {
-            val left = currentMs(running) ?: 0L
-            if (running == Side.WHITE) whiteBaseMs = left else blackBaseMs = left
-        }
+        chargeRunningClock()
         stopClock()
         persist()
     }

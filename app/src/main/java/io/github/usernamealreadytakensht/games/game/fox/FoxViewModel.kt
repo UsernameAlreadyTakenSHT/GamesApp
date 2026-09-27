@@ -122,6 +122,8 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
+        // Time already spent on this turn is not refunded.
+        chargeRunningClock()
         restartTurnClock()
         publish()
         persist()
@@ -140,14 +142,17 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
 
+    /** Freezes the running side's remaining time as its base (the turn's time is spent). */
+    private fun chargeRunningClock() {
+        val running = _state.value.runningClock ?: return
+        val left = currentMs(running) ?: 0L
+        if (running == Side.FOX) foxBaseMs = left else huntersBaseMs = left
+    }
+
     fun pauseClock() {
         if (!hasClock() || clockPaused) return
         clockPaused = true
-        val running = _state.value.runningClock
-        if (running != null) {
-            val left = currentMs(running) ?: 0L
-            if (running == Side.FOX) foxBaseMs = left else huntersBaseMs = left
-        }
+        chargeRunningClock()
         stopClock()
         persist()
     }
