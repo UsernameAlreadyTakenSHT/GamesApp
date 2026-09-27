@@ -81,7 +81,7 @@ fun ShogiGameSetupScreen(
             }
         }
 
-        ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
+        ClockSection(config.timeControl, byoyomi = true) { onChange(config.copy(timeControl = it)) }
     }
 }
 

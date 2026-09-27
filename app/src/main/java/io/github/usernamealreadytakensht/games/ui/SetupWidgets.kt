@@ -172,7 +172,7 @@ private fun ColorCard(label: String, icons: List<Int>, selected: Boolean, modifi
 // ---------------------------------------------------------------- clock
 
 private enum class ClockKind(val label: String) {
-    SUDDEN_DEATH("Sudden death"), FISCHER("Fischer"), PER_MOVE("Per move"),
+    SUDDEN_DEATH("Sudden death"), FISCHER("Fischer"), PER_MOVE("Per move"), BYOYOMI("Byoyomi"),
 }
 
 private val TimeControl.clockKind: ClockKind
@@ -180,6 +180,7 @@ private val TimeControl.clockKind: ClockKind
         TimeControl.None, is TimeControl.SuddenDeath -> ClockKind.SUDDEN_DEATH
         is TimeControl.Fischer -> ClockKind.FISCHER
         is TimeControl.PerMove -> ClockKind.PER_MOVE
+        is TimeControl.Byoyomi -> ClockKind.BYOYOMI
     }
 
 /** One tile of the clock grid: big label, caption, and the clock it stands for (null = custom). */
@@ -199,16 +200,34 @@ private val CLOCK_PRESETS = listOf(
     ClockPreset("⋯", "Custom", null),
 )
 
-/** "Time control" section: a grid of common clocks, plus a "Custom" tile that opens typed fields. */
+private fun byoyomi(min: Int, sec: Int): TimeControl = TimeControl.Byoyomi(min * 60_000L, sec * 1000L)
+
+/** Shogi clocks: main time in minutes | byoyomi period in seconds, as on shogi servers. */
+private val BYOYOMI_PRESETS = listOf(
+    ClockPreset("∞", "No clock", TimeControl.None),
+    ClockPreset("10s", "Byoyomi only", byoyomi(0, 10)),
+    ClockPreset("3|10s", "Blitz", byoyomi(3, 10)),
+    ClockPreset("5|20s", "Blitz", byoyomi(5, 20)),
+    ClockPreset("10|30s", "Rapid", byoyomi(10, 30)),
+    ClockPreset("15|30s", "Rapid", byoyomi(15, 30)),
+    ClockPreset("30|60s", "Classical", byoyomi(30, 60)),
+    ClockPreset("⋯", "Custom", null),
+)
+
+/**
+ * "Time control" section: a grid of common clocks, plus a "Custom" tile that opens typed fields.
+ * With [byoyomi] (shogi) the presets are byoyomi clocks and Custom offers byoyomi too.
+ */
 @Composable
-internal fun ClockSection(tc: TimeControl, onChange: (TimeControl) -> Unit) {
-    val matched = CLOCK_PRESETS.firstOrNull { it.tc == tc }
+internal fun ClockSection(tc: TimeControl, byoyomi: Boolean = false, onChange: (TimeControl) -> Unit) {
+    val presets = if (byoyomi) BYOYOMI_PRESETS else CLOCK_PRESETS
+    val matched = presets.firstOrNull { it.tc == tc }
     // Custom stays open once chosen, even if the typed values happen to equal a preset.
     var custom by rememberSaveable { mutableStateOf(matched == null) }
     if (matched == null) custom = true
 
     SectionTitle("Time control")
-    CLOCK_PRESETS.chunked(4).forEach { row ->
+    presets.chunked(4).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
             row.forEach { preset ->
                 val selected = if (preset.tc == null) custom else !custom && preset === matched
@@ -218,7 +237,7 @@ internal fun ClockSection(tc: TimeControl, onChange: (TimeControl) -> Unit) {
                     onClick = {
                         if (preset.tc == null) {
                             custom = true
-                            if (tc == TimeControl.None) onChange(fischer(10, 0))
+                            if (tc == TimeControl.None) onChange(if (byoyomi) byoyomi(10, 30) else fischer(10, 0))
                         } else {
                             custom = false
                             onChange(preset.tc)
@@ -242,26 +261,41 @@ internal fun ClockSection(tc: TimeControl, onChange: (TimeControl) -> Unit) {
         }
     }
 
-    if (custom) CustomClock(tc, onChange)
+    if (custom) CustomClock(tc, byoyomi, onChange)
+    if (byoyomi && tc is TimeControl.Byoyomi) {
+        Hint(
+            "Once the main time is used up, every move must be played within ${tc.byoyomiMs / 1000} seconds; " +
+                "a move made in time resets the countdown.",
+        )
+    }
 }
 
 /** Typed clock fields for the "Custom" tile. */
 @Composable
-private fun CustomClock(tc: TimeControl, onChange: (TimeControl) -> Unit) {
+private fun CustomClock(tc: TimeControl, byoyomi: Boolean, onChange: (TimeControl) -> Unit) {
     // Values remembered across clock kinds so switching does not lose what was typed.
-    val minutes = ((tc as? TimeControl.SuddenDeath)?.initialMs ?: (tc as? TimeControl.Fischer)?.initialMs ?: 600_000L) / 60_000L
+    val minutes = ((tc as? TimeControl.SuddenDeath)?.initialMs ?: (tc as? TimeControl.Fischer)?.initialMs
+        ?: (tc as? TimeControl.Byoyomi)?.initialMs ?: 600_000L) / 60_000L
     val increment = ((tc as? TimeControl.Fischer)?.incrementMs ?: 5000L) / 1000L
-    val perMove = ((tc as? TimeControl.PerMove)?.perMoveMs ?: 30_000L) / 1000L
+    val perMove = ((tc as? TimeControl.PerMove)?.perMoveMs ?: (tc as? TimeControl.Byoyomi)?.byoyomiMs ?: 30_000L) / 1000L
+    val kinds = if (byoyomi) ClockKind.entries else ClockKind.entries - ClockKind.BYOYOMI
 
     fun clock(kind: ClockKind, m: Long = minutes, i: Long = increment, p: Long = perMove): TimeControl = when (kind) {
         ClockKind.SUDDEN_DEATH -> TimeControl.SuddenDeath(m.coerceIn(1, 999) * 60_000L)
         ClockKind.FISCHER -> TimeControl.Fischer(m.coerceIn(1, 999) * 60_000L, i.coerceIn(0, 999) * 1000L)
         ClockKind.PER_MOVE -> TimeControl.PerMove(p.coerceIn(1, 999) * 1000L)
+        ClockKind.BYOYOMI -> TimeControl.Byoyomi(m.coerceIn(0, 999) * 60_000L, p.coerceIn(1, 999) * 1000L)
     }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Segmented(items = ClockKind.entries, selected = tc.clockKind, label = { it.label }, onSelect = { onChange(clock(it)) })
+            // Four kinds leave no room for "Sudden death" on a phone.
+            Segmented(
+                items = kinds,
+                selected = tc.clockKind,
+                label = { if (byoyomi && it == ClockKind.SUDDEN_DEATH) "Sudden" else it.label },
+                onSelect = { onChange(clock(it)) },
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -278,6 +312,11 @@ private fun CustomClock(tc: TimeControl, onChange: (TimeControl) -> Unit) {
                     }
                     ClockKind.PER_MOVE -> TimeTile(perMove, "seconds per move", step = 5, min = 1, Modifier.weight(1f)) {
                         onChange(clock(ClockKind.PER_MOVE, p = it))
+                    }
+                    ClockKind.BYOYOMI -> {
+                        TimeTile(minutes, "main minutes", step = 1, min = 0, Modifier.weight(1f)) { onChange(clock(ClockKind.BYOYOMI, m = it)) }
+                        Text("|", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TimeTile(perMove, "byoyomi seconds", step = 5, min = 1, Modifier.weight(1f)) { onChange(clock(ClockKind.BYOYOMI, p = it)) }
                     }
                 }
             }

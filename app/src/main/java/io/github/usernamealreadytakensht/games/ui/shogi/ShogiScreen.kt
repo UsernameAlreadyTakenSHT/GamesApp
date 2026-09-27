@@ -49,6 +49,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.usernamealreadytakensht.games.game.TimeControl
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi.Kind
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi.Side
@@ -121,7 +122,7 @@ fun ShogiScreen(
 
             ClockRow(
                 "${state.config.opponentLabel} · ${sideName(state.engineSide)}",
-                state.clockMs(state.engineSide), state.config.timeControl.startingMs,
+                state.clockMs(state.engineSide), state.byoyomiMs(state.engineSide), state.config.timeControl,
                 active = state.runningClock == state.engineSide, lost = state.result == ShogiResult.PLAYER_WINS,
             )
 
@@ -137,7 +138,7 @@ fun ShogiScreen(
 
             ClockRow(
                 "You · ${sideName(state.playerSide)}",
-                state.clockMs(state.playerSide), state.config.timeControl.startingMs,
+                state.clockMs(state.playerSide), state.byoyomiMs(state.playerSide), state.config.timeControl,
                 active = state.runningClock == state.playerSide, lost = state.result == ShogiResult.ENGINE_WINS,
             )
 
@@ -335,9 +336,13 @@ private fun Hand(state: ShogiState, side: Side, cell: Dp, onTap: (Kind) -> Unit)
     }
 }
 
+/**
+ * A player's bar: name and clock. With byoyomi the main time shows with its period ("+30s")
+ * until it runs out, then the byoyomi countdown takes over.
+ */
 @Composable
-private fun ClockRow(name: String, ms: Long?, startingMs: Long?, active: Boolean, lost: Boolean) {
-    val warnMs = minOf(10_000L, (startingMs ?: 0L) / 5)
+private fun ClockRow(name: String, ms: Long?, byoyomiMs: Long?, clock: TimeControl, active: Boolean, lost: Boolean) {
+    val warnMs = minOf(10_000L, (clock.startingMs ?: 0L) / 5)
     val bg = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Row(
         modifier = Modifier.fillMaxWidth().background(bg, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
@@ -346,13 +351,28 @@ private fun ClockRow(name: String, ms: Long?, startingMs: Long?, active: Boolean
     ) {
         Text(name, style = MaterialTheme.typography.bodyLarge)
         if (ms != null) {
-            Text(
-                formatClock(ms),
-                style = MaterialTheme.typography.titleLarge,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (lost || ms < warnMs) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
+            val inByoyomi = byoyomiMs != null && ms <= 0L
+            val shown = if (inByoyomi) byoyomiMs!! else ms
+            // Byoyomi turns red for the last 10 s, or the last half of a shorter period.
+            val period = (clock as? TimeControl.Byoyomi)?.byoyomiMs ?: 0L
+            val warn = if (byoyomiMs != null) inByoyomi && shown < minOf(10_000L, period / 2) else ms < warnMs
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (byoyomiMs != null) {
+                    Text(
+                        if (inByoyomi) "byoyomi" else "+${byoyomiMs / 1000}s",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 3.dp),
+                    )
+                }
+                Text(
+                    formatClock(shown),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                    color = if (lost || warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }

@@ -48,14 +48,19 @@ data class ShogiState(
     val result: ShogiResult = ShogiResult.ONGOING,
     val statusText: String = "",
     val engineError: String? = null,
+    /** Main time left per side (ms), null without a clock. */
     val senteMs: Long? = null,
     val goteMs: Long? = null,
+    /** Byoyomi countdown per side (ms), null unless the clock is a byoyomi one. */
+    val senteByoyomiMs: Long? = null,
+    val goteByoyomiMs: Long? = null,
     val runningClock: Side? = null,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == ShogiResult.ONGOING
     val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == ShogiResult.ONGOING && !thinking
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.SENTE) senteMs else goteMs
+    fun byoyomiMs(side: Side): Long? = if (side == Side.SENTE) senteByoyomiMs else goteByoyomiMs
     fun hand(side: Side): List<Int> = if (side == Side.SENTE) senteHand else goteHand
 }
 
@@ -290,6 +295,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         val base = ShogiLevels.moveTimeMs(cfg.level).toLong()
         val remaining = currentMs(game.position.sideToMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
+            // In byoyomi, use a good part of the period: it comes back after every move.
+            is TimeControl.Byoyomi -> if (remaining > 0) remaining / 20 + tc.byoyomiMs / 2 else tc.byoyomiMs * 6 / 10
             is TimeControl.PerMove -> tc.perMoveMs / 2
             is TimeControl.Fischer -> remaining / 20 + tc.incrementMs / 2
             else -> remaining / 20
@@ -361,7 +368,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             while (isActive) {
                 delay(100)
                 val running = _state.value.runningClock ?: break
-                val left = currentMs(running) ?: break
+                val left = timeLeft(running) ?: break
                 if (left <= 0L) {
                     flagged = running
                     if (running == Side.SENTE) senteBaseMs = 0 else goteBaseMs = 0
@@ -371,9 +378,37 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                     persist()
                     break
                 }
-                _state.update { it.copy(senteMs = currentMs(Side.SENTE), goteMs = currentMs(Side.GOTE)) }
+                publishClocks()
             }
         }
+    }
+
+    private fun publishClocks() = _state.update {
+        it.copy(
+            senteMs = currentMs(Side.SENTE),
+            goteMs = currentMs(Side.GOTE),
+            senteByoyomiMs = byoyomiLeft(Side.SENTE),
+            goteByoyomiMs = byoyomiLeft(Side.GOTE),
+        )
+    }
+
+    /**
+     * Byoyomi left for [side]: the full period until its main time is gone, then counting
+     * down within the current turn. Null for other clocks.
+     */
+    private fun byoyomiLeft(side: Side): Long? {
+        val tc = _state.value.config.timeControl as? TimeControl.Byoyomi ?: return null
+        if (flagged == side) return 0L
+        if (_state.value.runningClock != side) return tc.byoyomiMs
+        val base = if (side == Side.SENTE) senteBaseMs else goteBaseMs
+        val over = SystemClock.elapsedRealtime() - turnStartedAt - base
+        return if (over <= 0) tc.byoyomiMs else (tc.byoyomiMs - over).coerceAtLeast(0L)
+    }
+
+    /** Everything [side] may still spend this turn: main time plus byoyomi. */
+    private fun timeLeft(side: Side): Long? {
+        val main = currentMs(side) ?: return null
+        return main + (byoyomiLeft(side) ?: 0L)
     }
 
     private fun stopClock() {
@@ -425,6 +460,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 statusText = status,
                 senteMs = currentMs(Side.SENTE),
                 goteMs = currentMs(Side.GOTE),
+                senteByoyomiMs = byoyomiLeft(Side.SENTE),
+                goteByoyomiMs = byoyomiLeft(Side.GOTE),
             )
         }
     }

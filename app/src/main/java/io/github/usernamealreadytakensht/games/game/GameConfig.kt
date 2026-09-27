@@ -253,6 +253,12 @@ sealed class TimeControl {
     /** Fixed time per move, reset after every move. */
     data class PerMove(val perMoveMs: Long) : TimeControl()
 
+    /**
+     * Byoyomi (shogi): a main time, then every move must be played within [byoyomiMs]; a
+     * move made in time resets that period. [initialMs] may be 0 (byoyomi from the start).
+     */
+    data class Byoyomi(val initialMs: Long, val byoyomiMs: Long) : TimeControl()
+
     /** Time each side starts with, or null without a clock. */
     val startingMs: Long?
         get() = when (this) {
@@ -260,6 +266,7 @@ sealed class TimeControl {
             is SuddenDeath -> initialMs
             is Fischer -> initialMs
             is PerMove -> perMoveMs
+            is Byoyomi -> initialMs
         }
 
     val label: String
@@ -268,6 +275,8 @@ sealed class TimeControl {
             is SuddenDeath -> "${initialMs / 60_000} min"
             is Fischer -> "${initialMs / 60_000} + ${incrementMs / 1000}"
             is PerMove -> "${perMoveMs / 1000} s / move"
+            is Byoyomi -> if (initialMs == 0L) "${byoyomiMs / 1000} s byoyomi"
+                          else "${initialMs / 60_000} min | ${byoyomiMs / 1000} s"
         }
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -276,6 +285,7 @@ sealed class TimeControl {
             is SuddenDeath -> put("type", "sudden").put("initial", initialMs)
             is Fischer -> put("type", "fischer").put("initial", initialMs).put("inc", incrementMs)
             is PerMove -> put("type", "perMove").put("perMove", perMoveMs)
+            is Byoyomi -> put("type", "byoyomi").put("initial", initialMs).put("byoyomi", byoyomiMs)
         }
     }
 
@@ -284,6 +294,7 @@ sealed class TimeControl {
             "sudden" -> SuddenDeath(o.getLong("initial"))
             "fischer" -> Fischer(o.getLong("initial"), o.getLong("inc"))
             "perMove" -> PerMove(o.getLong("perMove"))
+            "byoyomi" -> Byoyomi(o.getLong("initial"), o.getLong("byoyomi"))
             else -> None
         }
     }
