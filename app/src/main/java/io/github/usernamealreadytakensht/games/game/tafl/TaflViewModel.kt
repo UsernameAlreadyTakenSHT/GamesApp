@@ -2,6 +2,7 @@ package io.github.usernamealreadytakensht.games.game.tafl
 
 import android.app.Application
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.manywords.softworks.tafl.engine.Game
@@ -225,11 +226,25 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         val gen = ++generation
         val cfg = _state.value.config
         val g = game
-        val seconds = engineThinkSeconds()
+        val budgetMs = engineThinkMs()
+        // OpenTafl thinks in whole seconds: a shorter budget is enforced by stopping it early.
+        val seconds = ((budgetMs + 999) / 1000).toInt().coerceAtLeast(1)
         _state.update { it.copy(thinking = true) }
         publish()
+        if (budgetMs < seconds * 1000L) {
+            viewModelScope.launch {
+                delay(budgetMs)
+                if (gen == generation) engine.stop()
+            }
+        }
         viewModelScope.launch {
-            val move = engine.bestMove(g, cfg.depth, seconds)
+            val move = try {
+                engine.bestMove(g, cfg.depth, seconds)
+            } catch (e: Exception) {
+                // Never crash the game over the AI: log it and fall back on any legal move.
+                Log.w(TAG, "OpenTafl search failed", e)
+                null
+            } ?: Tafl.legalMoves(g).randomOrNull()
             if (gen != generation) return@launch
             _state.update { it.copy(thinking = false) }
             if (move != null && !isGameOver()) applyMove(move, clock = true)
@@ -238,16 +253,17 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun engineThinkSeconds(): Int {
+    /** Thinking budget in ms: the depth's usual time, capped by the engine's own clock. */
+    private fun engineThinkMs(): Long {
         val cfg = _state.value.config
-        val base = TaflEngineKind.thinkSeconds(cfg.depth)
+        val base = TaflEngineKind.thinkSeconds(cfg.depth) * 1000L
         val remaining = currentMs(Tafl.sideToMove(game)) ?: return base
         val budgetMs = when (val tc = cfg.timeControl) {
             is TimeControl.PerMove -> tc.perMoveMs / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }
-        return minOf(base.toLong(), budgetMs / 1000).coerceAtLeast(1L).toInt()
+        return minOf(base, budgetMs).coerceAtLeast(100L)
     }
 
     private fun cancelSearch() {
@@ -375,5 +391,9 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                 defendersMs = currentMs(Side.DEFENDERS),
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "TaflViewModel"
     }
 }

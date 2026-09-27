@@ -2,6 +2,7 @@ package io.github.usernamealreadytakensht.games.game.fox
 
 import android.app.Application
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.usernamealreadytakensht.games.engine.fox.FoxEngine
@@ -226,7 +227,13 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val move = engine.bestMove(pos, cfg.depth, moveTime)
+            val move = try {
+                engine.bestMove(pos, cfg.depth, moveTime)
+            } catch (e: Exception) {
+                // Never crash the game over the AI: log it and fall back on any legal move.
+                Log.w(TAG, "Reynard search failed", e)
+                null
+            } ?: Fox.legalMoves(pos).randomOrNull()
             if (gen != generation) return@launch
             _state.update { it.copy(thinking = false) }
             if (move != null && !isGameOver()) applyMove(move, clock = true)
@@ -372,5 +379,9 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                 huntersMs = currentMs(Side.HUNTERS),
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "FoxViewModel"
     }
 }
