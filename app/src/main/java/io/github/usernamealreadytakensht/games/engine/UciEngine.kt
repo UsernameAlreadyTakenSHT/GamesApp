@@ -130,7 +130,7 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
                     else -> ""
                 }
                 send("go$limit movetime $moveTimeMs")
-                val line = readUntil("bestmove")
+                val line = readUntil("bestmove", moveTimeMs + Watchdog.SEARCH_SLACK_MS)
                 val move = line.split(' ').getOrNull(1)
                 if (move == null || move == "(none)") null else move
             }
@@ -143,10 +143,9 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
 
     override fun quit() {
         runCatching { send("quit") }
+        // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->
-            runCatching {
-                if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy()
-            }
+            Thread { runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }.start()
         }
         process = null
         writer = null
@@ -162,16 +161,17 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
         w.flush()
     }
 
-    private fun readUntil(prefix: String): String {
-        val r = reader ?: throw IOException("Engine not started")
-        while (true) {
-            val line = r.readLine() ?: throw IOException("${kind.label} exited")
-            if (line.startsWith(prefix)) {
-                Log.d(TAG, "< $line")
-                return line
-            }
+    /** Reads up to the line matching [prefix]; the process is killed if it takes over [timeoutMs]. */
+    private fun readUntil(prefix: String, timeoutMs: Long = Watchdog.HANDSHAKE_MS): String =
+        Watchdog.guard(process, timeoutMs) {
+            val r = reader ?: throw IOException("Engine not started")
+            var line: String
+            do {
+                line = r.readLine() ?: throw IOException("${kind.label} exited")
+            } while (!(line.startsWith(prefix)))
+            Log.d(TAG, "< $line")
+            line
         }
-    }
 
     companion object {
         private const val TAG = "UciEngine"

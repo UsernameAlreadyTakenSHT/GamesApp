@@ -6,6 +6,7 @@ import io.github.usernamealreadytakensht.games.engine.EngineAssets
 import io.github.usernamealreadytakensht.games.game.draughts.Checkers
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts.Color
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsEngineKind
+import io.github.usernamealreadytakensht.games.engine.Watchdog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -94,7 +95,7 @@ class MarcherEngine(private val context: Context, val kind: DraughtsEngineKind) 
                 "${java.lang.Long.toUnsignedString(bb[2])} ${java.lang.Long.toUnsignedString(bb[3])} " +
                 "$player ${"%.3f".format(java.util.Locale.ROOT, seconds)} $maxDepth $forced",
         )
-        val parts = readUntil("move").trim().split(' ')
+        val parts = readUntil("move", (seconds * 1000).toLong() + Watchdog.SEARCH_SLACK_MS).trim().split(' ')
         val from = parts.getOrNull(1)?.toIntOrNull() ?: return@withLock null
         val to = parts.getOrNull(2)?.toIntOrNull() ?: return@withLock null
         if (from < 0 || to < 0) null else from to to
@@ -105,7 +106,10 @@ class MarcherEngine(private val context: Context, val kind: DraughtsEngineKind) 
 
     fun quit() {
         runCatching { send("quit") }
-        process?.let { p -> runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }
+        // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
+        process?.let { p ->
+            Thread { runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }.start()
+        }
         process = null
         writer = null
         reader = null
@@ -120,16 +124,17 @@ class MarcherEngine(private val context: Context, val kind: DraughtsEngineKind) 
         w.flush()
     }
 
-    private fun readUntil(prefix: String): String {
-        val r = reader ?: throw IOException("Engine not started")
-        while (true) {
-            val line = r.readLine() ?: throw IOException("${kind.label} exited")
-            if (line.startsWith(prefix)) {
-                Log.d(TAG, "< $line")
-                return line
-            }
+    /** Reads up to the line matching [prefix]; the process is killed if it takes over [timeoutMs]. */
+    private fun readUntil(prefix: String, timeoutMs: Long = Watchdog.HANDSHAKE_MS): String =
+        Watchdog.guard(process, timeoutMs) {
+            val r = reader ?: throw IOException("Engine not started")
+            var line: String
+            do {
+                line = r.readLine() ?: throw IOException("${kind.label} exited")
+            } while (!(line.startsWith(prefix)))
+            Log.d(TAG, "< $line")
+            line
         }
-    }
 
     private companion object {
         const val TAG = "MarcherEngine"

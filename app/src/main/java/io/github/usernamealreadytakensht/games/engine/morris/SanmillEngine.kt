@@ -5,6 +5,7 @@ import android.util.Log
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
 import io.github.usernamealreadytakensht.games.game.morris.MorrisVariant
+import io.github.usernamealreadytakensht.games.engine.Watchdog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -104,7 +105,7 @@ class SanmillEngine(
             send("setoption name SkillLevel value 30")
             send("go movetime $moveTimeMs")
         }
-        val line = readUntil("bestmove")
+        val line = readUntil("bestmove", moveTimeMs + Watchdog.SEARCH_SLACK_MS)
         val token = line.substringAfter("bestmove").trim().split(' ').firstOrNull()
         if (token.isNullOrEmpty() || token == "none") null else token
     }
@@ -128,8 +129,9 @@ class SanmillEngine(
 
     override fun quit() {
         runCatching { send("quit") }
+        // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->
-            runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() }
+            Thread { runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }.start()
         }
         process = null
         writer = null
@@ -146,16 +148,17 @@ class SanmillEngine(
     }
 
     /** Reads until a line containing [needle] (Sanmill prints "info … bestmove g7" on one line). */
-    private fun readUntil(needle: String): String {
-        val r = reader ?: throw IOException("Engine not started")
-        while (true) {
-            val line = r.readLine() ?: throw IOException("Sanmill exited")
-            if (line.contains(needle)) {
-                Log.d(TAG, "< $line")
-                return line
-            }
+    /** Reads up to the line matching [needle]; the process is killed if it takes over [timeoutMs]. */
+    private fun readUntil(needle: String, timeoutMs: Long = Watchdog.HANDSHAKE_MS): String =
+        Watchdog.guard(process, timeoutMs) {
+            val r = reader ?: throw IOException("Engine not started")
+            var line: String
+            do {
+                line = r.readLine() ?: throw IOException("Sanmill exited")
+            } while (!(line.contains(needle)))
+            Log.d(TAG, "< $line")
+            line
         }
-    }
 
     companion object {
         private const val TAG = "SanmillEngine"

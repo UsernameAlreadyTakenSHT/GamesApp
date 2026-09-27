@@ -5,6 +5,7 @@ import android.util.Log
 import io.github.usernamealreadytakensht.games.engine.EngineAssets
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsEngineKind
+import io.github.usernamealreadytakensht.games.engine.Watchdog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -91,7 +92,7 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
                 val seconds = "%.3f".format(java.util.Locale.ROOT, moveTimeMs / 1000.0)
                 send(if (depth != null) "level depth=$depth move-time=$seconds" else "level move-time=$seconds")
                 send("go think")
-                val line = readUntil("done")
+                val line = readUntil("done", moveTimeMs + Watchdog.SEARCH_SLACK_MS)
                 Regex("""move=(\S+)""").find(line)?.groupValues?.get(1)?.trim('"')
             }
         }
@@ -102,8 +103,9 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
 
     override fun quit() {
         runCatching { send("quit") }
+        // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->
-            runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() }
+            Thread { runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }.start()
         }
         process = null
         writer = null
@@ -119,17 +121,18 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
         w.flush()
     }
 
-    private fun readUntil(prefix: String): String {
-        val r = reader ?: throw IOException("Engine not started")
-        while (true) {
-            val line = r.readLine() ?: throw IOException("${kind.label} exited")
-            if (line.startsWith(prefix)) {
-                Log.d(TAG, "< $line")
-                return line
-            }
-            if (line.startsWith("error")) Log.w(TAG, "< $line")
+    /** Reads up to the line matching [prefix]; the process is killed if it takes over [timeoutMs]. */
+    private fun readUntil(prefix: String, timeoutMs: Long = Watchdog.HANDSHAKE_MS): String =
+        Watchdog.guard(process, timeoutMs) {
+            val r = reader ?: throw IOException("Engine not started")
+            var line: String
+            do {
+                line = r.readLine() ?: throw IOException("${kind.label} exited")
+                if (!(line.startsWith(prefix))) if (line.startsWith("error")) Log.w(TAG, "< $line")
+            } while (!(line.startsWith(prefix)))
+            Log.d(TAG, "< $line")
+            line
         }
-    }
 
     companion object {
         private const val TAG = "HubEngine"

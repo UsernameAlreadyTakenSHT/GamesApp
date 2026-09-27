@@ -3,6 +3,7 @@ package io.github.usernamealreadytakensht.games.engine.shogi
 import android.content.Context
 import android.util.Log
 import io.github.usernamealreadytakensht.games.engine.NetAssets
+import io.github.usernamealreadytakensht.games.engine.Watchdog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -65,7 +66,7 @@ class ShogiEngine(private val context: Context) {
         ioLock.withLock {
             send(if (moves.isEmpty()) "position startpos" else "position startpos moves ${moves.joinToString(" ")}")
             send("go movetime $moveTimeMs")
-            val move = readUntil("bestmove").split(' ').getOrNull(1)
+            val move = readUntil("bestmove", moveTimeMs + Watchdog.SEARCH_SLACK_MS).split(' ').getOrNull(1)
             if (move == null || move == "(none)") null else move
         }
     }
@@ -76,7 +77,10 @@ class ShogiEngine(private val context: Context) {
 
     fun quit() {
         runCatching { send("quit") }
-        process?.let { p -> runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }
+        // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
+        process?.let { p ->
+            Thread { runCatching { if (!p.waitFor(500, TimeUnit.MILLISECONDS)) p.destroy() } }.start()
+        }
         process = null
         writer = null
         reader = null
@@ -91,16 +95,17 @@ class ShogiEngine(private val context: Context) {
         w.flush()
     }
 
-    private fun readUntil(prefix: String): String {
-        val r = reader ?: throw IOException("Engine not started")
-        while (true) {
-            val line = r.readLine() ?: throw IOException("Fairy-Stockfish exited")
-            if (line.startsWith(prefix)) {
-                Log.d(TAG, "< $line")
-                return line
-            }
+    /** Reads up to the line matching [prefix]; the process is killed if it takes over [timeoutMs]. */
+    private fun readUntil(prefix: String, timeoutMs: Long = Watchdog.HANDSHAKE_MS): String =
+        Watchdog.guard(process, timeoutMs) {
+            val r = reader ?: throw IOException("Engine not started")
+            var line: String
+            do {
+                line = r.readLine() ?: throw IOException("Fairy-Stockfish exited")
+            } while (!(line.startsWith(prefix)))
+            Log.d(TAG, "< $line")
+            line
         }
-    }
 
     private companion object {
         const val TAG = "ShogiEngine"
