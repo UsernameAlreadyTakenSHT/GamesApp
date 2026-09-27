@@ -356,10 +356,11 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
         val gen = ++generation
         val cfg = _state.value.config
-        val pos = position
-        // Reversible moves since the last capture / man move, for repetition detection.
+        // Reversible moves since the last capture / man move, for repetition detection. The Hub
+        // protocol plays them from the given position, so send the position before them.
         val n = quietKingMoves
         val kingMoves = played.takeLast(n).map { it.toHub() }
+        val pos = history[played.size - n]
         val moveTime = engineMoveTimeMs()
         _state.update { it.copy(thinking = true) }
         publish()

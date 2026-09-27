@@ -24,8 +24,9 @@ interface DraughtsEngine {
     suspend fun newGame()
 
     /**
-     * Searches [pos]. [kingMoves] are the recent reversible moves (Hub notation) for
-     * repetition detection. [depth] limits the search (null = time only); [moveTimeMs] caps it.
+     * Searches the position reached by playing [kingMoves] (Hub notation) from [pos]: the
+     * recent reversible moves are sent as moves, not folded into the position, so the engine
+     * sees them for repetition detection. [depth] limits the search (null = time only); [moveTimeMs] caps it.
      * Returns the move in Hub notation ("32-28", "28x19x23"), or null.
      */
     suspend fun bestMove(pos: Draughts.Position, kingMoves: List<String>, depth: Int?, moveTimeMs: Int): String?
