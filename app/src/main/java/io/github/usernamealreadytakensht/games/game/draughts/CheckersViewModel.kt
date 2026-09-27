@@ -60,6 +60,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
     private var engine: MarcherEngine? = null
     private val engineLock = Mutex()
     private var engineReady = false
+    /** True while [finishLoad] starts the engine: searches wait for it to finish. */
+    private var engineStarting = false
 
     private var position: Position = Checkers.START
     private val history = ArrayList<Position>()   // positions before each move, plus current
@@ -154,10 +156,18 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
-        _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
+        _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet(), engineError = null) }
         restartTurnClock()
         publish()
         persist()
+        maybeEngineMove()
+    }
+
+    /** Asks the engine again after an error (it is restarted if it died). */
+    fun retryEngine() {
+        if (_state.value.engineError == null) return
+        _state.update { it.copy(engineError = null) }
+        publish()
         maybeEngineMove()
     }
 
@@ -218,6 +228,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         val config = _state.value.config
+        _state.update { it.copy(engineError = null) }
+        engineStarting = true
         viewModelScope.launch {
             try {
                 engineLock.withLock { ensureEngine(config.engine) }
@@ -225,6 +237,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
+            } finally {
+                engineStarting = false
             }
             maybeEngineMove()
         }
@@ -285,8 +299,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Checkers.Outcome.ONGOING
 
     private fun maybeEngineMove() {
-        val eng = engine ?: return
-        if (!engineReady) return
+        // The first start reports its own failure; later searches restart the engine themselves.
+        if (engineStarting || _state.value.engineError != null) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
@@ -296,16 +310,26 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val move = try {
-                engineLock.withLock { eng.bestMove(pos, cfg.depth, moveTime) }
-            } catch (e: Exception) {
-                _state.update { it.copy(engineError = e.message, thinking = false) }
-                publish()
-                return@launch
+            var move: Move? = null
+            var failure: String? = null
+            // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
+            for (attempt in 0..1) {
+                try {
+                    val reply = engineLock.withLock {
+                        if (attempt > 0) engine?.quit()
+                        ensureEngine(cfg.engine).bestMove(pos, cfg.depth, moveTime)
+                    }
+                    if (gen != generation) return@launch
+                    move = reply?.takeIf { it in Checkers.legalMoves(position) }
+                    if (move != null) break
+                    failure = "${cfg.engine.label} gave no legal move"
+                } catch (e: Exception) {
+                    if (gen != generation) return@launch
+                    failure = e.message ?: e.toString()
+                }
             }
-            if (gen != generation) return@launch
-            _state.update { it.copy(thinking = false) }
-            if (move != null && move in Checkers.legalMoves(position) && !isGameOver()) applyMove(move, clock = true)
+            _state.update { it.copy(thinking = false, engineError = if (move == null) failure else null) }
+            if (move != null && !isGameOver()) applyMove(move, clock = true)
             publish()
             persist()
         }
