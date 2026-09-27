@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1 — 2026-09-27
+
+- **Full screen**: the status and navigation bars are hidden in every screen; swipe from the top or bottom edge to show them briefly. The area around the camera cutout stays clear.
+
 ## 1.0 — 2026-09-27
 
 First release of GamesApp: board games played offline against real engines, everything bundled in the APK.
