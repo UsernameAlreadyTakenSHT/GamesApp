@@ -3,7 +3,7 @@
 # app) for Android (x86_64 emulator + arm64-v8a phones) and drops the binaries into
 # app/src/main/jniLibs/<abi>/libsanmill.so.
 #
-# Usage (Git Bash):  ./sanmill/build.sh [git ref]      (default: master)
+# Usage (Git Bash):  ./sanmill/build.sh [git ref]      (default: the pinned commit below)
 #
 # Requirements: rustup, the NDK, and on Windows the `*-x86_64-pc-windows-gnu` toolchain
 # (its bundled MinGW linker builds Cargo build scripts without Visual Studio). The engine's
@@ -11,7 +11,7 @@
 # The perfect-play database support is left out (default features off in tgf-cli).
 set -euo pipefail
 
-REF="${1:-master}"
+REF="${1:-8901a06f088bf49a1602fee8686ed25ac5a33925}"   # pinned commit; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/sanmill/src"
 OUT="$ROOT/app/src/main/jniLibs"
@@ -27,7 +27,10 @@ TC="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/bin"
 export PATH="$HOME/.cargo/bin:$PATH"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 --branch "$REF" https://github.com/calcitem/Sanmill.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/calcitem/Sanmill.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$SRC"
 

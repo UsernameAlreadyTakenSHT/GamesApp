@@ -40,7 +40,7 @@ echo ">> NDK: $NDK_DIR"
 
 # --- Meson (tarball, no install) ------------------------------------------------------
 if [ ! -f "$WORK/meson-$MESON_VER/meson.py" ]; then
-  curl -sL -o "$WORK/meson.tar.gz" \
+  curl -fsSL -o "$WORK/meson.tar.gz" \
     "https://github.com/mesonbuild/meson/releases/download/$MESON_VER/meson-$MESON_VER.tar.gz"
   tar xzf "$WORK/meson.tar.gz" -C "$WORK" && rm "$WORK/meson.tar.gz"
 fi
@@ -60,7 +60,7 @@ for w in abseil-cpp eigen zlib; do
     url=$(grep "^${key}_url" "$f" | sed 's/^[^=]*= *//' || true)
     fn=$(grep "^${key}_filename" "$f" | sed 's/^[^=]*= *//' || true)
     if [ -n "$url" ] && [ -n "$fn" ] && [ ! -f "subprojects/packagecache/$fn" ]; then
-      curl -sL -o "subprojects/packagecache/$fn" "$url"
+      curl -fsSL -o "subprojects/packagecache/$fn" "$url"
     fi
   done
 done
@@ -103,14 +103,34 @@ build arm64-v8a aarch64 aarch64-linux-android29
 
 # --- Networks -------------------------------------------------------------------------
 mkdir -p "$NETS"
-fetch() { [ -f "$NETS/$1" ] || { echo ">> net $1"; curl -sL -o "$NETS/$1" "$2"; }; }
+fetch() { # file url sha256: downloaded once, then verified on every build
+  [ -s "$NETS/$1" ] || { echo ">> net $1"; curl -fsSL --retry 3 -o "$NETS/$1.part" "$2" && mv "$NETS/$1.part" "$NETS/$1"; }
+  echo "$3  $NETS/$1" | sha256sum -c --quiet - || { echo "Checksum mismatch for $1: file removed" >&2; rm -f "$NETS/$1"; exit 1; }
+}
 # Bad Gyal 8 (dkappe): small 128x10 net, good CPU strength.
-fetch badgyal-8.lc0 "https://github.com/dkappe/leela-chess-weights/files/3799966/badgyal-8.pb.gz"
+fetch badgyal-8.lc0 "https://github.com/dkappe/leela-chess-weights/files/3799966/badgyal-8.pb.gz" \
+  ef0a7e4c977fce5123e3e1bbee422bfbab031a7aaad6e02d6e46aeb8d06f2295
 # T1 256x10 distilled (official lczero.org contrib net): stronger, slower on CPU.
-fetch t1-256x10.lc0 "https://storage.lczero.org/files/networks-contrib/t1-256x10-distilled-swa-2432500.pb.gz"
+fetch t1-256x10.lc0 "https://storage.lczero.org/files/networks-contrib/t1-256x10-distilled-swa-2432500.pb.gz" \
+  bc27a6cae8ad36f2b9a80a6ad9dabb0d6fda25b1e7f481a79bc359e14f563406
 # Maia (CSSLab): human-like play, one net per rating band.
-for r in 1100 1200 1300 1400 1500 1600 1700 1800 1900; do
-  fetch "maia-$r.lc0" "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-$r.pb.gz"
-done
+fetch maia-1100.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1100.pb.gz" \
+  e1cf1cd0c96b8a4fa6a275f4b9fd54ed1ffebf9fe44641b9fceded310e9619c4
+fetch maia-1200.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1200.pb.gz" \
+  ead4ba953f233ae732999ebc1e2b675378148527ebcfad2f0acbc5e4c224d98e
+fetch maia-1300.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1300.pb.gz" \
+  36195f87bf4761834baa0bf87472b18509a7261a9d7d6f1a8443261369a733f2
+fetch maia-1400.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1400.pb.gz" \
+  d5353ea6766356dad2d28920c6692f37a5f30963767f1a3105d33b4d0af011e8
+fetch maia-1500.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1500.pb.gz" \
+  35ab6f20421d59e1df3b17c5a5016947af4c6761368ef84044a9a9c7619a9a00
+fetch maia-1600.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1600.pb.gz" \
+  d2c9e5948581acf4b9fc0b1e720c5dc0fe64ce80cfc4a239d3f8a42e1176c876
+fetch maia-1700.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1700.pb.gz" \
+  d277eacd792d340a30abb464dc65127254e65cac57abca17facc469889b96478
+fetch maia-1800.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1800.pb.gz" \
+  0031ad7c4256b1fd09fbebd28418d644d68b26cd2a45df4967ccf5c7ec9c4965
+fetch maia-1900.lc0 "https://github.com/CSSLab/maia-chess/raw/master/maia_weights/maia-1900.pb.gz" \
+  e2f565f42d7cd9f122557e6dc4eb84e5bbaedceda1d404dc485d3611c7c97a12
 ls -la "$NETS"
 echo ">> OK"

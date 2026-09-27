@@ -47,3 +47,27 @@ but the polite thing to do):
 - Maia 3: Monroe, Eilender, Chalmers, Tang, Anderson.
   *Chessformer: A Unified Architecture for Chess Modeling.* ICLR 2026.
   https://arxiv.org/abs/2605.19091
+
+## Engine sources (GPL / AGPL corresponding source)
+
+Each engine is built from source by its `*/build.sh`, at the exact revision below (commits are
+pinned in the scripts; tags for the engines that publish releases). Downloaded networks are
+checked against SHA-256 sums in `lc0/build.sh` and `fairy/build.sh`.
+
+| Engine | Revision |
+|--------|----------|
+| Stockfish 19 / 11 | tags `sf_19` / `sf_11` |
+| Leela Chess Zero | tag `v0.32.1` |
+| Reckless | tag `v0.9.0` |
+| PlentyChess | tag `b-v8.0.0` |
+| Berserk | `32628515050b83805bab4afa1026dd2bcaa93f55` |
+| Rodent V | `6f6a465bca24ca1fd54f75c91562e915c448884c` |
+| Fairy-Stockfish | `9f778da667f6e07dae1e85d3e2ea204fc6dee94d` |
+| Scan (rhalbersma mirror) | `7aae17e7b7bfc47744601afb1ee7655e18983ce5` |
+| Moby Dam (rhalbersma mirror) | `cf2d49981001757bb4c09b53a9ec147733de75ab` |
+| Marcher (Checkers-Engine) | `1fa785edbe8003445163a63f00f04a4c0b77254b` |
+| Sanmill | `8901a06f088bf49a1602fee8686ed25ac5a33925` |
+| OpenTafl | `6895051d5a3b32612d12e93e2cd4584d23f94bb3` |
+
+Berserk, Rodent V, Scan and Moby Dam were first built from their default branch in
+September 2026; the pins are those branches' heads on 2026-09-27.

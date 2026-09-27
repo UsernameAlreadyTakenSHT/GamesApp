@@ -4,7 +4,7 @@
 # opening books into app/src/main/assets/rodent/ (extracted at runtime as the engine's
 # working directory).
 #
-# Usage (Git Bash):  ./rodent/build.sh [git ref]      (default: main)
+# Usage (Git Bash):  ./rodent/build.sh [git ref]      (default: the pinned commit below)
 #
 # Notes:
 #  - Go binaries are built for GOOS=linux with CGO disabled: fully static, they run on
@@ -19,7 +19,7 @@
 #    personalities (v2 and Tal) and the opening books are shipped as assets.
 set -euo pipefail
 
-REF="${1:-main}"
+REF="${1:-6f6a465bca24ca1fd54f75c91562e915c448884c}"   # pinned commit; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/rodent"
 SRC="$WORK/src"
@@ -30,7 +30,10 @@ GO="${GO:-$(command -v go || echo "$HOME/go-sdk/go/bin/go")}"
 "$GO" version
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 --branch "$REF" https://github.com/nescitus/Rodent-V.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/nescitus/Rodent-V.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$SRC"
 cp "$WORK/nnue_avx2_stub.go" .

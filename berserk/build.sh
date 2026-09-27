@@ -3,12 +3,12 @@
 # into app/src/main/jniLibs/<abi>/libberserk.so. The NNUE network named in src/makefile is
 # downloaded and embedded (incbin).
 #
-# Usage (Git Bash):  ./berserk/build.sh [git ref]      (default: main)
+# Usage (Git Bash):  ./berserk/build.sh [git ref]      (default: the pinned commit below)
 # The engine has NEON and AVX2 code paths, so a single clang invocation per ABI is enough.
 # pthread_create is wrapped (bigstack.c) to enforce a 64 MB thread stack on Bionic.
 set -euo pipefail
 
-REF="${1:-main}"
+REF="${1:-32628515050b83805bab4afa1026dd2bcaa93f55}"   # pinned commit; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/berserk"
 SRC="$WORK/src"
@@ -24,14 +24,17 @@ esac
 TC="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/bin"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 --branch "$REF" https://github.com/jhonnold/berserk.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/jhonnold/berserk.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$SRC/src"
 cp "$WORK/bigstack.c" .
 
 NET="$(grep '^MAIN_NETWORK' makefile | sed 's/.*= *//')"
 VERSION="$(grep '^VERSION' makefile | sed 's/.*= *//')"
-[ -f "$NET" ] || curl -fskL -o "$NET" \
+[ -f "$NET" ] || curl -fsSL -o "$NET" \
   "https://github.com/jhonnold/berserk-networks/releases/download/networks/$NET"
 
 SRCS="attacks.c bench.c berserk.c bits.c board.c datagen.c eval.c history.c move.c movegen.c \

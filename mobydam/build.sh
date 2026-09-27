@@ -10,6 +10,8 @@
 # engine is launched with "-t 20" because its default transposition table is 512 MiB.
 set -euo pipefail
 
+REF="${1:-cf2d49981001757bb4c09b53a9ec147733de75ab}"   # pinned commit; pass a ref to override
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/mobydam"
 SRC="$WORK/src"
@@ -26,7 +28,10 @@ esac
 TC="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/bin"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 https://github.com/rhalbersma/mobydam.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/rhalbersma/mobydam.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$SRC"
 cp "$ROOT/plentychess/bigstack.c" .

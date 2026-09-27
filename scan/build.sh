@@ -11,6 +11,8 @@
 # wrapper (bigstack.c) enforces a 64 MB stack for the engine's input/search threads.
 set -euo pipefail
 
+REF="${1:-7aae17e7b7bfc47744601afb1ee7655e18983ce5}"   # pinned commit; pass a ref to override
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/scan"
 SRC="$WORK/src"
@@ -27,7 +29,10 @@ esac
 TC="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/bin"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 https://github.com/rhalbersma/scan.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/rhalbersma/scan.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$SRC/src"
 cp "$ROOT/plentychess/bigstack.c" .

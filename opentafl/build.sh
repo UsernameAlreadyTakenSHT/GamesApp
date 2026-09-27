@@ -3,20 +3,23 @@
 # compiles as an extra source set (see app/build.gradle.kts). OpenTafl runs in-process on
 # Android: its rules classes referee the game and AiWorkspace is the opponent.
 #
-# Usage (Git Bash):  ./opentafl/build.sh [git ref]      (default: master)
+# Usage (Git Bash):  ./opentafl/build.sh [git ref]      (default: the pinned commit below)
 #
 # Only the engine, rules and notation packages (plus Log) are used; the handful of terminal
 # UI classes they reference are replaced by the stubs in opentafl/stubs/.
 set -euo pipefail
 
-REF="${1:-master}"
+REF="${1:-6895051d5a3b32612d12e93e2cd4584d23f94bb3}"   # pinned commit; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/opentafl/src"
 OUT="$ROOT/opentafl/java"
 PKG="com/manywords/softworks/tafl"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 --branch "$REF" https://github.com/jslater89/OpenTafl.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/jslater89/OpenTafl.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 
 rm -rf "$OUT"

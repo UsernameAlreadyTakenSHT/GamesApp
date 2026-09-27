@@ -38,7 +38,7 @@ cd "$SRC"
 cp "$WORK/bigstack.c" .
 
 NET="$(cat network.txt)"
-[ -f "$NET.bin" ] || curl -sL -o "$NET.bin" \
+[ -f "$NET.bin" ] || curl -fsSL -o "$NET.bin" \
   "https://github.com/Yoshie2000/PlentyNetworks/releases/download/$NET/$NET.bin"
 
 # --- Network pre-processing on the emulator ------------------------------------------

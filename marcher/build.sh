@@ -3,7 +3,7 @@
 # for Android (x86_64 emulator + arm64-v8a phones) with the NDK and drops the binaries into
 # app/src/main/jniLibs/<abi>/libmarcher.so.
 #
-# Usage (Git Bash):  ./marcher/build.sh [git ref]      (default: main)
+# Usage (Git Bash):  ./marcher/build.sh [git ref]      (default: the pinned commit below)
 #
 # The engine has no command-line host of its own (it is driven from Python or wasm), so
 # marcher/cli.c adds a small line protocol on stdin/stdout. The engine is one translation
@@ -11,7 +11,7 @@
 # stdout, which carries the protocol.
 set -euo pipefail
 
-REF="${1:-main}"
+REF="${1:-1fa785edbe8003445163a63f00f04a4c0b77254b}"   # pinned commit; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/marcher"
 SRC="$WORK/src"
@@ -27,7 +27,10 @@ esac
 TC="$NDK_DIR/toolchains/llvm/prebuilt/$HOST/bin"
 
 if [ ! -d "$SRC/.git" ]; then
-  git clone --depth 1 --branch "$REF" https://github.com/Stermere/Checkers-Engine.git "$SRC"
+  # Exact commit (pinned below), so a moved branch or a compromised upstream cannot change the build.
+  git init -q "$SRC"
+  git -C "$SRC" fetch -q --depth 1 https://github.com/Stermere/Checkers-Engine.git "$REF"
+  git -C "$SRC" checkout -q FETCH_HEAD
 fi
 cd "$WORK"
 
