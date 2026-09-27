@@ -140,6 +140,8 @@ class SanmillEngine(
 
     @Synchronized
     private fun send(cmd: String) {
+        // One command per line: a line break smuggled in (e.g. from a tampered save) could add commands.
+        if ('\n' in cmd || '\r' in cmd) throw IOException("Refusing a multi-line engine command")
         val w = writer ?: throw IOException("Engine not started")
         Log.d(TAG, "> $cmd")
         w.write(cmd)
