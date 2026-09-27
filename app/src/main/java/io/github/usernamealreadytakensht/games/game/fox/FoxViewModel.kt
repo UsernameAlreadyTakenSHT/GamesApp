@@ -84,7 +84,18 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         finishLoad()
     }
 
-    fun resumeGame(): Boolean {
+    fun resumeGame(): Boolean = try {
+        loadSavedGame()
+    } catch (e: Exception) {
+        // A save this version cannot replay (corrupted, or from an incompatible build) would
+        // crash every Resume: drop it and go back to the menu instead.
+        android.util.Log.w("GameResume", "Discarding an unreadable saved game", e)
+        repo.clearFoxGame()
+        hasGame = false
+        false
+    }
+
+    private fun loadSavedGame(): Boolean {
         if (hasGame) { resumeClock(); return true }
         val saved = repo.loadFoxGame() ?: return false
         resetGame(saved.config, saved.playerSide)

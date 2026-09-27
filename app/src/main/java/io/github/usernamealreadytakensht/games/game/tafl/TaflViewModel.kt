@@ -89,7 +89,18 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Resumes the saved game if any; a game already held by this ViewModel is kept. */
-    fun resumeGame(): Boolean {
+    fun resumeGame(): Boolean = try {
+        loadSavedGame()
+    } catch (e: Exception) {
+        // A save this version cannot replay (corrupted, or from an incompatible build) would
+        // crash every Resume: drop it and go back to the menu instead.
+        android.util.Log.w("GameResume", "Discarding an unreadable saved game", e)
+        repo.clearTaflGame()
+        hasGame = false
+        false
+    }
+
+    private fun loadSavedGame(): Boolean {
         if (hasGame) { resumeClock(); return true }
         val saved = repo.loadTaflGame() ?: return false
         resetGame(saved.config, saved.playerSide)

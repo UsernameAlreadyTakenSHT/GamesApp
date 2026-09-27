@@ -107,7 +107,18 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
      * Resumes the saved game, if any. Returns false when there is nothing to resume.
      * A game already held by this ViewModel is kept as is.
      */
-    fun resumeGame(): Boolean {
+    fun resumeGame(): Boolean = try {
+        loadSavedGame()
+    } catch (e: Exception) {
+        // A save this version cannot replay (corrupted, or from an incompatible build) would
+        // crash every Resume: drop it and go back to the menu instead.
+        android.util.Log.w("GameResume", "Discarding an unreadable saved game", e)
+        repo.clearGame()
+        hasGame = false
+        false
+    }
+
+    private fun loadSavedGame(): Boolean {
         if (hasGame) {
             released = false
             resumeClock()
