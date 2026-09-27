@@ -67,6 +67,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     /** Bumped on every new game / undo: invalidates in-flight searches. */
     private var generation = 0
     private var engineReady = false
+    /** True while [finishLoad] starts the engine: searches wait for it to finish. */
+    private var engineStarting = false
 
     /** True once a game has been started or resumed in this ViewModel. */
     var hasGame = false
@@ -177,13 +179,21 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         undoOne()
         if (session.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
         _state.update {
-            it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null)
+            it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null, engineError = null)
         }
         // The clock restarts for the side to move; time already spent is not refunded.
         restartTurnClock()
         publish()
         persist()
         maybeEngineMove() // e.g. player has black and everything was taken back
+    }
+
+    /** Asks the engine again after an error (it is restarted if it died). */
+    fun retryEngine() {
+        if (_state.value.engineError == null) return
+        _state.update { it.copy(engineError = null) }
+        publish()
+        maybeEngineMove()
     }
 
     /** The player gives up; the game ends immediately. */
@@ -255,6 +265,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         val config = _state.value.config
+        _state.update { it.copy(engineError = null) }
+        engineStarting = true
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -266,9 +278,26 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
+            } finally {
+                engineStarting = false
             }
             maybeEngineMove()
         }
+    }
+
+    /**
+     * The engine for the current settings, restarted when its process died (killed in the
+     * background, or by the watchdog) or when [restart] is asked after a failed search.
+     */
+    private suspend fun liveEngine(config: GameConfig, restart: Boolean): ChessEngine {
+        if (restart) engine?.quit()
+        val before = engine
+        val eng = ensureEngine(config.engine, config.strength)
+        if (eng !== before) {
+            eng.configure(config.strength)
+            eng.newGame()
+        }
+        return eng
     }
 
     /** Returns a running engine of [kind] (with the network for [strength]), starting it if needed. */
@@ -307,29 +336,35 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun maybeEngineMove() {
-        val eng = engine ?: return
-        if (!engineReady) return
+        // The first start reports its own failure; later searches restart the engine themselves.
+        if (engineStarting || _state.value.engineError != null) return
         if (session.sideToMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
+        val config = _state.value.config
         val moves = uciMoves.toList()
         val moveTime = engineMoveTimeMs()
-        val nodes = eng.nodesFor(_state.value.config.strength)
-        val depth = eng.depthFor(_state.value.config.strength)
         val startFen = if (session.chess960) session.startFen else null
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val uci = try {
-                eng.bestMove(moves, moveTime, nodes, depth, startFen)
-            } catch (e: Exception) {
-                _state.update { it.copy(engineError = e.message, thinking = false) }
-                publish()
-                return@launch
+            var move: ChessMove? = null
+            var failure: String? = null
+            // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
+            for (attempt in 0..1) {
+                try {
+                    val eng = engineLock.withLock { liveEngine(config, restart = attempt > 0) }
+                    val uci = eng.bestMove(moves, moveTime, eng.nodesFor(config.strength), eng.depthFor(config.strength), startFen)
+                    if (gen != generation) return@launch // game changed meanwhile
+                    move = uci?.let { session.parseUci(it) }
+                    if (move != null) break
+                    failure = "${config.engine.label} gave no legal move (${uci ?: "none"})"
+                } catch (e: Exception) {
+                    if (gen != generation) return@launch
+                    failure = e.message ?: e.toString()
+                }
             }
-            if (gen != generation) return@launch // game changed meanwhile
-            _state.update { it.copy(thinking = false) }
-            val move = uci?.let { session.parseUci(it) }
+            _state.update { it.copy(thinking = false, engineError = if (move == null) failure else null) }
             if (move != null && !isGameOver()) {
                 applyMove(move)
             }

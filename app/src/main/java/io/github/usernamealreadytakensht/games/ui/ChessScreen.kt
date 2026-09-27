@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -142,7 +143,7 @@ fun ChessScreen(
                 lost = state.result == Result.ENGINE_WINS,
             )
 
-            StatusLine(state)
+            StatusLine(state, onRetry = vm::retryEngine)
 
             if (state.result != Result.ONGOING) {
                 GameOverBanner(state, onRematch = vm::rematch, onNewGame = onNewGame)
@@ -153,7 +154,7 @@ fun ChessScreen(
                 ) {
                     OutlinedButton(
                         onClick = vm::undo,
-                        enabled = state.canUndo && state.engineError == null,
+                        enabled = state.canUndo,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("Undo")
@@ -256,9 +257,9 @@ private fun formatClock(ms: Long): String {
 }
 
 @Composable
-private fun StatusLine(state: GameState) {
+private fun StatusLine(state: GameState, onRetry: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(28.dp),
+        modifier = Modifier.fillMaxWidth().height(36.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -268,7 +269,11 @@ private fun StatusLine(state: GameState) {
             style = MaterialTheme.typography.bodyLarge,
             color = if (state.engineError != null) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
+        if (state.engineError != null && state.result == Result.ONGOING) TextButton(onClick = onRetry) { Text("Retry") }
     }
 }
 
