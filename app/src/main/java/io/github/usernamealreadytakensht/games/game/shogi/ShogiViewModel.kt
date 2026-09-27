@@ -70,6 +70,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private val engine = ShogiEngine(app)
     private val engineLock = Mutex()
     private var engineReady = false
+    /** True while [finishLoad] starts the engine: searches wait for it to finish. */
+    private var engineStarting = false
 
     private var game = Shogi.Game()
     private var generation = 0
@@ -166,9 +168,18 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         game.undo()
         if (game.position.sideToMove != s.playerSide && game.moves.isNotEmpty()) game.undo()
         clearSelection()
+        _state.update { it.copy(engineError = null) }
         restartTurnClock()
         publish()
         persist()
+        maybeEngineMove()
+    }
+
+    /** Asks the engine again after an error (it is restarted if it died). */
+    fun retryEngine() {
+        if (_state.value.engineError == null) return
+        _state.update { it.copy(engineError = null) }
+        publish()
         maybeEngineMove()
     }
 
@@ -223,6 +234,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         val config = _state.value.config
+        _state.update { it.copy(engineError = null) }
+        engineStarting = true
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -234,9 +247,24 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
+            } finally {
+                engineStarting = false
             }
             publish()
             maybeEngineMove()
+        }
+    }
+
+    /**
+     * Makes sure the engine process is alive, restarting it when it died (killed in the
+     * background, or by the watchdog) or when [restart] is asked after a failed search.
+     */
+    private suspend fun liveEngine(config: ShogiConfig, restart: Boolean) {
+        if (restart) engine.quit()
+        if (!engine.isRunning) {
+            engine.start()
+            engine.newGame(ShogiLevels.skill(config.level))
+            engineReady = true
         }
     }
 
@@ -266,24 +294,33 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Shogi.Outcome.ONGOING
 
     private fun maybeEngineMove() {
-        if (!engineReady) return
+        // The first start reports its own failure; later searches restart the engine themselves.
+        if (engineStarting || _state.value.engineError != null) return
         if (game.position.sideToMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
+        val config = _state.value.config
         val moves = game.uciMoves
         val moveTime = engineMoveTimeMs()
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val uci = try {
-                engine.bestMove(moves, moveTime)
-            } catch (e: Exception) {
-                _state.update { it.copy(engineError = e.message, thinking = false) }
-                publish()
-                return@launch
+            var move: Move? = null
+            var failure: String? = null
+            // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
+            for (attempt in 0..1) {
+                try {
+                    engineLock.withLock { liveEngine(config, restart = attempt > 0) }
+                    val uci = engine.bestMove(moves, moveTime)
+                    if (gen != generation) return@launch
+                    move = uci?.let { game.parseUci(it) }
+                    if (move != null) break
+                    failure = "Fairy-Stockfish gave no legal move (${uci ?: "none"})"
+                } catch (e: Exception) {
+                    if (gen != generation) return@launch
+                    failure = e.message ?: e.toString()
+                }
             }
-            if (gen != generation) return@launch
-            _state.update { it.copy(thinking = false) }
-            val move = uci?.let { game.parseUci(it) }
+            _state.update { it.copy(thinking = false, engineError = if (move == null) failure else null) }
             if (move != null && !isGameOver()) applyMove(move)
             publish()
             persist()
