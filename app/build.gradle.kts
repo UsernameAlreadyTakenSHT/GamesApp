@@ -42,6 +42,7 @@ android {
         // they can be sized and streamed. They are not named .gz because AGP would un-gzip them.
         noCompress.add("lc0")
         noCompress.add("onnx")
+        noCompress.add("nnue")
     }
     splits {
         // One APK per ABI: the engines weigh ~280 MB per architecture, so a universal APK

@@ -35,7 +35,7 @@ depends on how the engine can be limited.
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
 | | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
 | <img src="app/src/main/res/drawable-nodpi/logo_sunfish.png" width="32" alt=""> | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
-| | **Fairy-Stockfish** (Chess960 only; also the shogi opponent) | Classical evaluation | `UCI_Elo` | 500–2850, or Max |
+| | **Fairy-Stockfish** (Chess960 only; also the shogi opponent) | Stockfish NNUE network (shogi: its own shogi network) | `UCI_Elo` | 500–2850, or Max |
 
 Chess960 rules are chesslib's move generation plus Fischer-random castling written for this
 app (`game/ChessSession.kt`: chesslib 1.3.x gets 960 castling wrong), checked by perft against
@@ -170,7 +170,9 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   desktop UI classes its engine core references are replaced by stubs, see `opentafl/`).
 - Networks: [Maia](https://github.com/CSSLab/maia-chess) (GPL-3.0),
   [Maia 3](https://github.com/CSSLab/maia3) (AGPL-3.0),
-  [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org).
+  [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org),
+  Fairy-Stockfish's chess (Stockfish nn-46832cfbead3) and shogi
+  [NNUE networks](https://fairy-stockfish.github.io/nnue/).
   The Maia authors ask that their papers be cited:
   [Aligning Superhuman AI with Human Behavior](https://arxiv.org/abs/2006.01855) (KDD 2020) and
   [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).

@@ -72,9 +72,12 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
                     send("setoption name Hash value 64")
                 }
             }
-            // Fairy-Stockfish is only offered for Chess960 (castling as king-takes-rook);
-            // without an EvalFile it plays with its classical evaluation.
-            if (kind.family == EngineFamily.FAIRY) send("setoption name UCI_Chess960 value true")
+            // Fairy-Stockfish is only offered for Chess960 (castling as king-takes-rook); its
+            // network is not embedded in the binary, so it is passed as EvalFile.
+            if (kind.family == EngineFamily.FAIRY) {
+                send("setoption name UCI_Chess960 value true")
+                weightsFile?.let { send("setoption name EvalFile value ${it.absolutePath}") }
+            }
             kind.personality?.let {
                 send("setoption name PersonalityFile value $it")
                 send("setoption name OwnBook value true") // personalities come with their own book

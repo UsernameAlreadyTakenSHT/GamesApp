@@ -138,8 +138,8 @@ enum class EngineKind(
     ),
     FAIRY_STOCKFISH(
         EngineFamily.FAIRY, "Fairy-Stockfish", "libfairy.so", StrengthKind.ELO,
-        "Stockfish fork for chess variants, here playing Chess960 with its classical evaluation.",
-        eloMin = 500, eloMax = 2850,
+        "Stockfish fork for chess variants, here playing Chess960 with a Stockfish NNUE network.",
+        weights = "nn-46832cfbead3.nnue", eloMin = 500, eloMax = 2850,
     ),
     RODENT_NIMZOID(
         EngineFamily.RODENT, "Nimzoid", "librodent.so", StrengthKind.ELO,

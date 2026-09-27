@@ -2,6 +2,7 @@ package io.github.usernamealreadytakensht.games.engine.shogi
 
 import android.content.Context
 import android.util.Log
+import io.github.usernamealreadytakensht.games.engine.NetAssets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -14,10 +15,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Fairy-Stockfish playing shogi over UCI (`UCI_Variant shogi`). Moves use its coordinates:
- * "g3g4", "b8h2+" (promotion), "P@e5" (drop). Without an EvalFile the engine uses its
- * classical shogi evaluation.
+ * "g3g4", "b8h2+" (promotion), "P@e5" (drop). The shogi NNUE network ships in
+ * `assets/nets` and is passed as EvalFile (the binary embeds none).
  */
-class ShogiEngine(context: Context) {
+class ShogiEngine(private val context: Context) {
 
     private val executable = File(context.applicationInfo.nativeLibraryDir, "libfairy.so")
     private var process: Process? = null
@@ -30,6 +31,7 @@ class ShogiEngine(context: Context) {
     suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
         if (!executable.canExecute()) throw IOException("Fairy-Stockfish binary not found: ${executable.path}")
+        val net = NetAssets.ensure(context, NET)
         val p = ProcessBuilder(executable.absolutePath).redirectErrorStream(true).start()
         process = p
         writer = p.outputStream.bufferedWriter()
@@ -41,6 +43,7 @@ class ShogiEngine(context: Context) {
             send("setoption name Threads value $threads")
             send("setoption name Hash value 64")
             send("setoption name UCI_Variant value shogi")
+            send("setoption name EvalFile value ${net.absolutePath}")
             send("ucinewgame")
             send("isready")
             readUntil("readyok")
@@ -101,5 +104,6 @@ class ShogiEngine(context: Context) {
 
     private companion object {
         const val TAG = "ShogiEngine"
+        const val NET = "shogi-878ca61334a7.nnue"
     }
 }

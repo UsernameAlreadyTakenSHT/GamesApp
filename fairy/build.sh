@@ -6,8 +6,8 @@
 # Usage (Git Bash):  ./fairy/build.sh [git ref]      (default: master)
 #
 # largeboards=yes is required for shogi (9x9 is beyond the default 8x8 bitboards).
-# No network is embedded (nnue=no): without an EvalFile the engine plays with its classical
-# evaluation (per-variant NNUE files could be shipped as assets and passed via EvalFile).
+# No network is embedded (nnue=no): the per-variant NNUE files are downloaded below into
+# app/src/main/assets/nets and passed to the engine as EvalFile.
 set -euo pipefail
 
 REF="${1:-master}"
@@ -42,6 +42,16 @@ build() { # abi  arch  triple
   "$TC/llvm-strip$EXT" -o "$OUT/$abi/libfairy.so" stockfish
   ls -la "$OUT/$abi/libfairy.so"
 }
+
+# NNUE networks (passed as EvalFile by the app): chess (Chess960) and shogi, listed on
+# https://fairy-stockfish.github.io/nnue/
+NETS="$ROOT/app/src/main/assets/nets"
+mkdir -p "$NETS"
+fetch() { # file url
+  [ -s "$NETS/$1" ] || { echo ">> Download $1"; curl -fL --retry 3 -o "$NETS/$1" "$2"; }
+}
+fetch nn-46832cfbead3.nnue https://tests.stockfishchess.org/api/nn/nn-46832cfbead3.nnue
+fetch shogi-878ca61334a7.nnue "https://drive.usercontent.google.com/download?id=1RA0mstKWi_tH98DVdLGBamEdE8FXiSgB&export=download&confirm=t"
 
 build x86_64    x86-64-sse41-popcnt x86_64-linux-android29
 build arm64-v8a armv8               aarch64-linux-android29

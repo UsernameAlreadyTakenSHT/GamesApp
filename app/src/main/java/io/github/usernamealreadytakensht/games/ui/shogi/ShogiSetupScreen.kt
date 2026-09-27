@@ -117,7 +117,7 @@ fun ShogiOpponentSetupScreen(
             ) { EngineBadge(logo = null, monogram = "FS", hue = 190f, icon = R.drawable.ic_engine_fairy) }
             Spacer(Modifier.weight(1f))
         }
-        Hint("Stockfish's search adapted to shogi (drops, promotions) with its classical shogi evaluation.")
+        Hint("Stockfish's search adapted to shogi (drops, promotions), with a shogi NNUE network.")
 
         SectionTitle("Strength")
         StrengthCard(
