@@ -123,7 +123,10 @@ fun ChessScreen(
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
                     Text(if (state.config.chess960) "Chess960" else "Chess", style = MaterialTheme.typography.titleLarge)
                 }
-                Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                    ShareGameButton(vm::exportGame)
+                }
             }
 
             ClockRow(

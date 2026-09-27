@@ -1,5 +1,11 @@
 package io.github.usernamealreadytakensht.games.game.tafl
 
+import kotlinx.coroutines.Dispatchers
+import io.github.usernamealreadytakensht.games.game.record.ExportedGame
+import io.github.usernamealreadytakensht.games.game.record.Exports
+import io.github.usernamealreadytakensht.games.game.record.GameRecord
+import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
+import io.github.usernamealreadytakensht.games.game.record.PlayerResult
 import android.app.Application
 import android.os.SystemClock
 import android.util.Log
@@ -56,6 +62,9 @@ data class TaflState(
 class TaflViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = GameRepository(app)
+    private val records = HistoryRepository(app)
+    /** Whether the finished game was already added to the history. */
+    private var recorded = false
     private val engine = OpenTaflEngine()
 
     private var game: Game = Tafl.newGame(TaflVariant.COPENHAGEN)
@@ -190,6 +199,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         resigned = false
         flagged = null
         hasGame = true
+        recorded = false
         _state.update { it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), runningClock = null) }
     }
 
@@ -407,9 +417,52 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                 defendersMs = currentMs(Side.DEFENDERS),
             )
         }
+        recordIfFinished()
     }
 
     private companion object {
         const val TAG = "TaflViewModel"
+    }
+
+    // ---------------------------------------------------------------- export & history
+
+    /** The current game as a file (plain text), for the Share button and the history. */
+    fun exportGame(): ExportedGame {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val result = when (s.result) {
+            TaflResult.PLAYER_WINS -> "You won"
+            TaflResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            TaflResult.ONGOING -> "In progress"
+            else -> "Draw"
+        }
+        val attackers = if (s.playerSide == Side.ATTACKERS) "You" else s.config.opponentLabel
+        val defenders = if (s.playerSide == Side.DEFENDERS) "You" else s.config.opponentLabel
+        val header = listOf("Attackers" to attackers, "Defenders" to defenders, "Result" to result, "Status" to s.statusText)
+        val text = Exports.plainText("${s.config.variant.label} (hnefatafl)", now, header, s.moves)
+        return ExportedGame("hnefatafl-${Exports.fileStamp(now)}.txt", "text/plain", text)
+    }
+
+    /** A game that just ended goes to the history, once. */
+    private fun recordIfFinished() {
+        val s = _state.value
+        if (!hasGame || recorded || s.result == TaflResult.ONGOING) return
+        recorded = true
+        val record = GameRecord(
+            endedAt = System.currentTimeMillis(),
+            game = "Hnefatafl",
+            variant = s.config.variant.label,
+            opponent = s.config.opponentLabel,
+            playerSide = if (s.playerSide == Side.ATTACKERS) "Attackers" else "Defenders",
+            result = when (s.result) {
+                TaflResult.PLAYER_WINS -> PlayerResult.WIN
+                TaflResult.ENGINE_WINS -> PlayerResult.LOSS
+                else -> PlayerResult.DRAW
+            },
+            reason = s.statusText,
+            moveCount = s.moves.size,
+            export = exportGame(),
+        )
+        viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }
 }

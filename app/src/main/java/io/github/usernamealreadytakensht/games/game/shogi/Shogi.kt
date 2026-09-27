@@ -353,11 +353,63 @@ object Shogi {
             return Outcome.DRAW
         }
 
+        /**
+         * The game as a KIF file, the most widespread shogi record format. [ending] is the
+         * closing keyword (投了 resignation, 詰み mate, 切れ負け time, 千日手 repetition) and
+         * [winner] "先手" / "後手", or null for a draw or an unfinished game.
+         */
+        fun kif(sente: String, gote: String, startedAt: Long, ending: String?, winner: String?): String = buildString {
+            val date = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(startedAt))
+            appendLine("#KIF version=2.0 encoding=UTF-8")
+            appendLine("開始日時：$date")
+            appendLine("手合割：平手")
+            appendLine("先手：$sente")
+            appendLine("後手：$gote")
+            appendLine("手数----指手---------消費時間--")
+            played.forEachIndexed { i, m ->
+                val before = positions[i]
+                val previousTo = played.getOrNull(i - 1)?.to
+                appendLine("%4d %s   ( 0:00/00:00:00)".format(i + 1, kifMove(before, m, previousTo)))
+            }
+            if (ending != null) {
+                appendLine("%4d %s   ( 0:00/00:00:00)".format(played.size + 1, ending))
+                if (winner != null) appendLine("まで${played.size}手で${winner}の勝ち")
+                else appendLine("まで${played.size}手で$ending")
+            }
+        }
+
         /** Why the game ended, for the status line (outcome() must not be ONGOING). */
         fun isRepetition(): Boolean {
             val key = position.key()
             return positions.count { it.key() == key } >= 4
         }
+    }
+
+    private const val KIF_FILES = "１２３４５６７８９"
+    private const val KIF_RANKS = "一二三四五六七八九"
+
+    private fun kifPiece(p: Piece): String = if (p.promoted) when (p.kind) {
+        Kind.PAWN -> "と"; Kind.LANCE -> "成香"; Kind.KNIGHT -> "成桂"; Kind.SILVER -> "成銀"
+        Kind.BISHOP -> "馬"; Kind.ROOK -> "龍"; else -> kifPiece(p.copy(promoted = false))
+    } else when (p.kind) {
+        Kind.PAWN -> "歩"; Kind.LANCE -> "香"; Kind.KNIGHT -> "桂"; Kind.SILVER -> "銀"
+        Kind.GOLD -> "金"; Kind.BISHOP -> "角"; Kind.ROOK -> "飛"; Kind.KING -> "玉"
+    }
+
+    /** One KIF move: destination (or 同 for a recapture), piece, 成 / 不成 / 打, origin "(77)". */
+    private fun kifMove(pos: Position, m: Move, previousTo: Int?): String {
+        val file = 9 - file(m.to)
+        val rank = 9 - rank(m.to)
+        val dest = if (m.to == previousTo) "同　" else "${KIF_FILES[file - 1]}${KIF_RANKS[rank - 1]}"
+        if (m.drop != null) return dest + kifPiece(Piece(pos.sideToMove, m.drop)) + "打"
+        val p = pos.at(m.from)!!
+        val canPromote = p.kind.promotable && !p.promoted && (inZone(m.from, p.side) || inZone(m.to, p.side))
+        val suffix = when {
+            m.promote -> "成"
+            canPromote && !mustPromote(p, m.to) -> "不成"
+            else -> ""
+        }
+        return dest + kifPiece(p) + suffix + "(${9 - file(m.from)}${9 - rank(m.from)})"
     }
 
     /**

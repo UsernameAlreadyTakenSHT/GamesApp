@@ -85,6 +85,17 @@ class ShogiTest {
     }
 
     @Test
+    fun kifRecord() {
+        val g = Shogi.Game()
+        for (m in listOf("c3c4", "g7g6", "b2h8+", "g9h8", "B@e5")) g.play(g.parseUci(m)!!)
+        val kif = g.kif("You", "Engine", 0L, "投了", "先手")
+        val moves = kif.lines().filter { it.trim().firstOrNull()?.isDigit() == true }.map { it.trim().split(Regex(" +"))[1] }
+        // P-7f, P-3d, Bx2b+, Sx2b (a recapture: 同), B*5e.
+        assertEquals(listOf("７六歩(77)", "３四歩(33)", "２二角成(88)", "同　銀(31)", "５五角打", "投了"), moves)
+        assertTrue(kif.contains("先手：You") && kif.contains("まで5手で先手の勝ち"))
+    }
+
+    @Test
     fun fourfoldRepetitionIsADraw() {
         val g = Shogi.Game()
         repeat(3) {

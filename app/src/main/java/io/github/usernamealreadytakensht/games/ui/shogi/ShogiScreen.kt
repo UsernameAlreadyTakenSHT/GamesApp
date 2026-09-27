@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.shogi
 
+import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -117,7 +118,10 @@ fun ShogiScreen(
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
                     Text("Shogi", style = MaterialTheme.typography.titleLarge)
                 }
-                Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                    ShareGameButton(vm::exportGame)
+                }
             }
 
             ClockRow(

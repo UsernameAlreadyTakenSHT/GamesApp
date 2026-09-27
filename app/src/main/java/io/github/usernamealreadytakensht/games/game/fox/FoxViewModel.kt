@@ -1,5 +1,11 @@
 package io.github.usernamealreadytakensht.games.game.fox
 
+import kotlinx.coroutines.Dispatchers
+import io.github.usernamealreadytakensht.games.game.record.ExportedGame
+import io.github.usernamealreadytakensht.games.game.record.Exports
+import io.github.usernamealreadytakensht.games.game.record.GameRecord
+import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
+import io.github.usernamealreadytakensht.games.game.record.PlayerResult
 import android.app.Application
 import android.os.SystemClock
 import android.util.Log
@@ -52,6 +58,9 @@ data class FoxState(
 class FoxViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = GameRepository(app)
+    private val records = HistoryRepository(app)
+    /** Whether the finished game was already added to the history. */
+    private var recorded = false
     private val engine = FoxEngine()
 
     private var position: Position = Fox.start(FoxVariant.HOUNDS)
@@ -188,6 +197,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         resigned = false
         flagged = null
         hasGame = true
+        recorded = false
         _state.update { it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), runningClock = null) }
     }
 
@@ -395,9 +405,57 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                 huntersMs = currentMs(Side.HUNTERS),
             )
         }
+        recordIfFinished()
     }
 
     private companion object {
         const val TAG = "FoxViewModel"
+    }
+
+    // ---------------------------------------------------------------- export & history
+
+    /** The current game as a file (plain text), for the Share button and the history. */
+    fun exportGame(): ExportedGame {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val result = when (s.result) {
+            FoxResult.PLAYER_WINS -> "You won"
+            FoxResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            FoxResult.ONGOING -> "In progress"
+            else -> "Draw"
+        }
+        val v = s.config.variant
+        val fox = if (s.playerSide == Side.FOX) "You" else s.config.opponentLabel
+        val hunters = if (s.playerSide == Side.HUNTERS) "You" else s.config.opponentLabel
+        val header = listOf(
+            v.foxName.replaceFirstChar { it.uppercase() } to fox,
+            v.hunterName.replaceFirstChar { it.uppercase() } to hunters,
+            "Result" to result, "Status" to s.statusText,
+        )
+        val text = Exports.plainText(v.label, now, header, s.moves)
+        return ExportedGame("fox-${Exports.fileStamp(now)}.txt", "text/plain", text)
+    }
+
+    /** A game that just ended goes to the history, once. */
+    private fun recordIfFinished() {
+        val s = _state.value
+        if (!hasGame || recorded || s.result == FoxResult.ONGOING) return
+        recorded = true
+        val record = GameRecord(
+            endedAt = System.currentTimeMillis(),
+            game = "Fox games",
+            variant = s.config.variant.label,
+            opponent = s.config.opponentLabel,
+            playerSide = (if (s.playerSide == Side.FOX) s.config.variant.foxName else s.config.variant.hunterName).replaceFirstChar { it.uppercase() },
+            result = when (s.result) {
+                FoxResult.PLAYER_WINS -> PlayerResult.WIN
+                FoxResult.ENGINE_WINS -> PlayerResult.LOSS
+                else -> PlayerResult.DRAW
+            },
+            reason = s.statusText,
+            moveCount = s.moves.size,
+            export = exportGame(),
+        )
+        viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }
 }

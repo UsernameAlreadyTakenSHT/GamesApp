@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.fox
 
+import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -119,7 +120,10 @@ fun FoxScreen(
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
                     Text(v.label, style = MaterialTheme.typography.titleLarge)
                 }
-                Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                    ShareGameButton(vm::exportGame)
+                }
             }
 
             ClockRow(

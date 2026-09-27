@@ -1,5 +1,11 @@
 package io.github.usernamealreadytakensht.games.game.shogi
 
+import kotlinx.coroutines.Dispatchers
+import io.github.usernamealreadytakensht.games.game.record.ExportedGame
+import io.github.usernamealreadytakensht.games.game.record.Exports
+import io.github.usernamealreadytakensht.games.game.record.GameRecord
+import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
+import io.github.usernamealreadytakensht.games.game.record.PlayerResult
 import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -68,6 +74,9 @@ data class ShogiState(
 class ShogiViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = GameRepository(app)
+    private val records = HistoryRepository(app)
+    /** Whether the finished game was already added to the history. */
+    private var recorded = false
     private val engine = ShogiEngine(app)
     private val engineLock = Mutex()
     private var engineReady = false
@@ -261,6 +270,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         resigned = false
         flagged = null
         hasGame = true
+        recorded = false
         _state.update {
             it.copy(config = config, playerSide = side, selected = null, selectedDrop = null, targets = emptySet(),
                 pendingPromotion = null, runningClock = null)
@@ -550,9 +560,56 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 goteByoyomiMs = byoyomiLeft(Side.GOTE),
             )
         }
+        recordIfFinished()
     }
 
     override fun onCleared() {
         engine.quit()
+    }
+
+    // ---------------------------------------------------------------- export & history
+
+    /** The current game as a file (KIF), for the Share button and the history. */
+    fun exportGame(): ExportedGame {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val sente = if (s.playerSide == Side.SENTE) "You" else s.config.opponentLabel
+        val gote = if (s.playerSide == Side.GOTE) "You" else s.config.opponentLabel
+        val ending = when {
+            s.result == ShogiResult.ONGOING -> null
+            resigned -> "投了"
+            flagged != null -> "切れ負け"
+            game.isRepetition() -> "千日手"
+            else -> "詰み"
+        }
+        val winner = when (s.result) {
+            ShogiResult.PLAYER_WINS -> if (s.playerSide == Side.SENTE) "先手" else "後手"
+            ShogiResult.ENGINE_WINS -> if (s.playerSide == Side.SENTE) "後手" else "先手"
+            else -> null
+        }
+        return ExportedGame("shogi-${Exports.fileStamp(now)}.kif", "text/plain", game.kif(sente, gote, now, ending, winner))
+    }
+
+    /** A game that just ended goes to the history, once. */
+    private fun recordIfFinished() {
+        val s = _state.value
+        if (!hasGame || recorded || s.result == ShogiResult.ONGOING) return
+        recorded = true
+        val record = GameRecord(
+            endedAt = System.currentTimeMillis(),
+            game = "Shogi",
+            variant = null,
+            opponent = s.config.opponentLabel,
+            playerSide = if (s.playerSide == Side.SENTE) "Sente" else "Gote",
+            result = when (s.result) {
+                ShogiResult.PLAYER_WINS -> PlayerResult.WIN
+                ShogiResult.ENGINE_WINS -> PlayerResult.LOSS
+                else -> PlayerResult.DRAW
+            },
+            reason = s.statusText,
+            moveCount = s.moves.size,
+            export = exportGame(),
+        )
+        viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }
 }

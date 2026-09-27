@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.draughts
 
+import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -110,7 +111,10 @@ fun DraughtsScreen(
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
                     Text("Draughts", style = MaterialTheme.typography.titleLarge)
                 }
-                Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)
+                    ShareGameButton(vm::exportGame)
+                }
             }
 
             ClockRow(state.config.opponentLabel, state.clockMs(state.engineSide), state.config.timeControl.startingMs,

@@ -1,5 +1,11 @@
 package io.github.usernamealreadytakensht.games.game.morris
 
+import kotlinx.coroutines.Dispatchers
+import io.github.usernamealreadytakensht.games.game.record.ExportedGame
+import io.github.usernamealreadytakensht.games.game.record.Exports
+import io.github.usernamealreadytakensht.games.game.record.GameRecord
+import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
+import io.github.usernamealreadytakensht.games.game.record.PlayerResult
 import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -65,6 +71,9 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
 
     private val app = app
     private val repo = GameRepository(app)
+    private val records = HistoryRepository(app)
+    /** Whether the finished game was already added to the history. */
+    private var recorded = false
     private var engine: MorrisOpponent? = null
     private val engineLock = Mutex()
     private var engineReady = false
@@ -262,6 +271,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         resigned = false
         flagged = null
         hasGame = true
+        recorded = false
         _state.update {
             it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), removable = emptySet(),
                 pendingMove = null, runningClock = null)
@@ -557,5 +567,48 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 blackMs = currentMs(Color.BLACK),
             )
         }
+        recordIfFinished()
+    }
+
+    // ---------------------------------------------------------------- export & history
+
+    /** The current game as a file (plain text), for the Share button and the history. */
+    fun exportGame(): ExportedGame {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val result = when (s.result) {
+            MorrisResult.PLAYER_WINS -> "You won"
+            MorrisResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            MorrisResult.ONGOING -> "In progress"
+            else -> "Draw"
+        }
+        val white = if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
+        val black = if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
+        val header = listOf("White" to white, "Black" to black, "Result" to result, "Status" to s.statusText)
+        val text = Exports.plainText(s.config.variant.label, now, header, s.moves)
+        return ExportedGame("morris-${Exports.fileStamp(now)}.txt", "text/plain", text)
+    }
+
+    /** A game that just ended goes to the history, once. */
+    private fun recordIfFinished() {
+        val s = _state.value
+        if (!hasGame || recorded || s.result == MorrisResult.ONGOING) return
+        recorded = true
+        val record = GameRecord(
+            endedAt = System.currentTimeMillis(),
+            game = "Morris",
+            variant = s.config.variant.label,
+            opponent = s.config.opponentLabel,
+            playerSide = if (s.playerSide == Color.WHITE) "White" else "Black",
+            result = when (s.result) {
+                MorrisResult.PLAYER_WINS -> PlayerResult.WIN
+                MorrisResult.ENGINE_WINS -> PlayerResult.LOSS
+                else -> PlayerResult.DRAW
+            },
+            reason = s.statusText,
+            moveCount = s.moves.size,
+            export = exportGame(),
+        )
+        viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }
 }

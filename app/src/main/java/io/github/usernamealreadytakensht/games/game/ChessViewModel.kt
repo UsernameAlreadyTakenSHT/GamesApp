@@ -1,5 +1,11 @@
 package io.github.usernamealreadytakensht.games.game
 
+import kotlinx.coroutines.Dispatchers
+import io.github.usernamealreadytakensht.games.game.record.ExportedGame
+import io.github.usernamealreadytakensht.games.game.record.Exports
+import io.github.usernamealreadytakensht.games.game.record.GameRecord
+import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
+import io.github.usernamealreadytakensht.games.game.record.PlayerResult
 import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -60,6 +66,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     /** Serialises engine start / switch / configure sequences. */
     private val engineLock = Mutex()
     private val repo = GameRepository(app)
+    private val records = HistoryRepository(app)
+    /** Whether the finished game was already added to the history. */
+    private var recorded = false
     /** Rules and move history; replaced on every new game (standard or Chess960). */
     private var session: ChessSession = StandardChess()
     private val uciMoves: List<String> get() = session.uciMoves
@@ -275,6 +284,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         resigned = false
         hasGame = true
+        recorded = false
         _state.update {
             it.copy(
                 config = config,
@@ -569,10 +579,69 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 blackMs = currentMs(Side.BLACK),
             )
         }
+        recordIfFinished()
     }
 
     override fun onCleared() {
         engine?.quit()
     }
 
+    // ---------------------------------------------------------------- export & history
+
+    /** The current game as a file (PGN), for the Share button and the history. */
+    fun exportGame(): ExportedGame {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val white = if (s.playerSide == Side.WHITE) "You" else s.config.opponentLabel
+        val black = if (s.playerSide == Side.BLACK) "You" else s.config.opponentLabel
+        val result = when (s.result) {
+            Result.PLAYER_WINS -> if (s.playerSide == Side.WHITE) "1-0" else "0-1"
+            Result.ENGINE_WINS -> if (s.playerSide == Side.WHITE) "0-1" else "1-0"
+            Result.DRAW -> "1/2-1/2"
+            Result.ONGOING -> "*"
+        }
+        val tags = mutableListOf(
+            "Event" to if (session.chess960) "Casual Chess960 game" else "Casual game",
+            "Site" to "GamesApp", "Date" to Exports.pgnDate(now), "Round" to "-",
+            "White" to white, "Black" to black, "Result" to result,
+        )
+        if (session.chess960) {
+            tags += "Variant" to "Chess960"
+            tags += "SetUp" to "1"
+            tags += "FEN" to session.startFen
+        }
+        tags += "TimeControl" to when (val tc = s.config.timeControl) {
+            TimeControl.None -> "-"
+            is TimeControl.SuddenDeath -> "${tc.initialMs / 1000}"
+            is TimeControl.Fischer -> "${tc.initialMs / 1000}+${tc.incrementMs / 1000}"
+            is TimeControl.PerMove -> "1/${tc.perMoveMs / 1000}"
+            is TimeControl.Byoyomi -> "${tc.initialMs / 1000}"
+        }
+        val ending = if (s.result == Result.ONGOING) result else "{${s.statusText.replace("}", ")")}} $result"
+        val text = tags.joinToString("\n") { (k, v) -> Exports.tag(k, v) } + "\n\n" + Exports.movetext(s.sanMoves, ending) + "\n"
+        return ExportedGame("chess-${Exports.fileStamp(now)}.pgn", "text/plain", text)
+    }
+
+    /** A game that just ended goes to the history, once. */
+    private fun recordIfFinished() {
+        val s = _state.value
+        if (!hasGame || recorded || s.result == Result.ONGOING) return
+        recorded = true
+        val record = GameRecord(
+            endedAt = System.currentTimeMillis(),
+            game = "Chess",
+            variant = if (session.chess960) "Chess960" else null,
+            opponent = s.config.opponentLabel,
+            playerSide = if (s.playerSide == Side.WHITE) "White" else "Black",
+            result = when (s.result) {
+                Result.PLAYER_WINS -> PlayerResult.WIN
+                Result.ENGINE_WINS -> PlayerResult.LOSS
+                else -> PlayerResult.DRAW
+            },
+            reason = s.statusText,
+            moveCount = s.sanMoves.size,
+            export = exportGame(),
+        )
+        viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
 }
