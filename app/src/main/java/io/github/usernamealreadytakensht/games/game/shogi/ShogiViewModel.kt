@@ -8,6 +8,7 @@ import io.github.usernamealreadytakensht.games.engine.shogi.ShogiEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedShogiGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
+import io.github.usernamealreadytakensht.games.game.clockShown
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi.Kind
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi.Move
 import io.github.usernamealreadytakensht.games.game.shogi.Shogi.Piece
@@ -469,13 +470,12 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun publishClocks() = _state.update {
-        it.copy(
-            senteMs = currentMs(Side.SENTE),
-            goteMs = currentMs(Side.GOTE),
-            senteByoyomiMs = byoyomiLeft(Side.SENTE),
-            goteByoyomiMs = byoyomiLeft(Side.GOTE),
-        )
+    private fun publishClocks() {
+        val now = listOf(currentMs(Side.SENTE), currentMs(Side.GOTE), byoyomiLeft(Side.SENTE), byoyomiLeft(Side.GOTE))
+        val st = _state.value
+        val shown = listOf(st.senteMs, st.goteMs, st.senteByoyomiMs, st.goteByoyomiMs)
+        if (now.map(::clockShown) == shown.map(::clockShown)) return
+        _state.update { it.copy(senteMs = now[0], goteMs = now[1], senteByoyomiMs = now[2], goteByoyomiMs = now[3]) }
     }
 
     /**

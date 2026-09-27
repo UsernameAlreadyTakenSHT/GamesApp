@@ -9,6 +9,7 @@ import io.github.usernamealreadytakensht.games.engine.fox.FoxEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedFoxGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
+import io.github.usernamealreadytakensht.games.game.clockShown
 import io.github.usernamealreadytakensht.games.game.fox.Fox.Move
 import io.github.usernamealreadytakensht.games.game.fox.Fox.Position
 import io.github.usernamealreadytakensht.games.game.fox.Fox.Side
@@ -340,7 +341,11 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                     persist()
                     break
                 }
-                _state.update { it.copy(foxMs = currentMs(Side.FOX), huntersMs = currentMs(Side.HUNTERS)) }
+                val foxMsNow = currentMs(Side.FOX)
+                val huntersMsNow = currentMs(Side.HUNTERS)
+                if (clockShown(foxMsNow) != clockShown(_state.value.foxMs) || clockShown(huntersMsNow) != clockShown(_state.value.huntersMs)) {
+                    _state.update { it.copy(foxMs = foxMsNow, huntersMs = huntersMsNow) }
+                }
             }
         }
     }

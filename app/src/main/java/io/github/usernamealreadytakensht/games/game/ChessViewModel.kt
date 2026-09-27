@@ -519,7 +519,11 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun publishClocks() {
         if (!hasClock()) return
-        _state.update { it.copy(whiteMs = currentMs(Side.WHITE), blackMs = currentMs(Side.BLACK)) }
+        val whiteMsNow = currentMs(Side.WHITE)
+        val blackMsNow = currentMs(Side.BLACK)
+        if (clockShown(whiteMsNow) != clockShown(_state.value.whiteMs) || clockShown(blackMsNow) != clockShown(_state.value.blackMs)) {
+            _state.update { it.copy(whiteMs = whiteMsNow, blackMs = blackMsNow) }
+        }
     }
 
     // ---------------------------------------------------------------- helpers

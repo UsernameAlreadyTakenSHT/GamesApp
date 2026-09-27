@@ -300,6 +300,12 @@ sealed class TimeControl {
     }
 }
 
+/**
+ * What a clock displays: whole seconds, or tenths under 10 s. Clock ticks that leave it
+ * unchanged are not published, so the game screens redraw once a second, not ten times.
+ */
+fun clockShown(ms: Long?): Long? = ms?.let { if (it < 10_000) it / 100 else 1_000 + it / 1000 }
+
 /** Multiplier on the engine's thinking time per move. */
 enum class ThinkingTime(val label: String, val factor: Double) {
     FAST("Fast", 0.5),

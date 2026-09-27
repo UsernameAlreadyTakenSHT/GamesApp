@@ -10,6 +10,7 @@ import io.github.usernamealreadytakensht.games.engine.tafl.OpenTaflEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedTaflGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
+import io.github.usernamealreadytakensht.games.game.clockShown
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl.Move
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl.Side
 import kotlinx.coroutines.Job
@@ -351,7 +352,11 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                     persist()
                     break
                 }
-                _state.update { it.copy(attackersMs = currentMs(Side.ATTACKERS), defendersMs = currentMs(Side.DEFENDERS)) }
+                val attackersMsNow = currentMs(Side.ATTACKERS)
+                val defendersMsNow = currentMs(Side.DEFENDERS)
+                if (clockShown(attackersMsNow) != clockShown(_state.value.attackersMs) || clockShown(defendersMsNow) != clockShown(_state.value.defendersMs)) {
+                    _state.update { it.copy(attackersMs = attackersMsNow, defendersMs = defendersMsNow) }
+                }
             }
         }
     }

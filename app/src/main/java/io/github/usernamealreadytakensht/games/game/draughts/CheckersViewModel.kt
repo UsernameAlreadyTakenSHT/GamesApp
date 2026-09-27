@@ -8,6 +8,7 @@ import io.github.usernamealreadytakensht.games.engine.draughts.MarcherEngine
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.SavedDraughtsGame
 import io.github.usernamealreadytakensht.games.game.TimeControl
+import io.github.usernamealreadytakensht.games.game.clockShown
 import io.github.usernamealreadytakensht.games.game.draughts.Checkers.Move
 import io.github.usernamealreadytakensht.games.game.draughts.Checkers.Position
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts.Color
@@ -454,7 +455,11 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
                     persist()
                     break
                 }
-                _state.update { it.copy(whiteMs = currentMs(Color.WHITE), blackMs = currentMs(Color.BLACK)) }
+                val whiteMsNow = currentMs(Color.WHITE)
+                val blackMsNow = currentMs(Color.BLACK)
+                if (clockShown(whiteMsNow) != clockShown(_state.value.whiteMs) || clockShown(blackMsNow) != clockShown(_state.value.blackMs)) {
+                    _state.update { it.copy(whiteMs = whiteMsNow, blackMs = blackMsNow) }
+                }
             }
         }
     }
