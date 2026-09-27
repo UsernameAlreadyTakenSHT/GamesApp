@@ -36,6 +36,10 @@ import io.github.usernamealreadytakensht.games.ui.fox.FoxGameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.fox.FoxLaunch
 import io.github.usernamealreadytakensht.games.ui.fox.FoxOpponentSetupScreen
 import io.github.usernamealreadytakensht.games.ui.fox.FoxScreen
+import io.github.usernamealreadytakensht.games.ui.shogi.ShogiGameSetupScreen
+import io.github.usernamealreadytakensht.games.ui.shogi.ShogiLaunch
+import io.github.usernamealreadytakensht.games.ui.shogi.ShogiOpponentSetupScreen
+import io.github.usernamealreadytakensht.games.ui.shogi.ShogiScreen
 import io.github.usernamealreadytakensht.games.ui.theme.GamesTheme
 
 class MainActivity : ComponentActivity() {
@@ -67,6 +71,9 @@ private sealed interface Screen {
     data object FoxSetup : Screen
     data object FoxOpponentSetup : Screen
     data class FoxGame(val launch: FoxLaunch) : Screen
+    data object ShogiSetup : Screen
+    data object ShogiOpponentSetup : Screen
+    data class ShogiGame(val launch: ShogiLaunch) : Screen
 }
 
 /** Minimal navigation: home → game setup → opponent setup → game. */
@@ -82,6 +89,7 @@ private fun App() {
     var morrisDraft by remember { mutableStateOf(repo.loadLastMorrisConfig()) }
     var taflDraft by remember { mutableStateOf(repo.loadLastTaflConfig()) }
     var foxDraft by remember { mutableStateOf(repo.loadLastFoxConfig()) }
+    var shogiDraft by remember { mutableStateOf(repo.loadLastShogiConfig()) }
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
@@ -100,6 +108,9 @@ private fun App() {
             savedFox = repo.loadFoxGame(),
             onFox = { foxDraft = repo.loadLastFoxConfig(); screen = Screen.FoxSetup },
             onResumeFox = { screen = Screen.FoxGame(FoxLaunch.Resume) },
+            savedShogi = repo.loadShogiGame(),
+            onShogi = { shogiDraft = repo.loadLastShogiConfig(); screen = Screen.ShogiSetup },
+            onResumeShogi = { screen = Screen.ShogiGame(ShogiLaunch.Resume) },
         )
 
         Screen.GameSetup -> {
@@ -272,6 +283,38 @@ private fun App() {
                 launch = s.launch,
                 onBack = { screen = Screen.Home },
                 onNewGame = { screen = Screen.FoxSetup },
+            )
+        }
+
+        Screen.ShogiSetup -> {
+            BackHandler { screen = Screen.Home }
+            ShogiGameSetupScreen(
+                config = shogiDraft,
+                onChange = { shogiDraft = it },
+                onBack = { screen = Screen.Home },
+                onNext = { screen = Screen.ShogiOpponentSetup },
+            )
+        }
+
+        Screen.ShogiOpponentSetup -> {
+            BackHandler { screen = Screen.ShogiSetup }
+            ShogiOpponentSetupScreen(
+                config = shogiDraft,
+                onChange = { shogiDraft = it },
+                onBack = { screen = Screen.ShogiSetup },
+                onPlay = {
+                    repo.saveLastShogiConfig(shogiDraft)
+                    screen = Screen.ShogiGame(ShogiLaunch.NewGame(shogiDraft, ++gameCounter))
+                },
+            )
+        }
+
+        is Screen.ShogiGame -> {
+            BackHandler { screen = Screen.Home }
+            ShogiScreen(
+                launch = s.launch,
+                onBack = { screen = Screen.Home },
+                onNewGame = { screen = Screen.ShogiSetup },
             )
         }
     }

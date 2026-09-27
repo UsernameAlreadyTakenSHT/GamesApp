@@ -14,6 +14,7 @@ Package: `io.github.usernamealreadytakensht.games` · minSdk 29 · ABIs: `arm64-
 |------|--------|
 | **Chess** | Standard chess against the engines below, or **Chess960** (Fischer random: one of the 960 start positions drawn at random, same position kept for the rematch) against Fairy-Stockfish. Two-step setup (rules, colour and clock; then opponent). Clocks (sudden death, Fischer, per move), undo, engine thinking-time scale, resign, rematch with swapped colours, save/resume, last-move and check highlights, promotion picker. |
 | **Draughts** | Two rule sets: **International** 10x10 (FMJD rules: mandatory maximum capture, flying kings) against Scan or Moby Dam, and **English checkers** 8x8 (American rules: no flying kings, men capture forward only, free choice of capture) against Marcher. Clocks, undo, resign, rematch, save/resume, multi-capture entry square by square (auto-completed when unambiguous). Both rule sets are pure Kotlin, verified by perft (depth 1–8 from the start position). |
+| **Shogi** | Japanese chess against Fairy-Stockfish (levels 1–10 or full strength): drops of captured pieces, optional/forced promotion with a prompt, sennichite (fourfold repetition draws, perpetual check loses). Traditional kanji pieces or Latin letters; the board turns round when you play gote. Rules are pure Kotlin (`game/shogi/Shogi.kt`, nifu and uchifuzume included), verified by perft against Fairy-Stockfish (719731 at depth 4 from the start). Same clocks, undo, resign, rematch and save/resume as the other games. |
 | **Hnefatafl** | Six tafl variants against OpenTafl's AI: **Copenhagen** and **Fetlar** (11x11, corner escapes), **Tawlbwrdd** (11x11, weak king, edge escapes), **Tablut** and **Sea Battle** (9x9, edge escapes), **Brandub** (7x7). Rules and AI both come from OpenTafl, embedded in the app. Same clocks, undo, resign, rematch and save/resume as the other games. |
 | **Fox games** | Five hunt games against the built-in "Reynard": **Fox and Hounds** (8x8, 1 vs 4, no captures — solved, the hounds win with perfect play), **Fox and Geese** (cross board, 1 vs 13), **Fox and Geese (17)**, **Two Foxes** (2 vs 17) and **Asalto** (2 officers vs 24 sepoys storming a fortress). Same clocks, undo, resign, rematch and save/resume. |
 | **Nine Men's Morris** | Standard rules (nine men, sliding, flying at three men, mills remove a man outside a mill, draw by threefold repetition or fifty moves without a mill) and **Lasker Morris** (ten men, place or slide on every turn), against the Sanmill engine. Same clocks, undo, resign, rematch and save/resume as the other games. |
@@ -34,7 +35,7 @@ depends on how the engine can be limited.
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
 | | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
 | <img src="app/src/main/res/drawable-nodpi/logo_sunfish.png" width="32" alt=""> | **Sunfish** 2026 | Kotlin port, runs in-process | Search depth | 1 → 20 plies, or time-based |
-| | **Fairy-Stockfish** (Chess960 only) | Classical evaluation | `UCI_Elo` | 500–2850, or Max |
+| | **Fairy-Stockfish** (Chess960 only; also the shogi opponent) | Classical evaluation | `UCI_Elo` | 500–2850, or Max |
 
 Chess960 rules are chesslib's move generation plus Fischer-random castling written for this
 app (`game/ChessSession.kt`: chesslib 1.3.x gets 960 castling wrong), checked by perft against
@@ -139,7 +140,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 ./marcher/build.sh        # English checkers: Marcher + its endgame database (generated on a running emulator)
 ./scan/build.sh           # draughts: Scan + its book/eval data
 ./mobydam/build.sh        # draughts: Moby Dam + eval tables/book
-./fairy/build.sh          # Chess960: Fairy-Stockfish (largeboards build)
+./fairy/build.sh          # Chess960 and shogi: Fairy-Stockfish (largeboards build)
 ```
 
 Maia 3 is exported from the PyTorch checkpoint with `maia3/export_onnx.py` (needs a Python venv
@@ -179,8 +180,9 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do
   Fairy-Stockfish (sparkles, no logo upstream) and the draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
-  both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl
-  and fox-game pieces and board icons are drawn for this app.
+  both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl,
+  fox-game and shogi pieces and board icons are drawn for this app (shogi pieces are drawn in
+  code, with the device's CJK font for the kanji).
 - Rules: [chesslib](https://github.com/bhlangonijr/chesslib) (Apache-2.0).
 
 This app itself is distributed under the GPL-3.0 (see [LICENSE](LICENSE)), as required by the engines it bundles.

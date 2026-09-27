@@ -8,6 +8,8 @@ import io.github.usernamealreadytakensht.games.game.fox.Fox
 import io.github.usernamealreadytakensht.games.game.fox.FoxConfig
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
+import io.github.usernamealreadytakensht.games.game.shogi.Shogi
+import io.github.usernamealreadytakensht.games.game.shogi.ShogiConfig
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl
 import io.github.usernamealreadytakensht.games.game.tafl.TaflConfig
 import org.json.JSONArray
@@ -130,6 +132,36 @@ data class SavedTaflGame(
                 moves = List(moves.length()) { moves.getString(it) },
                 attackersMs = o.getLong("attackersMs").takeIf { it >= 0 },
                 defendersMs = o.getLong("defendersMs").takeIf { it >= 0 },
+            )
+        }
+    }
+}
+
+/** A shogi game in progress: settings, side, UCI moves (Fairy-Stockfish coordinates) and clocks. */
+data class SavedShogiGame(
+    val config: ShogiConfig,
+    val playerSide: Shogi.Side,
+    val moves: List<String>,
+    val senteMs: Long?,
+    val goteMs: Long?,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("config", config.toJson())
+        put("playerSide", playerSide.name)
+        put("moves", JSONArray(moves))
+        put("senteMs", senteMs ?: -1L)
+        put("goteMs", goteMs ?: -1L)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject): SavedShogiGame {
+            val moves = o.getJSONArray("moves")
+            return SavedShogiGame(
+                config = ShogiConfig.fromJson(o.getJSONObject("config")),
+                playerSide = Shogi.Side.valueOf(o.getString("playerSide")),
+                moves = List(moves.length()) { moves.getString(it) },
+                senteMs = o.getLong("senteMs").takeIf { it >= 0 },
+                goteMs = o.getLong("goteMs").takeIf { it >= 0 },
             )
         }
     }
@@ -281,7 +313,32 @@ class GameRepository(context: Context) {
             ?.let { runCatching { FoxConfig.fromJson(JSONObject(it)) }.getOrNull() }
             ?: FoxConfig()
 
+    // ---- shogi
+
+    fun saveShogiGame(game: SavedShogiGame) {
+        prefs.edit().putString(KEY_SHOGI_GAME, game.toJson().toString()).apply()
+    }
+
+    fun loadShogiGame(): SavedShogiGame? =
+        prefs.getString(KEY_SHOGI_GAME, null)
+            ?.let { runCatching { SavedShogiGame.fromJson(JSONObject(it)) }.getOrNull() }
+
+    fun clearShogiGame() {
+        prefs.edit().remove(KEY_SHOGI_GAME).apply()
+    }
+
+    fun saveLastShogiConfig(config: ShogiConfig) {
+        prefs.edit().putString(KEY_SHOGI_CONFIG, config.toJson().toString()).apply()
+    }
+
+    fun loadLastShogiConfig(): ShogiConfig =
+        prefs.getString(KEY_SHOGI_CONFIG, null)
+            ?.let { runCatching { ShogiConfig.fromJson(JSONObject(it)) }.getOrNull() }
+            ?: ShogiConfig()
+
     private companion object {
+        const val KEY_SHOGI_GAME = "shogi_game"
+        const val KEY_SHOGI_CONFIG = "shogi_config"
         const val KEY_GAME = "chess_game"
         const val KEY_CONFIG = "chess_config"
         const val KEY_DRAUGHTS_GAME = "draughts_game"

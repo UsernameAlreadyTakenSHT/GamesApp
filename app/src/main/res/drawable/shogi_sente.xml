@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A plain shogi piece pointing up (Sente), drawn for this app. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M24,4 L39,11 L43,44 L5,44 L9,11 Z" />
+    <path android:fillColor="#FF1B1B1B"
+        android:pathData="M17,20 h14 v3 h-14 z M22.5,14 h3 v24 h-3 z M15,36 h18 v3 h-18 z M17,28 h14 v3 h-14 z" />
+</vector>

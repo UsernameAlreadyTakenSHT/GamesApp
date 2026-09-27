@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home tile: a corner of a shogi board with pieces facing each other, drawn for this app. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp" android:height="64dp"
+    android:viewportWidth="64" android:viewportHeight="64">
+    <path android:fillColor="#FFE9C987" android:pathData="M2,2 h60 v60 h-60 z" />
+    <path android:strokeColor="#FF5C4424" android:strokeWidth="0.8"
+        android:pathData="M2,2 h60 v60 h-60 z M2,15.3 h60 M2,28.7 h60 M2,42 h60 M2,55.3 h60 M15.3,2 v60 M28.7,2 v60 M42,2 v60 M55.3,2 v60" />
+    <!-- Gote pieces (pointing down). -->
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="1"
+        android:pathData="M22,15.5 L31.5,15.5 L30.5,24.5 L26.75,26.5 L23,24.5 Z" />
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="1"
+        android:pathData="M44,2.8 L53.5,2.8 L52.5,11.8 L48.75,13.5 L45,11.8 Z" />
+    <!-- Sente pieces (pointing up). -->
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="1"
+        android:pathData="M8.5,30.5 L4.5,32.5 L3.5,41 L13.5,41 L12.5,32.5 Z" />
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="1"
+        android:pathData="M35.3,43.5 L31,45.5 L30,54.5 L40.6,54.5 L39.6,45.5 Z" />
+    <path android:fillColor="#FFF3DDA8" android:strokeColor="#FF7A5A2E" android:strokeWidth="1"
+        android:pathData="M48.6,43.5 L44.3,45.5 L43.3,54.5 L53.9,54.5 L52.9,45.5 Z" />
+    <!-- A red promoted mark on one piece. -->
+    <path android:fillColor="#FFC62828" android:pathData="M33.8,48 h3 v4 h-3 z" />
+    <path android:fillColor="#FF1B1B1B" android:pathData="M47.1,48 h3 v4 h-3 z M7,35 h3 v4 h-3 z M25.2,17.5 h3 v4 h-3 z M47.2,4.8 h3 v4 h-3 z" />
+</vector>
