@@ -39,8 +39,12 @@ android {
             applicationIdSuffix = (project.findProperty("appIdSuffix") as String?)?.takeIf { it.isNotBlank() }
         }
         release {
+            // R8: shrinks the code (~24 MB of dex) and strips Log.d/v; see proguard-rules.pro.
             optimization {
-                enable = false
+                enable = true
+                keepRules {
+                    files.add(file("proguard-rules.pro"))
+                }
             }
             if (releaseStore != null) signingConfig = signingConfigs.getByName("release")
         }
