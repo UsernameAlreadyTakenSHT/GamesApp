@@ -133,18 +133,20 @@ fun MorrisScreen(
                 active = state.runningClock == state.playerSide, lost = state.result == MorrisResult.ENGINE_WINS,
             )
 
-            Row(modifier = Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically,
+            Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.thinking) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text(state.statusText, style = MaterialTheme.typography.bodyLarge,
-                    color = if (state.engineError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                    color = if (state.engineError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (state.engineError != null) TextButton(onClick = vm::retryEngine) { Text("Retry") }
             }
 
             if (state.result != MorrisResult.ONGOING) {
                 GameOverBanner(state, onRematch = vm::rematch, onNewGame = onNewGame)
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = vm::undo, enabled = state.canUndo && state.engineError == null, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
                         Text("Undo")
                     }
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }

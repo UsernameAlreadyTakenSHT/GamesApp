@@ -67,6 +67,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private var engine: MorrisOpponent? = null
     private val engineLock = Mutex()
     private var engineReady = false
+    /** True while [finishLoad] starts the engine: searches wait for it to finish. */
+    private var engineStarting = false
 
     private var position: Position = Morris.start(MorrisVariant.STANDARD)
     private val history = ArrayList<Position>()   // positions before each move, plus current
@@ -168,9 +170,18 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
+        _state.update { it.copy(engineError = null) }
         restartTurnClock()
         publish()
         persist()
+        maybeEngineMove()
+    }
+
+    /** Asks the engine again after an error (it is restarted if it died). */
+    fun retryEngine() {
+        if (_state.value.engineError == null) return
+        _state.update { it.copy(engineError = null) }
+        publish()
         maybeEngineMove()
     }
 
@@ -228,6 +239,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         val cfg = _state.value.config
+        _state.update { it.copy(engineError = null) }
+        engineStarting = true
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -238,9 +251,23 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
+            } finally {
+                engineStarting = false
             }
             maybeEngineMove()
         }
+    }
+
+    /**
+     * The engine for the current settings, restarted when its process died (killed in the
+     * background, or by the watchdog) or when [restart] is asked after a failed search.
+     */
+    private suspend fun liveEngine(cfg: MorrisConfig, restart: Boolean): MorrisOpponent {
+        if (restart) engine?.quit()
+        val before = engine
+        val eng = ensureEngine(cfg.engine, cfg.variant)
+        if (eng !== before) eng.newGame()
+        return eng
     }
 
     /** Reuses the running engine when it is the right one, otherwise starts the right one. */
@@ -304,8 +331,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Morris.Outcome.ONGOING
 
     private fun maybeEngineMove() {
-        val eng = engine ?: return
-        if (!engineReady) return
+        // The first start reports its own failure; later searches restart the engine themselves.
+        if (engineStarting || _state.value.engineError != null) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
@@ -314,16 +341,24 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
-            val move = try {
-                eng.bestMove(history, cfg.depth, moveTime)
-            } catch (e: Exception) {
-                _state.update { it.copy(engineError = e.message, thinking = false) }
-                publish()
-                return@launch
+            var move: Move? = null
+            var failure: String? = null
+            // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
+            for (attempt in 0..1) {
+                try {
+                    val eng = engineLock.withLock { liveEngine(cfg, restart = attempt > 0) }
+                    val reply = eng.bestMove(history, cfg.depth, moveTime)
+                    if (gen != generation) return@launch
+                    move = reply?.takeIf { it in Morris.legalMoves(position) }
+                    if (move != null) break
+                    failure = "${cfg.engine.label} gave no legal move"
+                } catch (e: Exception) {
+                    if (gen != generation) return@launch
+                    failure = e.message ?: e.toString()
+                }
             }
-            if (gen != generation) return@launch
-            _state.update { it.copy(thinking = false) }
-            if (move != null && move in Morris.legalMoves(position) && !isGameOver()) applyMove(move, clock = true)
+            _state.update { it.copy(thinking = false, engineError = if (move == null) failure else null) }
+            if (move != null && !isGameOver()) applyMove(move, clock = true)
             publish()
             persist()
         }
