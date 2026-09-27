@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import io.github.usernamealreadytakensht.games.engine.NetAssets
 import io.github.usernamealreadytakensht.games.game.GameRepository
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
 import io.github.usernamealreadytakensht.games.ui.ChessLaunch
@@ -58,6 +59,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         hideSystemBars()
+        // Drop networks left behind by an older version (can be hundreds of MB).
+        Thread { runCatching { NetAssets.pruneStale(applicationContext) } }.start()
         setContent {
             GamesTheme {
                 // Full screen: only the camera cutout is kept clear.

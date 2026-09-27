@@ -8,23 +8,43 @@ object NetAssets {
 
     private const val ASSET_DIR = "nets"
 
-    /** Returns the on-disk copy of [name], extracting it from the APK if missing or stale. */
+    /**
+     * Returns the on-disk copy of [name], extracting it from the APK if missing or stale.
+     * The copy is written to a temporary file and renamed, so a present file is always
+     * complete; staleness is judged on the uncompressed size, which also works for assets
+     * stored compressed in the APK (the .nnue nets).
+     */
+    @Synchronized
     fun ensure(context: Context, name: String): File {
         val dir = File(context.filesDir, ASSET_DIR).apply { mkdirs() }
         val target = File(dir, name)
-        // Works because .lc0 assets are stored uncompressed (see noCompress in build.gradle.kts).
-        val assetSize = runCatching { context.assets.openFd("$ASSET_DIR/$name").use { it.length } }.getOrNull()
+        val assetSize = assetLength(context, "$ASSET_DIR/$name")
         if (target.exists() && (assetSize == null || target.length() == assetSize)) return target
 
         val tmp = File(dir, "$name.tmp")
         context.assets.open("$ASSET_DIR/$name").use { input ->
             tmp.outputStream().use { output -> input.copyTo(output) }
         }
-        if (!tmp.renameTo(target)) {
-            tmp.copyTo(target, overwrite = true)
-            tmp.delete()
-        }
+        target.delete()
+        check(tmp.renameTo(target)) { "Cannot install $name" }
         return target
+    }
+
+    /** Uncompressed size of an asset: the file descriptor length when stored, else the stream's. */
+    private fun assetLength(context: Context, path: String): Long? =
+        runCatching { context.assets.openFd(path).use { it.length } }.getOrNull()
+            ?: runCatching { context.assets.open(path).use { it.available().toLong() } }.getOrNull()
+
+    /**
+     * Deletes extracted networks the APK no longer ships (renamed or dropped by an update),
+     * and temporary files left by an interrupted copy. Cheap; run once at startup.
+     * Synchronized with [ensure], so it never deletes a copy in progress.
+     */
+    @Synchronized
+    fun pruneStale(context: Context) {
+        val dir = File(context.filesDir, ASSET_DIR)
+        val shipped = context.assets.list(ASSET_DIR).orEmpty().toSet()
+        dir.listFiles()?.forEach { f -> if (f.isFile && f.name !in shipped) f.delete() }
     }
 
     /**
