@@ -69,6 +69,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Set while the game screen is not shown: no engine runs then. */
+    private var released = false
 
     /** True once a game has been started or resumed in this ViewModel. */
     var hasGame = false
@@ -107,7 +109,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun resumeGame(): Boolean {
         if (hasGame) {
+            released = false
             resumeClock()
+            maybeEngineMove()
             return true
         }
         val saved = repo.loadGame() ?: return false
@@ -186,6 +190,16 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         maybeEngineMove() // e.g. player has black and everything was taken back
+    }
+
+    /**
+     * The game screen was left: stop the engine process so it does not sit in memory.
+     * Coming back (resume) restarts it with the next search.
+     */
+    fun releaseEngine() {
+        released = true
+        cancelSearch()
+        viewModelScope.launch { engineLock.withLock { engine?.quit() } }
     }
 
     /** Asks the engine again after an error (it is restarted if it died). */
@@ -267,6 +281,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
         engineStarting = true
+        released = false
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -337,7 +352,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
-        if (engineStarting || _state.value.engineError != null) return
+        if (released || engineStarting || _state.value.engineError != null) return
         if (session.sideToMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation

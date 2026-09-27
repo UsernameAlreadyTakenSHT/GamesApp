@@ -72,6 +72,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Set while the game screen is not shown: no engine runs then. */
+    private var released = false
 
     private var game = Shogi.Game()
     private var generation = 0
@@ -105,7 +107,12 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Resumes the saved game if any; a game already held by this ViewModel is kept. */
     fun resumeGame(): Boolean {
-        if (hasGame) { resumeClock(); return true }
+        if (hasGame) {
+            released = false
+            resumeClock()
+            maybeEngineMove()
+            return true
+        }
         val saved = repo.loadShogiGame() ?: return false
         resetGame(saved.config, saved.playerSide)
         for (uci in saved.moves) game.play(game.parseUci(uci) ?: break)
@@ -175,6 +182,16 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         maybeEngineMove()
     }
 
+    /**
+     * The game screen was left: stop the engine process so it does not sit in memory.
+     * Coming back (resume) restarts it with the next search.
+     */
+    fun releaseEngine() {
+        released = true
+        cancelSearch()
+        viewModelScope.launch { engineLock.withLock { engine.quit() } }
+    }
+
     /** Asks the engine again after an error (it is restarted if it died). */
     fun retryEngine() {
         if (_state.value.engineError == null) return
@@ -236,6 +253,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
         engineStarting = true
+        released = false
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -295,7 +313,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
-        if (engineStarting || _state.value.engineError != null) return
+        if (released || engineStarting || _state.value.engineError != null) return
         if (game.position.sideToMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val config = _state.value.config

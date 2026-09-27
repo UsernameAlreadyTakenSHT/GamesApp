@@ -100,7 +100,7 @@ fun ShogiScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); vm.pauseClock() }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); vm.pauseClock(); vm.releaseEngine() }
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->

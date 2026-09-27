@@ -102,6 +102,7 @@ fun ChessScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             vm.pauseClock()
+            vm.releaseEngine()
         }
     }
 

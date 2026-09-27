@@ -64,6 +64,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Set while the game screen is not shown: no engine runs then. */
+    private var released = false
 
     private var position: Position = Draughts.START
     private val history = ArrayList<Position>()   // positions before each move, plus current
@@ -99,7 +101,12 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Resumes the saved game if any; a game already held by this ViewModel is kept. */
     fun resumeGame(): Boolean {
-        if (hasGame) { resumeClock(); return true }
+        if (hasGame) {
+            released = false
+            resumeClock()
+            maybeEngineMove()
+            return true
+        }
         val saved = repo.loadDraughtsGame()?.takeIf { it.config.variant == DraughtsVariant.INTERNATIONAL } ?: return false
         resetGame(saved.config, saved.playerSide)
         for (hub in saved.moves) {
@@ -163,6 +170,16 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         maybeEngineMove()
+    }
+
+    /**
+     * The game screen was left: stop the engine process so it does not sit in memory.
+     * Coming back (resume) restarts it with the next search.
+     */
+    fun releaseEngine() {
+        released = true
+        cancelSearch()
+        viewModelScope.launch { engineLock.withLock { engine?.quit() } }
     }
 
     /** Asks the engine again after an error (it is restarted if it died). */
@@ -231,6 +248,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
         engineStarting = true
+        released = false
         viewModelScope.launch {
             try {
                 engineLock.withLock {
@@ -317,7 +335,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
-        if (engineStarting || _state.value.engineError != null) return
+        if (released || engineStarting || _state.value.engineError != null) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
