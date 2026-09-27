@@ -131,7 +131,7 @@ private fun App() {
     when (val s = screen) {
         Screen.Home -> HomeScreen(
             savedChess = repo.loadGame(),
-            savedDraughts = repo.loadDraughtsGame(),
+            savedDraughts = repo.loadLatestDraughtsGame(),
             onChess = { draft = repo.loadLastConfig(); screen = Screen.GameSetup },
             onResumeChess = { screen = Screen.ChessGame(ChessLaunch.Resume) },
             onDraughts = { draughtsDraft = repo.loadLastDraughtsConfig(); screen = Screen.DraughtsSetup },
@@ -210,7 +210,7 @@ private fun App() {
             // A new game carries its rules; a resumed one takes them from the save.
             val variant = when (val l = s.launch) {
                 is DraughtsLaunch.NewGame -> l.config.variant
-                DraughtsLaunch.Resume -> repo.loadDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
+                DraughtsLaunch.Resume -> repo.loadLatestDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
             }
             if (variant == DraughtsVariant.ENGLISH) {
                 CheckersScreen(

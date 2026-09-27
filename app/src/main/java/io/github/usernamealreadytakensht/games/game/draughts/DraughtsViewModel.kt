@@ -107,7 +107,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         // A save this version cannot replay (corrupted, or from an incompatible build) would
         // crash every Resume: drop it and go back to the menu instead.
         android.util.Log.w("GameResume", "Discarding an unreadable saved game", e)
-        repo.clearDraughtsGame()
+        repo.clearDraughtsGame(DraughtsVariant.INTERNATIONAL)
         hasGame = false
         false
     }
@@ -119,7 +119,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             maybeEngineMove()
             return true
         }
-        val saved = repo.loadDraughtsGame()?.takeIf { it.config.variant == DraughtsVariant.INTERNATIONAL } ?: return false
+        val saved = repo.loadDraughtsGame(DraughtsVariant.INTERNATIONAL) ?: return false
         resetGame(saved.config, saved.playerSide)
         for (hub in saved.moves) {
             val m = Draughts.parseHub(position, hub) ?: break
@@ -411,7 +411,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun persist() {
         if (!hasGame) return
-        if (isGameOver()) { repo.clearDraughtsGame(); return }
+        if (isGameOver()) { repo.clearDraughtsGame(DraughtsVariant.INTERNATIONAL); return }
         repo.saveDraughtsGame(
             SavedDraughtsGame(
                 config = _state.value.config,

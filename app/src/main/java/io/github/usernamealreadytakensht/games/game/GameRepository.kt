@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.bhlangonijr.chesslib.Side
 import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
 import io.github.usernamealreadytakensht.games.game.fox.Fox
 import io.github.usernamealreadytakensht.games.game.fox.FoxConfig
 import io.github.usernamealreadytakensht.games.game.morris.Morris
@@ -221,18 +222,42 @@ class GameRepository(context: Context) {
             ?.let { runCatching { GameConfig.fromJson(JSONObject(it)) }.getOrNull() }
             ?: GameConfig()
 
-    // ---- draughts (same shape, separate keys)
+    // ---- draughts: one save per rule set (international 10x10, English checkers)
+
+    private fun draughtsKey(variant: DraughtsVariant) =
+        if (variant == DraughtsVariant.ENGLISH) KEY_CHECKERS_GAME else KEY_DRAUGHTS_GAME
 
     fun saveDraughtsGame(game: SavedDraughtsGame) {
-        prefs.edit().putString(KEY_DRAUGHTS_GAME, game.toJson().toString()).apply()
+        val json = game.toJson().put("savedAt", System.currentTimeMillis())
+        prefs.edit().putString(draughtsKey(game.config.variant), json.toString()).apply()
     }
 
-    fun loadDraughtsGame(): SavedDraughtsGame? =
-        prefs.getString(KEY_DRAUGHTS_GAME, null)
+    fun loadDraughtsGame(variant: DraughtsVariant): SavedDraughtsGame? {
+        migrateSharedDraughtsSave()
+        return prefs.getString(draughtsKey(variant), null)
             ?.let { runCatching { SavedDraughtsGame.fromJson(JSONObject(it)) }.getOrNull() }
+    }
 
-    fun clearDraughtsGame() {
-        prefs.edit().remove(KEY_DRAUGHTS_GAME).apply()
+    /** The most recently saved of the two draughts games (for the home screen's Resume). */
+    fun loadLatestDraughtsGame(): SavedDraughtsGame? {
+        migrateSharedDraughtsSave()
+        return DraughtsVariant.entries
+            .mapNotNull { v -> prefs.getString(draughtsKey(v), null)?.let { runCatching { JSONObject(it) }.getOrNull() } }
+            .maxByOrNull { it.optLong("savedAt", 0L) }
+            ?.let { runCatching { SavedDraughtsGame.fromJson(it) }.getOrNull() }
+    }
+
+    fun clearDraughtsGame(variant: DraughtsVariant) {
+        prefs.edit().remove(draughtsKey(variant)).apply()
+    }
+
+    /** Versions up to 0.2.0 kept both rule sets under one key: move an English game to its own. */
+    private fun migrateSharedDraughtsSave() {
+        val raw = prefs.getString(KEY_DRAUGHTS_GAME, null) ?: return
+        val game = runCatching { SavedDraughtsGame.fromJson(JSONObject(raw)) }.getOrNull() ?: return
+        if (game.config.variant == DraughtsVariant.ENGLISH) {
+            prefs.edit().remove(KEY_DRAUGHTS_GAME).putString(KEY_CHECKERS_GAME, raw).apply()
+        }
     }
 
     fun saveLastDraughtsConfig(config: DraughtsConfig) {
@@ -342,6 +367,7 @@ class GameRepository(context: Context) {
         const val KEY_GAME = "chess_game"
         const val KEY_CONFIG = "chess_config"
         const val KEY_DRAUGHTS_GAME = "draughts_game"
+        const val KEY_CHECKERS_GAME = "checkers_game"
         const val KEY_DRAUGHTS_CONFIG = "draughts_config"
         const val KEY_MORRIS_GAME = "morris_game"
         const val KEY_MORRIS_CONFIG = "morris_config"

@@ -103,7 +103,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         // A save this version cannot replay (corrupted, or from an incompatible build) would
         // crash every Resume: drop it and go back to the menu instead.
         android.util.Log.w("GameResume", "Discarding an unreadable saved game", e)
-        repo.clearDraughtsGame()
+        repo.clearDraughtsGame(DraughtsVariant.ENGLISH)
         hasGame = false
         false
     }
@@ -115,7 +115,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
             maybeEngineMove()
             return true
         }
-        val saved = repo.loadDraughtsGame()?.takeIf { it.config.variant == DraughtsVariant.ENGLISH } ?: return false
+        val saved = repo.loadDraughtsGame(DraughtsVariant.ENGLISH) ?: return false
         resetGame(saved.config, saved.playerSide)
         for (text in saved.moves) {
             val m = Checkers.parse(position, text) ?: break
@@ -391,7 +391,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun persist() {
         if (!hasGame) return
-        if (isGameOver()) { repo.clearDraughtsGame(); return }
+        if (isGameOver()) { repo.clearDraughtsGame(DraughtsVariant.ENGLISH); return }
         repo.saveDraughtsGame(
             SavedDraughtsGame(
                 config = _state.value.config,
