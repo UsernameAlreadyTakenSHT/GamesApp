@@ -114,8 +114,13 @@ object Shogi {
             return false
         }
 
-        /** All legal moves of the side to move. */
-        fun legalMoves(): List<Move> = pseudoMoves().filter { isLegal(it) }
+        /** All legal moves of the side to move (computed once: positions are immutable). */
+        fun legalMoves(): List<Move> = legal
+
+        private val legal: List<Move> by lazy(LazyThreadSafetyMode.NONE) { pseudoMoves().filter { isLegal(it) } }
+
+        /** Whether the side to move is in check (cached, like [legalMoves]). */
+        val isCheck: Boolean by lazy(LazyThreadSafetyMode.NONE) { inCheck(sideToMove) }
 
         private fun isLegal(m: Move): Boolean {
             val next = play(m)
@@ -174,7 +179,9 @@ object Shogi {
         }
 
         /** Position key for repetition: board, hands and side to move. */
-        fun key(): String = toFen().substringBeforeLast(" - ")
+        fun key(): String = keyCache
+
+        private val keyCache: String by lazy(LazyThreadSafetyMode.NONE) { toFen().substringBeforeLast(" - ") }
 
         /** Fairy-Stockfish FEN: placement, `[hand]`, side ("w" = Sente). */
         fun toFen(): String {
@@ -239,8 +246,17 @@ object Shogi {
     private val ORTHO = listOf(0 to 1, 0 to -1, 1 to 0, -1 to 0)
     private val DIAG = listOf(1 to 1, 1 to -1, -1 to 1, -1 to -1)
 
+    /** Move tables per (side, promoted, kind), built once: attack tests run thousands of times per move. */
+    private fun tableIndex(p: Piece) = p.side.ordinal * 16 + (if (p.promoted) 8 else 0) + p.kind.ordinal
+    private fun allPieces() = List(32) { i -> Piece(Side.entries[i / 16], Kind.entries[i % 8], (i / 8) % 2 == 1) }
+    private val STEPS: List<List<Pair<Int, Int>>> by lazy { allPieces().map { stepsOf(it) } }
+    private val SLIDES: List<List<Pair<Int, Int>>> by lazy { allPieces().map { slidesOf(it) } }
+
+    private fun steps(p: Piece): List<Pair<Int, Int>> = STEPS[tableIndex(p)]
+    private fun slides(p: Piece): List<Pair<Int, Int>> = SLIDES[tableIndex(p)]
+
     /** Single-step moves of [p], as (file, rank) offsets. */
-    private fun steps(p: Piece): List<Pair<Int, Int>> {
+    private fun stepsOf(p: Piece): List<Pair<Int, Int>> {
         val fw = p.side.forward
         val gold = listOf(-1 to fw, 0 to fw, 1 to fw, -1 to 0, 1 to 0, 0 to -fw)
         return when {
@@ -256,7 +272,7 @@ object Shogi {
     }
 
     /** Sliding directions of [p]. */
-    private fun slides(p: Piece): List<Pair<Int, Int>> = when (p.kind) {
+    private fun slidesOf(p: Piece): List<Pair<Int, Int>> = when (p.kind) {
         Kind.ROOK -> ORTHO
         Kind.BISHOP -> DIAG
         Kind.LANCE -> if (p.promoted) emptyList() else listOf(0 to p.side.forward)
@@ -313,7 +329,15 @@ object Shogi {
          * check on every move of the cycle, in which case that side loses.
          */
         fun outcome(): Outcome {
+            // The result only depends on the positions so far: cached per last position.
             val pos = position
+            cachedOutcome?.let { (at, result) -> if (at === pos) return result }
+            return computeOutcome(pos).also { cachedOutcome = pos to it }
+        }
+
+        private var cachedOutcome: Pair<Position, Outcome>? = null
+
+        private fun computeOutcome(pos: Position): Outcome {
             if (pos.legalMoves().isEmpty()) return if (pos.sideToMove == Side.SENTE) Outcome.GOTE_WINS else Outcome.SENTE_WINS
             val key = pos.key()
             val same = positions.indices.filter { positions[it].key() == key }
@@ -322,7 +346,7 @@ object Shogi {
             for (checker in Side.entries) {
                 // Positions after the checker's moves in the cycle have the other side in check.
                 val afterChecker = (first + 1..positions.lastIndex).filter { positions[it].sideToMove == checker.other }
-                if (afterChecker.isNotEmpty() && afterChecker.all { positions[it].inCheck(checker.other) }) {
+                if (afterChecker.isNotEmpty() && afterChecker.all { positions[it].isCheck }) {
                     return if (checker == Side.SENTE) Outcome.GOTE_WINS else Outcome.SENTE_WINS
                 }
             }
