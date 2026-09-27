@@ -1,10 +1,29 @@
 # Changelog
 
-## 1.1 — 2026-09-27
+## 0.2.0 — 2026-09-27
+
+### Reliability
+- An engine that stopped (killed in the background, or stuck) is restarted automatically; if it still fails, the error is shown with a **Retry** button and Undo stays available.
+- Leaving a game stops its engine, so it no longer takes memory in the background; it restarts at the next move.
+- Rotating the phone or switching dark mode no longer sends you back to the home screen.
+- A saved game that cannot be read is discarded instead of crashing Resume.
+- Hnefatafl and fox games no longer crash if the AI fails, and the hnefatafl AI respects very short clocks.
+
+### Games
+- Draughts: Scan and Moby Dam now get the right position after king moves (they could search a wrong one).
+- Undo no longer gives back the time spent on the current move.
+- Shogi: faster move handling, and leaving the app during byoyomi no longer refills the period.
+
+### Size and security
+- The APK is about 135 MB smaller (compressed networks, optimised code).
+- Only saved games and settings are backed up, not the engine files.
+- Engine sources are pinned to exact revisions and downloaded networks are checked by SHA-256.
+
+## 0.1.1 — 2026-09-27
 
 - **Full screen**: the status and navigation bars are hidden in every screen; swipe from the top or bottom edge to show them briefly. The area around the camera cutout stays clear.
 
-## 1.0 — 2026-09-27
+## 0.1.0 — 2026-09-27
 
 First release of GamesApp: board games played offline against real engines, everything bundled in the APK.
 
