@@ -19,6 +19,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release signing: the keystore and its passwords live outside the repo, in the user's
+    // ~/.gradle/gradle.properties (GAMES_RELEASE_*). Without them the release APK is unsigned.
+    val releaseStore = project.findProperty("GAMES_RELEASE_STORE_FILE") as String?
+    signingConfigs {
+        if (releaseStore != null) {
+            create("release") {
+                storeFile = file(releaseStore)
+                storePassword = project.findProperty("GAMES_RELEASE_STORE_PASSWORD") as String?
+                keyAlias = project.findProperty("GAMES_RELEASE_KEY_ALIAS") as String?
+                keyPassword = project.findProperty("GAMES_RELEASE_KEY_PASSWORD") as String?
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // `-PappIdSuffix=.foo` installs a side-by-side debug build (parallel work-streams on one emulator).
@@ -28,6 +42,7 @@ android {
             optimization {
                 enable = false
             }
+            if (releaseStore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
