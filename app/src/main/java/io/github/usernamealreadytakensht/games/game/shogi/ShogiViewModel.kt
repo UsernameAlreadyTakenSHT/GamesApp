@@ -87,6 +87,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var senteBaseMs = 0L
     private var goteBaseMs = 0L
     private var turnStartedAt = 0L
+    /** Byoyomi already used in the current turn when the clock was paused (resumed, not refilled). */
+    private var byoyomiCarryMs = 0L
     private var clockJob: Job? = null
     private var clockPaused = false
 
@@ -235,6 +237,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     fun pauseClock() {
         if (!hasClock() || clockPaused) return
         clockPaused = true
+        byoyomiCarryMs = byoyomiSpent()
         chargeRunningClock()
         stopClock()
         persist()
@@ -252,6 +255,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         stopClock()
         clockPaused = false
+        byoyomiCarryMs = 0L
         game = Shogi.Game()
         resigned = false
         flagged = null
@@ -408,7 +412,16 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         return (base - elapsed).coerceAtLeast(0L)
     }
 
+    /** Byoyomi used so far in the running turn (0 while main time remains). */
+    private fun byoyomiSpent(): Long {
+        if (_state.value.config.timeControl !is TimeControl.Byoyomi) return 0L
+        val running = _state.value.runningClock ?: return 0L
+        val base = if (running == Side.SENTE) senteBaseMs else goteBaseMs
+        return (SystemClock.elapsedRealtime() - turnStartedAt - base).coerceAtLeast(0L)
+    }
+
     private fun onMovePlayed(mover: Side) {
+        byoyomiCarryMs = 0L // a move made in time starts a fresh period
         if (!hasClock()) return
         val tc = _state.value.config.timeControl
         val now = SystemClock.elapsedRealtime()
@@ -428,7 +441,9 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun restartTurnClock() {
         if (!hasClock() || clockPaused || game.moves.isEmpty() || isGameOver()) { stopClock(); return }
-        turnStartedAt = SystemClock.elapsedRealtime()
+        // Main time is in the base; byoyomi used before a pause is carried by starting the turn earlier.
+        turnStartedAt = SystemClock.elapsedRealtime() - byoyomiCarryMs
+        byoyomiCarryMs = 0L
         _state.update { it.copy(runningClock = game.position.sideToMove) }
         ensureClockTicking()
     }
