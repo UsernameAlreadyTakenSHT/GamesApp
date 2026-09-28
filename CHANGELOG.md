@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-09-28
+
+### New
+- **History and stats**: every finished game is kept (up to 500). The History screen, from the home page, shows your overall score, the score per game and per opponent, and the list of games; each one opens with its moves, Share and Delete.
+- **Share a game**: a share button in every game sends it as a file and as text, in the standard format of the game: **PGN** for chess and Chess960, **PDN** for draughts and English checkers, **KIF** for shogi, plain text for Nine Men's Morris, hnefatafl and fox games.
+
+### Improvements
+- International draughts and English checkers now have separate saves, so starting one no longer erases a game in progress in the other; Resume opens the most recent.
+- Clocks refresh only when the displayed time changes, which saves battery.
+
 ## 0.2.0 — 2026-09-27
 
 ### Reliability
