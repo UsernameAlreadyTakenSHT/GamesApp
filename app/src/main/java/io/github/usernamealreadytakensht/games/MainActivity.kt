@@ -35,6 +35,7 @@ import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsOpponentSetup
 import io.github.usernamealreadytakensht.games.ui.ChessScreen
 import io.github.usernamealreadytakensht.games.ui.GameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.OpponentSetupScreen
+import io.github.usernamealreadytakensht.games.ui.HistoryScreen
 import io.github.usernamealreadytakensht.games.ui.HomeScreen
 import io.github.usernamealreadytakensht.games.ui.morris.MorrisGameSetupScreen
 import io.github.usernamealreadytakensht.games.ui.morris.MorrisLaunch
@@ -111,6 +112,7 @@ private sealed interface Screen {
     data object ShogiSetup : Screen
     data object ShogiOpponentSetup : Screen
     data class ShogiGame(val launch: ShogiLaunch) : Screen
+    data object History : Screen
 }
 
 /** Minimal navigation: home → game setup → opponent setup → game. */
@@ -148,7 +150,13 @@ private fun App() {
             savedShogi = repo.loadShogiGame(),
             onShogi = { shogiDraft = repo.loadLastShogiConfig(); screen = Screen.ShogiSetup },
             onResumeShogi = { screen = Screen.ShogiGame(ShogiLaunch.Resume) },
+            onHistory = { screen = Screen.History },
         )
+
+        Screen.History -> {
+            BackHandler { screen = Screen.Home }
+            HistoryScreen(onBack = { screen = Screen.Home })
+        }
 
         Screen.GameSetup -> {
             BackHandler { screen = Screen.Home }

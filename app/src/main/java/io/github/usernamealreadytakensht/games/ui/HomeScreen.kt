@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
@@ -57,6 +58,7 @@ fun HomeScreen(
     savedShogi: SavedShogiGame?,
     onShogi: () -> Unit,
     onResumeShogi: () -> Unit,
+    onHistory: () -> Unit,
 ) {
     val tiles = listOf(
         GameTile("Chess", R.drawable.piece_ln, savedChess != null, onChess, onResumeChess),
@@ -75,7 +77,10 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Spacer(Modifier.height(8.dp))
-            Text("Games", style = MaterialTheme.typography.headlineMedium)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Games", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = onHistory) { Text("History") }
+            }
             Spacer(Modifier.height(4.dp))
             tiles.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
