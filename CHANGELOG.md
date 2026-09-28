@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 — 2026-09-28
+
+- **New app icon**: the chess queen and the draughts king side by side on a wood board.
+
 ## 0.3.0 — 2026-09-28
 
 ### New
