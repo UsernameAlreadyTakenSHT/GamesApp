@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 — 2026-09-28
+
+- **App icon**: just the chess queen, large and centred, so it reads the same on the home screen and in app lists.
+
 ## 0.3.1 — 2026-09-28
 
 - **New app icon**: the chess queen and the draughts king side by side on a wood board.

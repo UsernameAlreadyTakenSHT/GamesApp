@@ -1,22 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    App icon foreground (108 x 108 dp): the chess queen and the draughts king (a crowned
-    stack) side by side. Launchers mask adaptive icons to shapes that always keep the 66 dp
-    circle in the middle (radius 33 dp around 54,54). The piece drawings fill ~73 % of their
-    box, so 40 dp boxes give ~29 dp pieces whose outer corners stay inside that circle
-    (29.5 dp wide pair, half as tall: sqrt(29.5² + 14.75²) = 33 dp).
+    App icon foreground (108 x 108 dp): the chess queen, alone and large. Launchers show
+    about the middle 72 dp and keep at least the 66 dp circle (radius 33 around 54,54). The
+    queen drawing fills ~70 % of its box, so a 68 dp box makes it ~48 dp tall with the crown
+    tips and the base still inside that circle; the box sits 2 dp high because the drawing
+    is slightly bottom-heavy.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:drawable="@drawable/piece_lq"
-        android:left="19dp"
-        android:top="33dp"
-        android:right="49dp"
-        android:bottom="35dp" />
-    <item
-        android:drawable="@drawable/stone_d2"
-        android:left="49dp"
-        android:top="34dp"
-        android:right="19dp"
-        android:bottom="34dp" />
+        android:left="20dp"
+        android:top="18dp"
+        android:right="20dp"
+        android:bottom="22dp" />
 </layer-list>
