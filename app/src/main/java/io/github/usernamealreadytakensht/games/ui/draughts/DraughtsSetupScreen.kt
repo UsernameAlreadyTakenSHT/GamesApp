@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.draughts
 
+import io.github.usernamealreadytakensht.games.ui.ModeSection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -47,7 +48,15 @@ fun DraughtsGameSetupScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+    SetupScaffold(
+        title = "New game",
+        step = if (config.twoPlayers) "" else "1 / 2",
+        onBack = onBack,
+        action = if (config.twoPlayers) "Play" else "Next",
+        onAction = onNext,
+    ) {
+        ModeSection(config.twoPlayers) { onChange(config.copy(twoPlayers = it)) }
+
         SectionTitle("Rules")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
             DraughtsVariant.entries.forEach { v ->
@@ -70,13 +79,15 @@ fun DraughtsGameSetupScreen(
         }
         Hint(config.variant.description)
 
-        SectionTitle("Your color")
-        ColorCards(
-            white = R.drawable.stone_l1,
-            black = R.drawable.stone_d1,
-            selected = config.playerSide?.let { it == Draughts.Color.WHITE },
-            onSelect = { onChange(config.copy(playerSide = it?.let { w -> if (w) Draughts.Color.WHITE else Draughts.Color.BLACK })) },
-        )
+        if (!config.twoPlayers) {
+            SectionTitle("Your color")
+            ColorCards(
+                white = R.drawable.stone_l1,
+                black = R.drawable.stone_d1,
+                selected = config.playerSide?.let { it == Draughts.Color.WHITE },
+                onSelect = { onChange(config.copy(playerSide = it?.let { w -> if (w) Draughts.Color.WHITE else Draughts.Color.BLACK })) },
+            )
+        }
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
     }

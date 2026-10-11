@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.draughts
 
+import io.github.usernamealreadytakensht.games.game.draughts.colorName
 import io.github.usernamealreadytakensht.games.ui.HintTint
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
@@ -119,13 +120,13 @@ fun DraughtsScreen(
                 }
             }
 
-            ClockRow(state.config.opponentLabel, state.clockMs(state.engineSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.engineSide, lost = state.result == DraughtsResult.PLAYER_WINS)
+            ClockRow(state.sideLabel(state.topSide), state.clockMs(state.topSide), state.config.timeControl.startingMs,
+                active = state.runningClock == state.topSide, lost = state.lost(state.topSide))
 
             Board(state, onTap = vm::onSquareTapped)
 
-            ClockRow("You", state.clockMs(state.playerSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.playerSide, lost = state.result == DraughtsResult.ENGINE_WINS)
+            ClockRow(state.sideLabel(state.bottomSide), state.clockMs(state.bottomSide), state.config.timeControl.startingMs,
+                active = state.runningClock == state.bottomSide, lost = state.lost(state.bottomSide))
 
             Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -156,7 +157,7 @@ fun DraughtsScreen(
         AlertDialog(
             onDismissRequest = { showResign = false },
             title = { Text("Resign?") },
-            text = { Text("The game will be recorded as a loss.") },
+            text = { Text(if (state.config.twoPlayers) "${colorName(state.sideToMove)} gives up the game." else "The game will be recorded as a loss.") },
             confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
             dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
         )
@@ -242,8 +243,9 @@ private fun formatClock(ms: Long): String {
 @Composable
 private fun GameOverBanner(state: DraughtsState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
-        DraughtsResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        DraughtsResult.ENGINE_WINS -> "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
+        DraughtsResult.PLAYER_WINS -> (if (state.config.twoPlayers) "${colorName(state.playerSide)} won" else "You won") to MaterialTheme.colorScheme.primaryContainer
+        DraughtsResult.ENGINE_WINS -> if (state.config.twoPlayers) "${colorName(state.engineSide)} won" to MaterialTheme.colorScheme.primaryContainer
+            else "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
         else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
     }
     Column(
@@ -251,7 +253,7 @@ private fun GameOverBanner(state: DraughtsState, onRematch: () -> Unit, onNewGam
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Rematch swaps colours.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.config.twoPlayers) "Rematch starts the same game again." else "Rematch swaps colours.", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
             OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }

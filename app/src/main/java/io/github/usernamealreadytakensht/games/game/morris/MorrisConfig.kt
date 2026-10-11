@@ -47,6 +47,8 @@ data class MorrisConfig(
     val depth: Int? = MorrisEngineKind.DEFAULT_DEPTH,
     val playerSide: Morris.Color? = Morris.Color.WHITE,
     val timeControl: TimeControl = TimeControl.None,
+    /** Two people on one phone, no engine (the engine settings stay for Hint). */
+    val twoPlayers: Boolean = false,
 ) {
     /** "Sanmill (MTD(f)) · Depth 5". */
     val opponentLabel: String
@@ -58,6 +60,7 @@ data class MorrisConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("twoPlayers", twoPlayers)
     }
 
     companion object {
@@ -71,6 +74,7 @@ data class MorrisConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+            twoPlayers = o.optBoolean("twoPlayers", false),
         )
     }
 }

@@ -23,6 +23,8 @@ data class FoxConfig(
     val depth: Int? = FoxEngineKind.DEFAULT_DEPTH,
     val playerSide: Fox.Side? = Fox.Side.FOX,
     val timeControl: TimeControl = TimeControl.None,
+    /** Two people on one phone, no engine (the engine settings stay for Hint). */
+    val twoPlayers: Boolean = false,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${FoxEngineKind.strengthLabel(depth)}"
 
@@ -32,6 +34,7 @@ data class FoxConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("twoPlayers", twoPlayers)
     }
 
     companion object {
@@ -45,6 +48,7 @@ data class FoxConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+            twoPlayers = o.optBoolean("twoPlayers", false),
         )
     }
 }

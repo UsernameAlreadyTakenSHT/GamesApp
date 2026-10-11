@@ -34,6 +34,8 @@ import kotlin.random.Random
 
 enum class DraughtsResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
+fun colorName(c: Color): String = if (c == Color.WHITE) "White" else "Black"
+
 /** Immutable snapshot of the draughts game, consumed by the UI. */
 data class DraughtsState(
     val config: DraughtsConfig = DraughtsConfig(),
@@ -63,8 +65,20 @@ data class DraughtsState(
     val runningClock: Color? = null,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == DraughtsResult.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == DraughtsResult.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == DraughtsResult.ONGOING && !thinking
     val engineSide: Color get() = playerSide.other
+    /** The side whose pieces the screen's user moves now: theirs, or either side with two players. */
+    val mover: Color get() = if (config.twoPlayers) sideToMove else playerSide
+    /** Side shown at the bottom of the board (and of the clocks). */
+    val bottomSide: Color get() = if (config.twoPlayers) (if (flipped) Color.BLACK else Color.WHITE) else playerSide
+    val topSide: Color get() = bottomSide.other
+    fun sideLabel(side: Color): String = when {
+        config.twoPlayers -> colorName(side)
+        side == playerSide -> "You"
+        else -> config.opponentLabel
+    }
+    fun lost(side: Color): Boolean =
+        (result == DraughtsResult.PLAYER_WINS && side != playerSide) || (result == DraughtsResult.ENGINE_WINS && side == playerSide)
     fun clockMs(side: Color): Long? = if (side == Color.WHITE) whiteMs else blackMs
 }
 
@@ -89,6 +103,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private val played = ArrayList<Move>()
     private var generation = 0
     private var resigned = false
+    private var resignedSide: Color = Color.WHITE
     private var flagged: Color? = null
 
     var hasGame = false
@@ -109,7 +124,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- UI actions
 
     fun startGame(config: DraughtsConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Color.WHITE else Color.BLACK)
+        resetGame(config, if (config.twoPlayers) Color.WHITE else config.playerSide ?: if (Random.nextBoolean()) Color.WHITE else Color.BLACK)
         val initial = config.timeControl.startingMs
         whiteBaseMs = initial ?: 0L
         blackBaseMs = initial ?: 0L
@@ -173,7 +188,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
 
         // Select / re-select one of the player's pieces.
         val moves = Draughts.legalMoves(position).filter { it.from == sq }
-        if (Draughts.colorOf(position[sq]) == s.playerSide && moves.isNotEmpty()) {
+        if (Draughts.colorOf(position[sq]) == s.mover && moves.isNotEmpty()) {
             _state.update { it.copy(selected = sq, partialPath = emptyList(), targets = targetsFor(moves, emptyList())) }
         } else {
             _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
@@ -193,7 +208,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         clearHint()
         undoOne()
-        if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
+        if (!s.config.twoPlayers && position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet(), engineError = null) }
         // Time already spent on this turn is not refunded.
         chargeRunningClock()
@@ -225,13 +240,14 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != DraughtsResult.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) position.toMove else _state.value.playerSide
         stopClock()
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
         publish()
         persist()
     }
 
-    fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
+    fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     fun flipBoard() = _state.update { it.copy(flipped = !it.flipped) }
 
@@ -283,6 +299,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // Two players: no engine now; Hint starts one when asked.
+        if (config.twoPlayers) return
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -364,7 +382,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     private fun outcome(): Draughts.Outcome = when {
-        resigned -> if (_state.value.playerSide == Color.WHITE) Draughts.Outcome.BLACK_WINS else Draughts.Outcome.WHITE_WINS
+        resigned -> if (resignedSide == Color.WHITE) Draughts.Outcome.BLACK_WINS else Draughts.Outcome.WHITE_WINS
         flagged != null -> if (flagged == Color.WHITE) Draughts.Outcome.BLACK_WINS else Draughts.Outcome.WHITE_WINS
         else -> Draughts.outcome(position, history.dropLast(1), quietKingMoves)
     }
@@ -374,6 +392,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
         if (released || engineStarting || _state.value.engineError != null) return
+        if (_state.value.config.twoPlayers) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
@@ -524,9 +543,19 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             Draughts.Outcome.WHITE_WINS -> if (player == Color.WHITE) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
             Draughts.Outcome.BLACK_WINS -> if (player == Color.BLACK) DraughtsResult.PLAYER_WINS else DraughtsResult.ENGINE_WINS
         }
-        val mustCapture = result == DraughtsResult.ONGOING && position.toMove == player &&
+        val twoPlayers = _state.value.config.twoPlayers
+        val mustCapture = result == DraughtsResult.ONGOING && (twoPlayers || position.toMove == player) &&
             Draughts.legalMoves(position).firstOrNull()?.isCapture == true
-        val status = when {
+        val toMove = colorName(position.toMove)
+        val status = if (twoPlayers) when {
+            resigned -> "${colorName(resignedSide)} resigned — ${colorName(resignedSide.other)} wins."
+            flagged != null -> "Time's up — ${colorName(flagged!!.other)} wins."
+            result == DraughtsResult.DRAW -> "Draw."
+            result != DraughtsResult.ONGOING -> "$toMove cannot move — ${colorName(position.toMove.other)} wins."
+            _state.value.partialPath.isNotEmpty() -> "Continue the capture…"
+            mustCapture -> "$toMove must capture."
+            else -> "$toMove to move."
+        } else when {
             _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
@@ -565,8 +594,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     fun exportGame(): ExportedGame {
         val s = _state.value
         val now = System.currentTimeMillis()
-        val white = if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
-        val black = if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
+        val white = if (s.config.twoPlayers) "White player" else if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
+        val black = if (s.config.twoPlayers) "Black player" else if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
         val result = when (s.result) {
             DraughtsResult.PLAYER_WINS -> if (s.playerSide == Color.WHITE) "2-0" else "0-2"
             DraughtsResult.ENGINE_WINS -> if (s.playerSide == Color.WHITE) "0-2" else "2-0"
@@ -591,8 +620,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Draughts",
             variant = "International",
-            opponent = s.config.opponentLabel,
-            playerSide = if (s.playerSide == Color.WHITE) "White" else "Black",
+            opponent = if (s.config.twoPlayers) colorName(s.engineSide) else s.config.opponentLabel,
+            playerSide = colorName(s.playerSide),
             result = when (s.result) {
                 DraughtsResult.PLAYER_WINS -> PlayerResult.WIN
                 DraughtsResult.ENGINE_WINS -> PlayerResult.LOSS
@@ -601,6 +630,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.moves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

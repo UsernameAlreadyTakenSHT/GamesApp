@@ -32,6 +32,8 @@ data class TaflConfig(
     val depth: Int? = TaflEngineKind.DEFAULT_DEPTH,
     val playerSide: Tafl.Side? = Tafl.Side.DEFENDERS,
     val timeControl: TimeControl = TimeControl.None,
+    /** Two people on one phone, no engine (the engine settings stay for Hint). */
+    val twoPlayers: Boolean = false,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${TaflEngineKind.strengthLabel(depth)}"
 
@@ -41,6 +43,7 @@ data class TaflConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("twoPlayers", twoPlayers)
     }
 
     companion object {
@@ -54,6 +57,7 @@ data class TaflConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+            twoPlayers = o.optBoolean("twoPlayers", false),
         )
     }
 }

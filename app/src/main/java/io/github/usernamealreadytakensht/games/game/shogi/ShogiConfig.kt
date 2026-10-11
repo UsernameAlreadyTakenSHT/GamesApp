@@ -40,6 +40,8 @@ data class ShogiConfig(
     val playerSide: Shogi.Side? = Shogi.Side.SENTE,
     val timeControl: TimeControl = TimeControl.None,
     val pieces: ShogiPieceStyle = ShogiPieceStyle.KANJI,
+    /** Two people on one phone, no engine (the engine settings stay for Hint). */
+    val twoPlayers: Boolean = false,
 ) {
     val opponentLabel: String get() = "Fairy-Stockfish · ${ShogiLevels.label(level)}"
 
@@ -47,6 +49,7 @@ data class ShogiConfig(
         put("level", level ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("twoPlayers", twoPlayers)
         put("pieces", pieces.name)
     }
 
@@ -59,6 +62,7 @@ data class ShogiConfig(
                 else -> null
             },
             timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+            twoPlayers = o.optBoolean("twoPlayers", false),
             pieces = runCatching { ShogiPieceStyle.valueOf(o.getString("pieces")) }.getOrDefault(ShogiPieceStyle.KANJI),
         )
     }

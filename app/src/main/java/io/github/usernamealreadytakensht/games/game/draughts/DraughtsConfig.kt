@@ -57,6 +57,8 @@ data class DraughtsConfig(
     val depth: Int? = DraughtsEngineKind.DEFAULT_DEPTH,
     val playerSide: Draughts.Color? = Draughts.Color.WHITE,
     val timeControl: TimeControl = TimeControl.None,
+    /** Two people on one phone, no engine (the engine settings stay for Hint). */
+    val twoPlayers: Boolean = false,
 ) {
     val opponentLabel: String get() = "${engine.label} · ${DraughtsEngineKind.strengthLabel(depth)}"
 
@@ -70,6 +72,7 @@ data class DraughtsConfig(
         put("depth", depth ?: -1)
         put("side", playerSide?.name ?: "random")
         put("clock", timeControl.toJson())
+        put("twoPlayers", twoPlayers)
     }
 
     companion object {
@@ -87,6 +90,7 @@ data class DraughtsConfig(
                     else -> null
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
+                twoPlayers = o.optBoolean("twoPlayers", false),
             )
         }
     }

@@ -203,7 +203,14 @@ private fun App() {
                 config = draughtsDraft,
                 onChange = { draughtsDraft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.DraughtsOpponentSetup },
+                onNext = {
+                    if (draughtsDraft.twoPlayers) {
+                        repo.saveLastDraughtsConfig(draughtsDraft)
+                        screen = Screen.DraughtsGame(DraughtsLaunch.NewGame(draughtsDraft, ++gameCounter))
+                    } else {
+                        screen = Screen.DraughtsOpponentSetup
+                    }
+                },
             )
         }
 
