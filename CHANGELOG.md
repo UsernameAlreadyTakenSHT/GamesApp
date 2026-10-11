@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.2 — 2026-10-11
+
+### New rules
+- **Shogi**: entering-king win (27-point rule). When your king is in the enemy camp with enough pieces, a "Declare entering-king win" button ends the game; the engine declares too when it can. Recorded as 入玉勝ち in the KIF.
+- **International draughts**: the FMJD endgame draws against a lone king (16 moves each with three pieces, 5 with two or one).
+- **Lasker Morris**: a side with fewer than 3 men in total (board and hand) loses.
+
+### Fixes
+- Clocks: a move made just after the flag fell now loses on time; engines no longer run out of time after a pause or an undo (per-move and byoyomi clocks); a Fischer increment is no longer lost when the engine moves while the app is in the background; Undo in shogi no longer gives back byoyomi already used.
+- Chess: a flag is a draw when the opponent cannot mate; no move can be made from the promotion dialog after the game ended.
+- Shogi: a resumed game keeps its byoyomi and its start time (KIF header); Resign only on your own turn.
+- Hnefatafl: a Hint search can no longer cause false repetitions; a side that cannot move loses; the end-of-game text names the right reason.
+- Engines: Undo, New game and leaving the screen stop the engine at once (English checkers, hnefatafl, fox games, Nine Men's Morris); a cancelled search no longer delays the next move; an old engine start no longer affects a new game.
+- Maia 3: no more possible crash when leaving the screen during a search; hints at full strength.
+- Draughts, checkers and Morris: a half-entered capture or mill is cleared when the game ends; Flip moves the clocks with the board; Lasker games show their own title.
+- Results: resigning or losing on time after an engine error records the right reason; no hint on a finished game.
+- History: loaded off the main thread and refreshed when a game is added.
+
 ## 0.5.1 — 2026-10-11
 
 - Built with Kotlin 2.3.20 (was 2.2.10). No change in how the app plays.
