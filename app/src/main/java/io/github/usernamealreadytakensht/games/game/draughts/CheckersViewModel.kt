@@ -553,7 +553,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> Checkers.notation(m) },
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == DraughtsResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
             )
@@ -573,11 +573,11 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         val white = if (s.config.twoPlayers) "White player" else if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
         val black = if (s.config.twoPlayers) "Black player" else if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
-        // PDN results give White's score first; in checkers Black moves first.
+        // Checkers PDN scores the first player, Black, first: "1-0" is a Black win.
         val result = when (s.result) {
-            DraughtsResult.PLAYER_WINS -> if (s.playerSide == Color.WHITE) "2-0" else "0-2"
-            DraughtsResult.ENGINE_WINS -> if (s.playerSide == Color.WHITE) "0-2" else "2-0"
-            DraughtsResult.DRAW -> "1-1"
+            DraughtsResult.PLAYER_WINS -> if (s.playerSide == Color.BLACK) "1-0" else "0-1"
+            DraughtsResult.ENGINE_WINS -> if (s.playerSide == Color.BLACK) "0-1" else "1-0"
+            DraughtsResult.DRAW -> "1/2-1/2"
             DraughtsResult.ONGOING -> "*"
         }
         val tags = listOf(
@@ -631,7 +631,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
                 engineLock.withLock { ensureEngine(cfg.engine).bestMove(pos, null, HINT_MS) } // full strength
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
-            val move = reply?.takeIf { played.size == count && it in Checkers.legalMoves(position) } ?: return@launch
+            // Same ply count is not enough: an undo then another move (two players) gets back to it.
+            val move = reply?.takeIf { played.size == count && position == pos && it in Checkers.legalMoves(position) } ?: return@launch
             _state.update { it.copy(hint = move.path.toSet(), hintText = Checkers.notation(move)) }
             publish()
         }

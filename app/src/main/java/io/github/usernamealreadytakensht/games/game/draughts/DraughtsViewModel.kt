@@ -576,7 +576,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> m.toHub() },
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == DraughtsResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
             )
@@ -607,7 +607,9 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             "White" to white, "Black" to black, "Result" to result, "GameType" to "20",
         )
         val ending = if (s.result == DraughtsResult.ONGOING) result else "{${s.statusText.replace("}", ")")}} $result"
-        val text = tags.joinToString("\n") { (k, v) -> Exports.tag(k, v) } + "\n\n" + Exports.movetext(s.moves, ending) + "\n"
+        // PDN lists landing squares; the Hub notation of the move list lists the captured men.
+        val moves = played.mapIndexed { i, m -> Draughts.toPdn(history[i], m) }
+        val text = tags.joinToString("\n") { (k, v) -> Exports.tag(k, v) } + "\n\n" + Exports.movetext(moves, ending) + "\n"
         return ExportedGame("draughts-${Exports.fileStamp(now)}.pdn", "text/plain", text)
     }
 
@@ -646,6 +648,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
         val cfg = s.config
         val count = played.size
+        val asked = position
         val n = quietKingMoves
         val kingMoves = played.takeLast(n).map { it.toHub() }
         val pos = history[played.size - n]
@@ -656,7 +659,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                 eng.bestMove(pos, kingMoves, null, HINT_MS) // no depth limit: full strength
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
-            val move = hub?.takeIf { played.size == count }?.let { Draughts.parseHub(position, it) } ?: return@launch
+            // Same ply count is not enough: an undo then another move (two players) gets back to it.
+            val move = hub?.takeIf { played.size == count && position == asked }?.let { Draughts.parseHub(position, it) } ?: return@launch
             _state.update { it.copy(hint = setOf(move.from) + move.path, hintText = move.toHub()) }
             publish()
         }

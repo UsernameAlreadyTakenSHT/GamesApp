@@ -96,6 +96,22 @@ class DraughtsTest {
     }
 
     @Test
+    fun threefoldRepetitionCountsTheCurrentPosition() {
+        val pos = position(whiteKings = listOf(46), blackKings = listOf(5))
+        val other = position(whiteKings = listOf(41), blackKings = listOf(5), toMove = Color.BLACK)
+        // Two earlier occurrences plus the current one: third time, draw.
+        assertEquals(Draughts.Outcome.DRAW, Draughts.outcome(pos, listOf(pos, other, pos, other), 4))
+        assertEquals(Draughts.Outcome.ONGOING, Draughts.outcome(pos, listOf(pos, other), 2))
+    }
+
+    @Test
+    fun pdnGivesLandingSquaresNotCapturedOnes() {
+        assertEquals("32-28", Draughts.toPdn(Draughts.START, Draughts.parseHub(Draughts.START, "32-28")!!))
+        val pos = position(whiteMen = listOf(38), blackMen = listOf(32, 33, 22))
+        assertEquals("38x18", Draughts.toPdn(pos, Draughts.legalMoves(pos).single()))
+    }
+
+    @Test
     fun blackMenMoveDownAndSideWithNoMovesLoses() {
         val pos = position(blackMen = listOf(1), whiteMen = listOf(45), toMove = Color.BLACK)
         val moves = Draughts.legalMoves(pos)

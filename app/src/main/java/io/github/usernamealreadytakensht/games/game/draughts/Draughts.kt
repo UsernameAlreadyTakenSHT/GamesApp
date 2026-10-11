@@ -228,6 +228,16 @@ object Draughts {
         return Position(sq, pos.toMove.other)
     }
 
+    /**
+     * PDN notation of [move] played from [pos]: "32-28", "28x19" for a capture, with every
+     * landing square ("37x26x17") when another capture shares its from and to squares.
+     */
+    fun toPdn(pos: Position, move: Move): String {
+        if (!move.isCapture) return "${move.from}-${move.to}"
+        val ambiguous = legalMoves(pos).count { it.from == move.from && it.to == move.to } > 1
+        return (if (ambiguous) listOf(move.from) + move.path else listOf(move.from, move.to)).joinToString("x")
+    }
+
     /** Finds the legal move matching Hub notation ("32-28", "28x19x23", also "28x23"). */
     fun parseHub(pos: Position, text: String): Move? {
         val parts = text.trim().split('x', '-', ':').mapNotNull { it.toIntOrNull() }
@@ -244,14 +254,15 @@ object Draughts {
     enum class Outcome { ONGOING, WHITE_WINS, BLACK_WINS, DRAW }
 
     /**
-     * Result of a game given its position history. [quietKingMoves] counts consecutive plies
-     * without a capture or a man move.
+     * Result of a game given its earlier positions [history] (the current one excluded).
+     * [quietKingMoves] counts consecutive plies without a capture or a man move.
      */
     fun outcome(pos: Position, history: List<Position>, quietKingMoves: Int): Outcome {
         if (legalMoves(pos).isEmpty()) return if (pos.toMove == Color.WHITE) Outcome.BLACK_WINS else Outcome.WHITE_WINS
         if (quietKingMoves >= 50) return Outcome.DRAW
         val key = pos.key()
-        if (history.count { it.key() == key } >= 3) return Outcome.DRAW
+        // Third occurrence: the current position plus two earlier ones.
+        if (history.count { it.key() == key } >= 2) return Outcome.DRAW
         return Outcome.ONGOING
     }
 

@@ -178,14 +178,14 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         val legal = Morris.legalMoves(position)
-        if (position.isPlacing(s.mover)) {
-            offer(legal.filter { it.isPlacement && it.to == point })
-            return
-        }
         val selected = s.selected
         if (selected != null) {
             val candidates = legal.filter { it.from == selected && it.to == point }
             if (candidates.isNotEmpty()) { offer(candidates); return }
+        } else if (position.mayPlace(s.mover)) {
+            // Placing; in Lasker Morris a tap on one's own man picks it up to slide instead.
+            val placements = legal.filter { it.isPlacement && it.to == point }
+            if (placements.isNotEmpty()) { offer(placements); return }
         }
         // Select / re-select one of the player's men.
         val moves = legal.filter { it.from == point }
@@ -193,6 +193,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(selected = point, targets = moves.map { m -> m.to }.toSet()) }
         } else {
             _state.update { it.copy(selected = null, targets = emptySet()) }
+            publish() // brings back the placing targets, if any
         }
     }
 
@@ -587,8 +588,10 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             playerTurn -> "Slide a man along a line."
             else -> "$engineName to move."
         }
-        // While placing, every empty point is a target (shown as dots).
-        val placingTargets = if (playerTurn && pending == null && position.mayPlace(player))
+        // While placing, every empty point is a target (shown as dots); a man picked up to
+        // slide (Lasker Morris) shows its own targets. With two players, both sides get them.
+        val userTurn = result == MorrisResult.ONGOING && (twoPlayers || position.toMove == player)
+        val placingTargets = if (userTurn && pending == null && position.mayPlace(actor))
             (0 until 24).filter { position[it] == Morris.EMPTY }.toSet() else null
         _state.update {
             it.copy(
@@ -599,11 +602,12 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> m.toNotation() },
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == MorrisResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 targets = when {
+                    !userTurn || pending != null -> emptySet()
+                    it.selected != null -> it.targets
                     placingTargets != null -> placingTargets
-                    !playerTurn || pending != null || it.selected == null -> emptySet()
-                    else -> it.targets
+                    else -> emptySet()
                 },
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
@@ -666,6 +670,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
         val cfg = s.config
         val count = played.size
+        val asked = position
         val moves = played.toList()
         _state.update { it.copy(hintLoading = true) }
         hintJob = viewModelScope.launch {
@@ -674,7 +679,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 eng.bestMove(moves, null, HINT_MS) // no depth limit: full strength
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
-            val move = reply?.takeIf { played.size == count && it in Morris.legalMoves(position) } ?: return@launch
+            // Same ply count is not enough: an undo then another move (two players) gets back to it.
+            val move = reply?.takeIf { played.size == count && position == asked && it in Morris.legalMoves(position) } ?: return@launch
             _state.update { it.copy(hint = setOfNotNull(move.from.takeIf { f -> f >= 0 }, move.to), hintText = move.toNotation()) }
             publish()
         }
