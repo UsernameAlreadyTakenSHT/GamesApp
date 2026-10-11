@@ -487,7 +487,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             result = when (s.result) {
                 FoxResult.PLAYER_WINS -> PlayerResult.WIN
                 FoxResult.ENGINE_WINS -> PlayerResult.LOSS
-                else -> PlayerResult.DRAW
+                FoxResult.ONGOING -> PlayerResult.DRAW // not reached: only finished games are recorded
             },
             reason = s.statusText,
             moveCount = s.moves.size,

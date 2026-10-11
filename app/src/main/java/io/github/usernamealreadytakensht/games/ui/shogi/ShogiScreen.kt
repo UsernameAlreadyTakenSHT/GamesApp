@@ -376,7 +376,7 @@ private fun ClockRow(name: String, ms: Long?, byoyomiMs: Long?, clock: TimeContr
         Text(name, style = MaterialTheme.typography.bodyLarge)
         if (ms != null) {
             val inByoyomi = byoyomiMs != null && ms <= 0L
-            val shown = if (inByoyomi) byoyomiMs!! else ms
+            val shown = if (inByoyomi) byoyomiMs else ms
             // Byoyomi turns red for the last 10 s, or the last half of a shorter period.
             val period = (clock as? TimeControl.Byoyomi)?.byoyomiMs ?: 0L
             val warn = if (byoyomiMs != null) inByoyomi && shown < minOf(10_000L, period / 2) else ms < warnMs

@@ -63,6 +63,7 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
                 "oppo_elo" to OnnxTensor.createTensor(e, LongBuffer.wrap(elo), longArrayOf(1)),
             )
             val logits = try {
+                @Suppress("UNCHECKED_CAST") // ONNX Runtime returns the [1, n] logits as Array<FloatArray>
                 s.run(inputs).use { (it[0].value as Array<FloatArray>)[0] }
             } finally {
                 inputs.values.forEach { it.close() }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — 2026-10-11
+
+- Built with Kotlin 2.3.20 (was 2.2.10). No change in how the app plays.
+
 ## 0.5.0 — 2026-10-11
 
 - **Two players** in every game: a new Mode choice on the New game screen (vs Engine / Two players) lets two people take turns on one phone, with the clocks, Undo (one move at a time), Resign by the side to move, Hint and Share. Two-player games are kept in the history but left out of your stats.
