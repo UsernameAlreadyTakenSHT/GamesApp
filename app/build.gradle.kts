@@ -39,12 +39,9 @@ android {
             applicationIdSuffix = (project.findProperty("appIdSuffix") as String?)?.takeIf { it.isNotBlank() }
         }
         release {
-            // R8: shrinks the code (~24 MB of dex) and strips Log.d/v; see proguard-rules.pro.
+            // R8: shrinks the code (~24 MB of dex) and strips Log.d/v; rules in src/main/keepRules.
             optimization {
                 enable = true
-                keepRules {
-                    files.add(file("proguard-rules.pro"))
-                }
             }
             if (releaseStore != null) signingConfig = signingConfigs.getByName("release")
         }
@@ -83,7 +80,9 @@ android {
         getByName("main") {
             // OpenTafl's engine core (Java), copied by opentafl/build.sh, plus our stubs for the
             // few desktop-UI classes it references. It referees and plays hnefatafl in-process.
-            java.srcDirs("../opentafl/java", "../opentafl/stubs")
+            java.directories.addAll(listOf("../opentafl/java", "../opentafl/stubs"))
+            // R8 keep rules (ONNX Runtime, OpenTafl, Log stripping).
+            keepRules.directories.add("src/main/keepRules")
         }
     }
 }
