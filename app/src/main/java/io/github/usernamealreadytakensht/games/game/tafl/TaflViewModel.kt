@@ -32,6 +32,8 @@ import kotlin.random.Random
 
 enum class TaflResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
+fun sideName(side: Side): String = if (side == Side.ATTACKERS) "Attackers" else "Defenders"
+
 /** Immutable snapshot of the tafl game, consumed by the UI. */
 data class TaflState(
     val config: TaflConfig = TaflConfig(),
@@ -60,7 +62,14 @@ data class TaflState(
     val runningClock: Side? = null,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == TaflResult.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == TaflResult.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == TaflResult.ONGOING && !thinking
+    fun sideLabel(side: Side): String = when {
+        config.twoPlayers -> sideName(side)
+        side == playerSide -> "You · ${sideName(side).lowercase()}"
+        else -> "${config.opponentLabel} · ${sideName(side).lowercase()}"
+    }
+    fun lost(side: Side): Boolean =
+        (result == TaflResult.PLAYER_WINS && side != playerSide) || (result == TaflResult.ENGINE_WINS && side == playerSide)
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.ATTACKERS) attackersMs else defendersMs
 }
@@ -78,6 +87,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private val played = ArrayList<Move>()
     private var generation = 0
     private var resigned = false
+    private var resignedSide: Side = Side.ATTACKERS
     private var flagged: Side? = null
 
     var hasGame = false
@@ -98,7 +108,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- UI actions
 
     fun startGame(config: TaflConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.ATTACKERS else Side.DEFENDERS)
+        resetGame(config, if (config.twoPlayers) Side.ATTACKERS else config.playerSide ?: if (Random.nextBoolean()) Side.ATTACKERS else Side.DEFENDERS)
         val initial = config.timeControl.startingMs
         attackersBaseMs = initial ?: 0L
         defendersBaseMs = initial ?: 0L
@@ -153,7 +163,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         clearHint()
         undoOne()
-        if (Tafl.sideToMove(game) != s.playerSide && played.isNotEmpty()) undoOne()
+        if (!s.config.twoPlayers && Tafl.sideToMove(game) != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
         // Time already spent on this turn is not refunded.
         chargeRunningClock()
@@ -167,13 +177,14 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != TaflResult.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) Tafl.sideToMove(game) else _state.value.playerSide
         stopClock()
         clearSelection()
         publish()
         persist()
     }
 
-    fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
+    fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     /** Freezes the running side's remaining time as its base (the turn's time is spent). */
     private fun chargeRunningClock() {
@@ -247,7 +258,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun outcome(): Tafl.Outcome = when {
-        resigned -> if (_state.value.playerSide == Side.ATTACKERS) Tafl.Outcome.DEFENDERS_WIN else Tafl.Outcome.ATTACKERS_WIN
+        resigned -> if (resignedSide == Side.ATTACKERS) Tafl.Outcome.DEFENDERS_WIN else Tafl.Outcome.ATTACKERS_WIN
         flagged != null -> if (flagged == Side.ATTACKERS) Tafl.Outcome.DEFENDERS_WIN else Tafl.Outcome.ATTACKERS_WIN
         else -> Tafl.outcome(game)
     }
@@ -255,6 +266,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Tafl.Outcome.ONGOING
 
     private fun maybeEngineMove() {
+        if (_state.value.config.twoPlayers) return
         if (Tafl.sideToMove(game) == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
@@ -402,7 +414,16 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
             Tafl.Outcome.DEFENDERS_WIN -> if (player == Side.DEFENDERS) TaflResult.PLAYER_WINS else TaflResult.ENGINE_WINS
         }
         val toMove = Tafl.sideToMove(game)
-        val status = when {
+        val corners = _state.value.config.variant.escapeToCorners
+        val status = if (_state.value.config.twoPlayers) when {
+            resigned -> "${sideName(resignedSide)} resigned — ${sideName(resignedSide.other)} win."
+            flagged != null -> "Time's up — ${sideName(flagged!!.other)} win."
+            out == Tafl.Outcome.DEFENDERS_WIN -> "Defenders win: the king escaped."
+            out == Tafl.Outcome.ATTACKERS_WIN -> "Attackers win: the king is taken."
+            result == TaflResult.DRAW -> "Draw."
+            toMove == Side.DEFENDERS -> if (corners) "Defenders: get the king to a corner." else "Defenders: get the king to an edge."
+            else -> "Attackers: surround the king."
+        } else when {
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
             result == TaflResult.PLAYER_WINS -> "You won" + (if (player == Side.DEFENDERS) ": the king escaped." else ": the king is taken.")
@@ -443,13 +464,13 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val now = System.currentTimeMillis()
         val result = when (s.result) {
-            TaflResult.PLAYER_WINS -> "You won"
-            TaflResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            TaflResult.PLAYER_WINS -> if (s.config.twoPlayers) "${sideName(s.playerSide)} won" else "You won"
+            TaflResult.ENGINE_WINS -> if (s.config.twoPlayers) "${sideName(s.engineSide)} won" else "${s.config.opponentLabel} won"
             TaflResult.ONGOING -> "In progress"
             else -> "Draw"
         }
-        val attackers = if (s.playerSide == Side.ATTACKERS) "You" else s.config.opponentLabel
-        val defenders = if (s.playerSide == Side.DEFENDERS) "You" else s.config.opponentLabel
+        val attackers = if (s.config.twoPlayers) "Attacking player" else if (s.playerSide == Side.ATTACKERS) "You" else s.config.opponentLabel
+        val defenders = if (s.config.twoPlayers) "Defending player" else if (s.playerSide == Side.DEFENDERS) "You" else s.config.opponentLabel
         val header = listOf("Attackers" to attackers, "Defenders" to defenders, "Result" to result, "Status" to s.statusText)
         val text = Exports.plainText("${s.config.variant.label} (hnefatafl)", now, header, s.moves)
         return ExportedGame("hnefatafl-${Exports.fileStamp(now)}.txt", "text/plain", text)
@@ -464,8 +485,8 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Hnefatafl",
             variant = s.config.variant.label,
-            opponent = s.config.opponentLabel,
-            playerSide = if (s.playerSide == Side.ATTACKERS) "Attackers" else "Defenders",
+            opponent = if (s.config.twoPlayers) sideName(s.engineSide) else s.config.opponentLabel,
+            playerSide = sideName(s.playerSide),
             result = when (s.result) {
                 TaflResult.PLAYER_WINS -> PlayerResult.WIN
                 TaflResult.ENGINE_WINS -> PlayerResult.LOSS
@@ -474,6 +495,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.moves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

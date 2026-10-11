@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.fox
 
+import io.github.usernamealreadytakensht.games.game.fox.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
@@ -129,9 +130,9 @@ fun FoxScreen(
             }
 
             ClockRow(
-                "${state.config.opponentLabel} · ${sideName(v, state.engineSide)}", v, state.engineSide,
+                state.sideLabel(state.engineSide), v, state.engineSide,
                 state.clockMs(state.engineSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.engineSide, lost = state.result == FoxResult.PLAYER_WINS,
+                active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
             if (state.points.isNotEmpty()) {
@@ -140,9 +141,9 @@ fun FoxScreen(
             }
 
             ClockRow(
-                "You · ${sideName(v, state.playerSide)}", v, state.playerSide,
+                state.sideLabel(state.playerSide), v, state.playerSide,
                 state.clockMs(state.playerSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.playerSide, lost = state.result == FoxResult.ENGINE_WINS,
+                active = state.runningClock == state.playerSide, lost = state.lost(state.playerSide),
             )
 
             Row(modifier = Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically,
@@ -171,14 +172,13 @@ fun FoxScreen(
         AlertDialog(
             onDismissRequest = { showResign = false },
             title = { Text("Resign?") },
-            text = { Text("The game will be recorded as a loss.") },
+            text = { Text(if (state.config.twoPlayers) "${sideName(state.config.variant, state.sideToMove)} give up the game." else "The game will be recorded as a loss.") },
             confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
             dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
         )
     }
 }
 
-private fun sideName(v: FoxVariant, side: Fox.Side) = if (side == Fox.Side.FOX) v.foxName else v.hunterName
 
 private fun pieceRes(v: FoxVariant, piece: Int): Int = when (piece) {
     Fox.FOX -> R.drawable.fox_fox
@@ -337,15 +337,16 @@ private fun formatClock(ms: Long): String {
 @Composable
 private fun GameOverBanner(state: FoxState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
-        FoxResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        else -> "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
+        FoxResult.PLAYER_WINS -> (if (state.config.twoPlayers) "${sideName(state.config.variant, state.playerSide)} won" else "You won") to MaterialTheme.colorScheme.primaryContainer
+        else -> if (state.config.twoPlayers) "${sideName(state.config.variant, state.engineSide)} won" to MaterialTheme.colorScheme.primaryContainer
+            else "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
     }
     Column(
         modifier = Modifier.fillMaxWidth().background(color, RoundedCornerShape(12.dp)).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.config.twoPlayers) "Rematch starts the same game again." else "Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
             OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }

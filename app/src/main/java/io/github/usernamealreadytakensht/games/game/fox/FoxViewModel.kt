@@ -32,6 +32,10 @@ import kotlin.random.Random
 
 enum class FoxResult { ONGOING, PLAYER_WINS, ENGINE_WINS }
 
+/** "Fox", "Hounds", "Officers"… for [side] in [v]. */
+fun sideName(v: FoxVariant, side: Side): String =
+    (if (side == Side.FOX) v.foxName else v.hunterName).replaceFirstChar { it.uppercase() }
+
 /** Immutable snapshot of a fox game, consumed by the UI. */
 data class FoxState(
     val config: FoxConfig = FoxConfig(),
@@ -56,7 +60,14 @@ data class FoxState(
 ) {
     val variant: FoxVariant get() = config.variant
     val canUndo: Boolean get() = moves.isNotEmpty() && result == FoxResult.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == FoxResult.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == FoxResult.ONGOING && !thinking
+    fun sideLabel(side: Side): String = when {
+        config.twoPlayers -> sideName(config.variant, side)
+        side == playerSide -> "You · ${sideName(config.variant, side).lowercase()}"
+        else -> "${config.opponentLabel} · ${sideName(config.variant, side).lowercase()}"
+    }
+    fun lost(side: Side): Boolean =
+        (result == FoxResult.PLAYER_WINS && side != playerSide) || (result == FoxResult.ENGINE_WINS && side == playerSide)
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.FOX) foxMs else huntersMs
 }
@@ -75,6 +86,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     private val played = ArrayList<Move>()
     private var generation = 0
     private var resigned = false
+    private var resignedSide: Side = Side.FOX
     private var flagged: Side? = null
 
     var hasGame = false
@@ -94,7 +106,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- UI actions
 
     fun startGame(config: FoxConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.FOX else Side.HUNTERS)
+        resetGame(config, if (config.twoPlayers) Side.FOX else config.playerSide ?: if (Random.nextBoolean()) Side.FOX else Side.HUNTERS)
         val initial = config.timeControl.startingMs
         foxBaseMs = initial ?: 0L
         huntersBaseMs = initial ?: 0L
@@ -150,7 +162,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         clearHint()
         undoOne()
-        if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
+        if (!s.config.twoPlayers && position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
         // Time already spent on this turn is not refunded.
         chargeRunningClock()
@@ -164,13 +176,14 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != FoxResult.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) position.toMove else _state.value.playerSide
         stopClock()
         clearSelection()
         publish()
         persist()
     }
 
-    fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
+    fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     /** Freezes the running side's remaining time as its base (the turn's time is spent). */
     private fun chargeRunningClock() {
@@ -244,7 +257,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun outcome(): Fox.Outcome = when {
-        resigned -> if (_state.value.playerSide == Side.FOX) Fox.Outcome.HUNTERS_WINS else Fox.Outcome.FOX_WINS
+        resigned -> if (resignedSide == Side.FOX) Fox.Outcome.HUNTERS_WINS else Fox.Outcome.FOX_WINS
         flagged != null -> if (flagged == Side.FOX) Fox.Outcome.HUNTERS_WINS else Fox.Outcome.FOX_WINS
         else -> Fox.outcome(position)
     }
@@ -252,6 +265,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     private fun isGameOver() = outcome() != Fox.Outcome.ONGOING
 
     private fun maybeEngineMove() {
+        if (_state.value.config.twoPlayers) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
@@ -389,7 +403,19 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             Fox.Outcome.FOX_WINS -> if (player == Side.FOX) FoxResult.PLAYER_WINS else FoxResult.ENGINE_WINS
             Fox.Outcome.HUNTERS_WINS -> if (player == Side.HUNTERS) FoxResult.PLAYER_WINS else FoxResult.ENGINE_WINS
         }
-        val status = when {
+        val winner = if (result == FoxResult.PLAYER_WINS) player else player.other
+        val actor = position.toMove
+        val status = if (_state.value.config.twoPlayers) when {
+            resigned -> "${sideName(v, resignedSide)} resigned — ${sideName(v, resignedSide.other)} win."
+            flagged != null -> "Time's up — ${sideName(v, flagged!!.other)} win."
+            result != FoxResult.ONGOING -> "${sideName(v, winner)} won."
+            actor == Side.FOX && v == FoxVariant.HOUNDS -> "Fox: slip past the hounds."
+            actor == Side.FOX && v == FoxVariant.ASALTO -> "Officers: thin out the sepoys (${position.hunters()} left)."
+            actor == Side.FOX -> "${sideName(v, Side.FOX)}: jump the ${v.hunterName} (${position.hunters()} left)."
+            v == FoxVariant.HOUNDS -> "Hounds: close the net."
+            v == FoxVariant.ASALTO -> "Sepoys: press into the fortress."
+            else -> "${sideName(v, Side.HUNTERS)}: corner the ${v.foxName} (${position.hunters()} geese)."
+        } else when {
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
             result == FoxResult.PLAYER_WINS -> "You won."
@@ -431,13 +457,13 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val now = System.currentTimeMillis()
         val result = when (s.result) {
-            FoxResult.PLAYER_WINS -> "You won"
-            FoxResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            FoxResult.PLAYER_WINS -> if (s.config.twoPlayers) "${sideName(s.config.variant, s.playerSide)} won" else "You won"
+            FoxResult.ENGINE_WINS -> if (s.config.twoPlayers) "${sideName(s.config.variant, s.engineSide)} won" else "${s.config.opponentLabel} won"
             FoxResult.ONGOING -> "In progress"
         }
         val v = s.config.variant
-        val fox = if (s.playerSide == Side.FOX) "You" else s.config.opponentLabel
-        val hunters = if (s.playerSide == Side.HUNTERS) "You" else s.config.opponentLabel
+        val fox = if (s.config.twoPlayers) "Player 1" else if (s.playerSide == Side.FOX) "You" else s.config.opponentLabel
+        val hunters = if (s.config.twoPlayers) "Player 2" else if (s.playerSide == Side.HUNTERS) "You" else s.config.opponentLabel
         val header = listOf(
             v.foxName.replaceFirstChar { it.uppercase() } to fox,
             v.hunterName.replaceFirstChar { it.uppercase() } to hunters,
@@ -456,8 +482,8 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Fox games",
             variant = s.config.variant.label,
-            opponent = s.config.opponentLabel,
-            playerSide = (if (s.playerSide == Side.FOX) s.config.variant.foxName else s.config.variant.hunterName).replaceFirstChar { it.uppercase() },
+            opponent = if (s.config.twoPlayers) sideName(s.config.variant, s.engineSide) else s.config.opponentLabel,
+            playerSide = sideName(s.config.variant, s.playerSide),
             result = when (s.result) {
                 FoxResult.PLAYER_WINS -> PlayerResult.WIN
                 FoxResult.ENGINE_WINS -> PlayerResult.LOSS
@@ -466,6 +492,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.moves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

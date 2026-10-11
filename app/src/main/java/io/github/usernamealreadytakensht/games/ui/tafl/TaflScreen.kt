@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.tafl
 
+import io.github.usernamealreadytakensht.games.game.tafl.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
@@ -122,17 +123,17 @@ fun TaflScreen(
             }
 
             ClockRow(
-                "${state.config.opponentLabel} · ${sideName(state.engineSide)}", state.engineSide,
+                state.sideLabel(state.engineSide), state.engineSide,
                 state.clockMs(state.engineSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.engineSide, lost = state.result == TaflResult.PLAYER_WINS,
+                active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
             if (state.squares.isNotEmpty()) Board(state, onTap = vm::onSquareTapped)
 
             ClockRow(
-                "You · ${sideName(state.playerSide)}", state.playerSide,
+                state.sideLabel(state.playerSide), state.playerSide,
                 state.clockMs(state.playerSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.playerSide, lost = state.result == TaflResult.ENGINE_WINS,
+                active = state.runningClock == state.playerSide, lost = state.lost(state.playerSide),
             )
 
             Row(modifier = Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically,
@@ -161,14 +162,13 @@ fun TaflScreen(
         AlertDialog(
             onDismissRequest = { showResign = false },
             title = { Text("Resign?") },
-            text = { Text("The game will be recorded as a loss.") },
+            text = { Text(if (state.config.twoPlayers) "The ${sideName(state.sideToMove).lowercase()} give up the game." else "The game will be recorded as a loss.") },
             confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
             dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
         )
     }
 }
 
-private fun sideName(side: Tafl.Side) = if (side == Tafl.Side.ATTACKERS) "attackers" else "defenders"
 
 @Composable
 private fun Board(state: TaflState, onTap: (Int, Int) -> Unit) {
@@ -258,8 +258,9 @@ private fun formatClock(ms: Long): String {
 @Composable
 private fun GameOverBanner(state: TaflState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
-        TaflResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        TaflResult.ENGINE_WINS -> "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
+        TaflResult.PLAYER_WINS -> (if (state.config.twoPlayers) "${sideName(state.playerSide)} won" else "You won") to MaterialTheme.colorScheme.primaryContainer
+        TaflResult.ENGINE_WINS -> if (state.config.twoPlayers) "${sideName(state.engineSide)} won" to MaterialTheme.colorScheme.primaryContainer
+            else "${state.config.engine.label} won" to MaterialTheme.colorScheme.errorContainer
         else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
     }
     Column(
@@ -267,7 +268,7 @@ private fun GameOverBanner(state: TaflState, onRematch: () -> Unit, onNewGame: (
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.config.twoPlayers) "Rematch starts the same game again." else "Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
             OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }

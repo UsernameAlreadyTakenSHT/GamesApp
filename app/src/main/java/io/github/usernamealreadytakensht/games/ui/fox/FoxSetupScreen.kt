@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.fox
 
+import io.github.usernamealreadytakensht.games.ui.ModeSection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -50,7 +51,15 @@ fun FoxGameSetupScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+    SetupScaffold(
+        title = "New game",
+        step = if (config.twoPlayers) "" else "1 / 2",
+        onBack = onBack,
+        action = if (config.twoPlayers) "Play" else "Next",
+        onAction = onNext,
+    ) {
+        ModeSection(config.twoPlayers) { onChange(config.copy(twoPlayers = it)) }
+
         SectionTitle("Game")
         FoxVariant.entries.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
@@ -76,14 +85,16 @@ fun FoxGameSetupScreen(
         }
         Hint(config.variant.description)
 
-        SectionTitle("Your side")
-        SideCards(
-            first = config.variant.foxName.replaceFirstChar { it.uppercase() } to listOf(R.drawable.fox_fox),
-            second = config.variant.hunterName.replaceFirstChar { it.uppercase() } to listOf(config.variant.hunterIcon),
-            selected = config.playerSide?.let { it == Fox.Side.FOX },
-            onSelect = { onChange(config.copy(playerSide = it?.let { f -> if (f) Fox.Side.FOX else Fox.Side.HUNTERS })) },
-        )
-        Hint(if (config.variant.foxName.endsWith("s")) "The ${config.variant.foxName} move first." else "The ${config.variant.foxName} moves first.")
+        if (!config.twoPlayers) {
+            SectionTitle("Your side")
+            SideCards(
+                first = config.variant.foxName.replaceFirstChar { it.uppercase() } to listOf(R.drawable.fox_fox),
+                second = config.variant.hunterName.replaceFirstChar { it.uppercase() } to listOf(config.variant.hunterIcon),
+                selected = config.playerSide?.let { it == Fox.Side.FOX },
+                onSelect = { onChange(config.copy(playerSide = it?.let { f -> if (f) Fox.Side.FOX else Fox.Side.HUNTERS })) },
+            )
+            Hint(if (config.variant.foxName.endsWith("s")) "The ${config.variant.foxName} move first." else "The ${config.variant.foxName} moves first.")
+        }
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 

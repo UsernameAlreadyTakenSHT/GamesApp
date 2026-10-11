@@ -294,7 +294,14 @@ private fun App() {
                 config = taflDraft,
                 onChange = { taflDraft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.TaflOpponentSetup },
+                onNext = {
+                    if (taflDraft.twoPlayers) {
+                        repo.saveLastTaflConfig(taflDraft)
+                        screen = Screen.TaflGame(TaflLaunch.NewGame(taflDraft, ++gameCounter))
+                    } else {
+                        screen = Screen.TaflOpponentSetup
+                    }
+                },
             )
         }
 
@@ -326,7 +333,14 @@ private fun App() {
                 config = foxDraft,
                 onChange = { foxDraft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.FoxOpponentSetup },
+                onNext = {
+                    if (foxDraft.twoPlayers) {
+                        repo.saveLastFoxConfig(foxDraft)
+                        screen = Screen.FoxGame(FoxLaunch.NewGame(foxDraft, ++gameCounter))
+                    } else {
+                        screen = Screen.FoxOpponentSetup
+                    }
+                },
             )
         }
 

@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.tafl
 
+import io.github.usernamealreadytakensht.games.ui.ModeSection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -47,7 +48,15 @@ fun TaflGameSetupScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+    SetupScaffold(
+        title = "New game",
+        step = if (config.twoPlayers) "" else "1 / 2",
+        onBack = onBack,
+        action = if (config.twoPlayers) "Play" else "Next",
+        onAction = onNext,
+    ) {
+        ModeSection(config.twoPlayers) { onChange(config.copy(twoPlayers = it)) }
+
         SectionTitle("Variant")
         // Three cards per row: name, board size and a one-line hook.
         TaflVariant.entries.chunked(3).forEach { row ->
@@ -79,17 +88,19 @@ fun TaflGameSetupScreen(
         }
         Hint(config.variant.description)
 
-        SectionTitle("Your side")
-        SideCards(
-            first = "Defenders" to listOf(R.drawable.tafl_king, R.drawable.tafl_defender),
-            second = "Attackers" to listOf(R.drawable.tafl_attacker),
-            selected = config.playerSide?.let { it == Tafl.Side.DEFENDERS },
-            onSelect = { onChange(config.copy(playerSide = it?.let { d -> if (d) Tafl.Side.DEFENDERS else Tafl.Side.ATTACKERS })) },
-        )
-        Hint(
-            "Attackers move first. The defenders win by walking the king " +
-                (if (config.variant.escapeToCorners) "to a corner" else "over an edge") + "; the attackers by surrounding him.",
-        )
+        if (!config.twoPlayers) {
+            SectionTitle("Your side")
+            SideCards(
+                first = "Defenders" to listOf(R.drawable.tafl_king, R.drawable.tafl_defender),
+                second = "Attackers" to listOf(R.drawable.tafl_attacker),
+                selected = config.playerSide?.let { it == Tafl.Side.DEFENDERS },
+                onSelect = { onChange(config.copy(playerSide = it?.let { d -> if (d) Tafl.Side.DEFENDERS else Tafl.Side.ATTACKERS })) },
+            )
+            Hint(
+                "Attackers move first. The defenders win by walking the king " +
+                    (if (config.variant.escapeToCorners) "to a corner" else "over an edge") + "; the attackers by surrounding him.",
+            )
+        }
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
