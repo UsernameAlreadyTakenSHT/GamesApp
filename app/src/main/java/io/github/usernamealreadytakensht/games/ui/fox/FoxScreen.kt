@@ -105,7 +105,7 @@ fun FoxScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); vm.pauseClock() }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); vm.pauseClock(); vm.releaseEngine() }
     }
 
     val v = state.variant

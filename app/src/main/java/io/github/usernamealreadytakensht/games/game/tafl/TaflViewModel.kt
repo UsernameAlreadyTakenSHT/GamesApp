@@ -128,7 +128,11 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadSavedGame(): Boolean {
-        if (hasGame) { resumeClock(); return true }
+        if (hasGame) {
+            resumeClock()
+            maybeEngineMove() // the search was stopped when the screen was left
+            return true
+        }
         val saved = repo.loadTaflGame() ?: return false
         resetGame(saved.config, saved.playerSide)
         val (g, moves) = Tafl.replay(saved.config.variant, saved.moves)
@@ -171,6 +175,12 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         persist()
         maybeEngineMove()
+    }
+
+    /** The game screen was left: stop any search so it does not run in the background. Resume searches again. */
+    fun releaseEngine() {
+        stopHint()
+        cancelSearch()
     }
 
     fun resign() {
