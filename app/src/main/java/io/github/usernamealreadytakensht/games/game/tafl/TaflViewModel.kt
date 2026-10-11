@@ -281,7 +281,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         if (Tafl.sideToMove(game) == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
-        val g = game
+        val g = searchCopy()
         val budgetMs = engineThinkMs()
         // OpenTafl thinks in whole seconds: a shorter budget is enforced by stopping it early.
         val seconds = ((budgetMs + 999) / 1000).toInt().coerceAtLeast(1)
@@ -290,6 +290,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             // A hint search finishes first: two OpenTafl searches at once share its static tables.
             hintJob?.join()
+            if (gen != generation) return@launch // cancelled while waiting: its stop() found no search to end
             val timer = if (budgetMs < seconds * 1000L) launch {
                 delay(budgetMs)
                 if (gen == generation) engine.stop()
@@ -311,13 +312,21 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * A private copy of the game for a search: OpenTafl's AI counts the positions it explores
+     * in the game's own repetition table, which must not see them (a move played while a hint
+     * search unwinds, or a search that fails half-way, would leave false repetitions behind).
+     */
+    private fun searchCopy(): Game = Tafl.replay(_state.value.config.variant, played.map { it.toNotation() }).first
+
     /** Thinking budget in ms: the depth's usual time, capped by the engine's own clock. */
     private fun engineThinkMs(): Long {
         val cfg = _state.value.config
         val base = TaflEngineKind.thinkSeconds(cfg.depth) * 1000L
         val remaining = currentMs(Tafl.sideToMove(game)) ?: return base
         val budgetMs = when (val tc = cfg.timeControl) {
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // What is left of this move's time (less than the full period after a pause).
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }
@@ -428,19 +437,32 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         }
         val toMove = Tafl.sideToMove(game)
         val corners = _state.value.config.variant.escapeToCorners
+        // How the game was won: the king's capture or escape are named; other wins (edge fort,
+        // encirclement, repetition, a side left without a move) just say who won.
+        val size = Tafl.size(game)
+        val king = Tafl.board(game).indexOf(Tafl.KING)
+        val kx = king % size
+        val ky = king / size
+        val escaped = king >= 0 &&
+            if (corners) Tafl.isCorner(size, kx, ky) else kx == 0 || ky == 0 || kx == size - 1 || ky == size - 1
+        val how = when (out) {
+            Tafl.Outcome.ATTACKERS_WIN -> if (king < 0) ": the king is taken." else "."
+            Tafl.Outcome.DEFENDERS_WIN -> if (escaped) ": the king escaped." else "."
+            else -> "."
+        }
         val status = if (_state.value.config.twoPlayers) when {
             resigned -> "${sideName(resignedSide)} resigned — ${sideName(resignedSide.other)} win."
             flagged != null -> "Time's up — ${sideName(flagged!!.other)} win."
-            out == Tafl.Outcome.DEFENDERS_WIN -> "Defenders win: the king escaped."
-            out == Tafl.Outcome.ATTACKERS_WIN -> "Attackers win: the king is taken."
+            out == Tafl.Outcome.DEFENDERS_WIN -> "Defenders win$how"
+            out == Tafl.Outcome.ATTACKERS_WIN -> "Attackers win$how"
             result == TaflResult.DRAW -> "Draw."
             toMove == Side.DEFENDERS -> if (corners) "Defenders: get the king to a corner." else "Defenders: get the king to an edge."
             else -> "Attackers: surround the king."
         } else when {
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
-            result == TaflResult.PLAYER_WINS -> "You won" + (if (player == Side.DEFENDERS) ": the king escaped." else ": the king is taken.")
-            result == TaflResult.ENGINE_WINS -> "$engineName won" + (if (player == Side.ATTACKERS) ": the king escaped." else ": the king is taken.")
+            result == TaflResult.PLAYER_WINS -> "You won$how"
+            result == TaflResult.ENGINE_WINS -> "$engineName won$how"
             result == TaflResult.DRAW -> "Draw."
             _state.value.thinking -> "$engineName is thinking…"
             toMove == player -> if (player == Side.DEFENDERS) {
@@ -520,13 +542,15 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
         val count = played.size
-        val g = game
+        val live = game
+        // The player may move while the search unwinds: it runs on a copy (see searchCopy).
+        val g = searchCopy()
         _state.update { it.copy(hintLoading = true) }
         hintJob = viewModelScope.launch {
             val move = runCatching { engine.bestMove(g, null, 2) }.getOrNull() // no depth limit: full strength
             _state.update { it.copy(hintLoading = false) }
             // Same position only: an undo rebuilds the game object, then a move restores the count.
-            if (move == null || game !== g || played.size != count || isGameOver()) return@launch
+            if (move == null || game !== live || played.size != count || isGameOver()) return@launch
             _state.update { it.copy(hint = setOf(move.fromX to move.fromY, move.toX to move.toY), hintText = move.toNotation()) }
             publish()
         }

@@ -390,6 +390,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         viewModelScope.launch {
             hintJob?.join() // a hint search finishes (and restores the strength) first
+            if (gen != generation) return@launch // cancelled while waiting: its stop() found no search to end
             var move: Move? = null
             var failure: String? = null
             // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
@@ -419,8 +420,11 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         val remaining = currentMs(game.position.sideToMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
             // In byoyomi, use a good part of the period: it comes back after every move.
-            is TimeControl.Byoyomi -> if (remaining > 0) remaining / 20 + tc.byoyomiMs / 2 else tc.byoyomiMs * 6 / 10
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // In byoyomi, what is left of the period (less than all of it when resumed after a pause).
+            is TimeControl.Byoyomi -> if (remaining > 0) remaining / 20 + tc.byoyomiMs / 2
+                else (byoyomiLeft(game.position.sideToMove) ?: tc.byoyomiMs) * 6 / 10
+            // What is left of this move's time (less than the full period after a pause).
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 20 + tc.incrementMs / 2
             else -> remaining / 20
         }

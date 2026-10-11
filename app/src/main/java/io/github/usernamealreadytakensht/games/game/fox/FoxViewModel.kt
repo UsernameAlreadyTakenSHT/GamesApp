@@ -286,6 +286,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         viewModelScope.launch {
             hintJob?.join() // a hint search finishes (and restores the strength) first
+            if (gen != generation) return@launch // cancelled while waiting: its stop() found no search to end
             val move = try {
                 engine.bestMove(pos, cfg.depth, moveTime)
             } catch (e: Exception) {
@@ -306,7 +307,8 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         val base = if (cfg.depth == null) 1500L else 4000L
         val remaining = currentMs(position.toMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // What is left of this move's time (less than the full period after a pause).
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }

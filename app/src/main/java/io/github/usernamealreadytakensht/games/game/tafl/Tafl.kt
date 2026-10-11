@@ -145,7 +145,16 @@ object Tafl {
         GameState.ATTACKER_WIN -> Outcome.ATTACKERS_WIN
         GameState.DEFENDER_WIN -> Outcome.DEFENDERS_WIN
         GameState.DRAW -> Outcome.DRAW
-        else -> Outcome.ONGOING
+        // A side that cannot move loses. OpenTafl only checks a rough form of it for the
+        // defenders; without this a blocked side would leave the game waiting forever.
+        else -> if (hasLegalMove(game)) Outcome.ONGOING
+            else if (sideToMove(game) == Side.ATTACKERS) Outcome.DEFENDERS_WIN else Outcome.ATTACKERS_WIN
+    }
+
+    private fun hasLegalMove(game: Game): Boolean {
+        val size = size(game)
+        for (y in 0 until size) for (x in 0 until size) if (destinations(game, x, y).isNotEmpty()) return true
+        return false
     }
 
     /** Squares captured by the last move, for highlighting. */
