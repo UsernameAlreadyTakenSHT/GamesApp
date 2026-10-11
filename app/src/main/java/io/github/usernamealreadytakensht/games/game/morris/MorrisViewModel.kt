@@ -97,6 +97,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Bumped by every [finishLoad]: only the latest one clears [engineStarting] and moves. */
+    private var loadId = 0
     /** Set while the game screen is not shown: no engine runs then. */
     private var released = false
 
@@ -308,8 +310,13 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val cfg = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // A start still running for an earlier game must not report into this one.
+        val load = ++loadId
         // Two players: no engine now; Hint starts one when asked.
-        if (cfg.twoPlayers) return
+        if (cfg.twoPlayers) {
+            engineStarting = false
+            return
+        }
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -319,13 +326,14 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                     eng.newGame()
                 }
             } catch (e: Exception) {
+                if (load != loadId) return@launch
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
             } finally {
-                engineStarting = false
+                if (load == loadId) engineStarting = false
             }
-            maybeEngineMove()
+            if (load == loadId) maybeEngineMove()
         }
     }
 
@@ -422,6 +430,9 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             for (attempt in 0..1) {
                 try {
                     val eng = engineLock.withLock { liveEngine(cfg, restart = attempt > 0) }
+                    // Cancelled while waiting for the hint or the engine: the "stop" went out
+                    // before this search, which would run its full time for nothing.
+                    if (gen != generation) return@launch
                     val reply = eng.bestMove(history, cfg.depth, moveTime)
                     if (gen != generation) return@launch
                     move = reply?.takeIf { it in Morris.legalMoves(position) }
@@ -444,7 +455,9 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         val base = if (cfg.depth == null) 1500L else 6000L
         val remaining = currentMs(position.toMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // What is left of the move's budget: less than the full budget after an undo
+            // charged the engine's thinking time to it.
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }
@@ -494,6 +507,14 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         val now = SystemClock.elapsedRealtime()
         if (_state.value.runningClock == mover) {
             var left = (if (mover == Color.WHITE) whiteBaseMs else blackBaseMs) - (now - turnStartedAt)
+            // Out of time before the 100 ms tick noticed: the flag fell, the increment (or the
+            // per-move reset) does not save it.
+            if (left <= 0L) {
+                flagged = mover
+                if (mover == Color.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
+                stopClock()
+                return
+            }
             left = when (tc) {
                 is TimeControl.Fischer -> left + tc.incrementMs
                 is TimeControl.PerMove -> tc.perMoveMs
@@ -574,7 +595,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             position.isFlying(actor) -> "${colorName(actor)}: three men left, fly anywhere."
             else -> "${colorName(actor)}: slide a man along a line."
         } else when {
-            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
+            // The game's end first: it is what the history and the export record as the reason.
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
             result == MorrisResult.PLAYER_WINS -> if (position.onBoard(player.other) < 3) "You won: $engineName is down to two men."
@@ -582,6 +603,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             result == MorrisResult.ENGINE_WINS -> if (position.onBoard(player) < 3) "$engineName won: you are down to two men."
                                                   else "$engineName won: you cannot move."
             result == MorrisResult.DRAW -> "Draw."
+            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             !engineReady -> "Starting $engineName…"
             _state.value.thinking -> "$engineName is thinking…"
             playerTurn && pending != null -> "Mill! Take an enemy man."
@@ -597,6 +619,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         val userTurn = result == MorrisResult.ONGOING && (twoPlayers || position.toMove == player)
         val placingTargets = if (userTurn && pending == null && position.mayPlace(actor))
             (0 until 24).filter { position[it] == Morris.EMPTY }.toSet() else null
+        // A hint shown when the game ends (resign, flag) goes with it.
+        if (result != MorrisResult.ONGOING) clearHint()
         _state.update {
             it.copy(
                 points = List(24) { p -> position[p] },
@@ -684,7 +708,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
             // Same ply count is not enough: an undo then another move (two players) gets back to it.
-            val move = reply?.takeIf { played.size == count && position == asked && it in Morris.legalMoves(position) } ?: return@launch
+            // Nor once the game ended meanwhile (resigned, flagged).
+            val move = reply?.takeIf { played.size == count && position == asked && !isGameOver() && it in Morris.legalMoves(position) } ?: return@launch
             _state.update { it.copy(hint = setOfNotNull(move.from.takeIf { f -> f >= 0 }, move.to), hintText = move.toNotation()) }
             publish()
         }

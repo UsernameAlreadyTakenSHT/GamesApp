@@ -118,6 +118,9 @@ class MorrisTest {
     fun gameEndsBelowThreeMenOrWithoutMoves() {
         val twoMen = position("a7 d7", "a1 d1 g1 b2", Color.WHITE)
         assertEquals(Morris.Outcome.BLACK_WINS, Morris.outcome(twoMen, emptyList(), 0))
+        // Lasker: one man on the board and one in hand is two men too.
+        val twoWithHand = position("a7", "a1 d1 g1 b2", Color.WHITE, whiteInHand = 1, blackInHand = 1, variant = MorrisVariant.LASKER)
+        assertEquals(Morris.Outcome.BLACK_WINS, Morris.outcome(twoWithHand, emptyList(), 0))
         // Four white men along the top-left, every exit held by black: no legal move.
         val blocked = position("a7 d7 g7 a4", "d6 g4 b4 a1 b2 f2", Color.WHITE)
         assertFalse(blocked.isFlying(Color.WHITE))

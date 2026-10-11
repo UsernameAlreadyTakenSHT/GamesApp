@@ -118,7 +118,7 @@ fun MorrisScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
-                    Text("Nine Men's Morris", style = MaterialTheme.typography.titleLarge)
+                    Text(state.config.variant.label, style = MaterialTheme.typography.titleLarge)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(state.config.timeControl.label, style = MaterialTheme.typography.labelLarge)

@@ -95,6 +95,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Bumped by every [finishLoad]: only the latest one clears [engineStarting] and moves. */
+    private var loadId = 0
     /** Set while the game screen is not shown: no engine runs then. */
     private var released = false
 
@@ -299,8 +301,13 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // A start still running for an earlier game must not report into this one.
+        val load = ++loadId
         // Two players: no engine now; Hint starts one when asked.
-        if (config.twoPlayers) return
+        if (config.twoPlayers) {
+            engineStarting = false
+            return
+        }
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -310,13 +317,14 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                     eng.newGame()
                 }
             } catch (e: Exception) {
+                if (load != loadId) return@launch
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
             } finally {
-                engineStarting = false
+                if (load == loadId) engineStarting = false
             }
-            maybeEngineMove()
+            if (load == loadId) maybeEngineMove()
         }
     }
 
@@ -413,6 +421,9 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             for (attempt in 0..1) {
                 try {
                     val eng = engineLock.withLock { liveEngine(cfg, restart = attempt > 0) }
+                    // Cancelled while waiting for the hint or the engine: the "stop" went out
+                    // before this search, which would run its full time for nothing.
+                    if (gen != generation) return@launch
                     val hub = eng.bestMove(pos, kingMoves, cfg.depth, moveTime)
                     if (gen != generation) return@launch
                     move = hub?.let { Draughts.parseHub(position, it) }
@@ -435,7 +446,9 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         val base = if (cfg.depth == null) 1500L else 8000L
         val remaining = currentMs(position.toMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // What is left of the move's budget: less than the full budget after an undo
+            // charged the engine's thinking time to it.
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }
@@ -481,6 +494,14 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
         val now = SystemClock.elapsedRealtime()
         if (_state.value.runningClock == mover) {
             var left = (if (mover == Color.WHITE) whiteBaseMs else blackBaseMs) - (now - turnStartedAt)
+            // Out of time before the 100 ms tick noticed: the flag fell, the increment (or the
+            // per-move reset) does not save it.
+            if (left <= 0L) {
+                flagged = mover
+                if (mover == Color.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
+                stopClock()
+                return
+            }
             left = when (tc) {
                 is TimeControl.Fischer -> left + tc.incrementMs
                 is TimeControl.PerMove -> tc.perMoveMs
@@ -557,19 +578,22 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             mustCapture -> "$toMove must capture."
             else -> "$toMove to move."
         } else when {
-            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
+            // The game's end first: it is what the history and the PDN record as the reason.
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
             flagged != null -> "Time's up — you win!"
             result == DraughtsResult.PLAYER_WINS -> "$engineName cannot move — you win!"
             result == DraughtsResult.ENGINE_WINS -> "No legal move — $engineName wins."
             result == DraughtsResult.DRAW -> "Draw."
+            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             !engineReady -> "Starting $engineName…"
             _state.value.thinking -> "$engineName is thinking…"
             _state.value.partialPath.isNotEmpty() -> "Continue the capture…"
             mustCapture -> "You must capture."
             else -> "Your move (${if (player == Color.WHITE) "white" else "black"})."
         }
+        // A hint shown when the game ends (resign, flag) goes with it.
+        if (result != DraughtsResult.ONGOING) clearHint()
         _state.update {
             it.copy(
                 squares = List(51) { i -> if (i == 0) Draughts.EMPTY else position[i] },
@@ -661,7 +685,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
             // Same ply count is not enough: an undo then another move (two players) gets back to it.
-            val move = hub?.takeIf { played.size == count && position == asked }?.let { Draughts.parseHub(position, it) } ?: return@launch
+            // Nor once the game ended meanwhile (resigned, flagged).
+            val move = hub?.takeIf { played.size == count && position == asked && !isGameOver() }?.let { Draughts.parseHub(position, it) } ?: return@launch
             _state.update { it.copy(hint = setOf(move.from) + move.path, hintText = move.toHub()) }
             publish()
         }

@@ -226,9 +226,10 @@ object Morris {
      */
     fun outcome(pos: Position, previous: List<Position>, quietPlies: Int, legal: List<Move> = legalMoves(pos)): Outcome {
         val me = pos.toMove
-        // Fewer than three men once placement is over: the placing side just lost a man.
+        // Fewer than three men, on the board and in hand together (as Sanmill counts them): in
+        // Lasker Morris a side that kept sliding can drop below three with men still in hand.
         for (c in Color.entries) {
-            if (pos.inHand(c) == 0 && pos.onBoard(c) < 3) return if (c == Color.WHITE) Outcome.BLACK_WINS else Outcome.WHITE_WINS
+            if (pos.men(c) < 3) return if (c == Color.WHITE) Outcome.BLACK_WINS else Outcome.WHITE_WINS
         }
         if (legal.isEmpty()) return if (me == Color.WHITE) Outcome.BLACK_WINS else Outcome.WHITE_WINS
         if (quietPlies >= 100) return Outcome.DRAW
