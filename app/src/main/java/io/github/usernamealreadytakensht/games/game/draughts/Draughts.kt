@@ -12,8 +12,9 @@ package io.github.usernamealreadytakensht.games.game.draughts
  * backwards; kings fly; capturing is mandatory and the sequence taking the most pieces must
  * be chosen (any of the maximal ones); captured pieces stay on the board until the sequence
  * ends and cannot be jumped twice (Turkish strike); a man promotes only when its move ends
- * on the last row. A side with no legal move loses. Draw: threefold repetition, or 25
- * consecutive moves by each side without a capture or a man move.
+ * on the last row. A side with no legal move loses. Draw: threefold repetition, 25
+ * consecutive moves by each side without a capture or a man move, and the FMJD endgame
+ * limits against a lone king (16 moves each with three pieces, 5 with two or one).
  */
 object Draughts {
 
@@ -263,7 +264,36 @@ object Draughts {
         val key = pos.key()
         // Third occurrence: the current position plus two earlier ones.
         if (history.count { it.key() == key } >= 2) return Outcome.DRAW
+        // FMJD endgame limits: counted from the move that reached this material balance.
+        endgameMoves(pos)?.let { limit ->
+            var plies = 0
+            for (i in history.indices.reversed()) {
+                if (endgameMoves(history[i]) != limit) break
+                plies++
+            }
+            if (plies >= 2 * limit) return Outcome.DRAW
+        }
         return Outcome.ONGOING
+    }
+
+    /**
+     * Moves each side may still play against a lone king (FMJD 6.4 / 6.5): 16 when the other
+     * side has three pieces with at least one king, 5 with two pieces or one, a king among
+     * them. Null for any other balance.
+     */
+    fun endgameMoves(pos: Position): Int? {
+        for (lone in Color.entries) {
+            val ours = (1..50).map { pos[it] }.filter { colorOf(it) == lone }
+            if (ours.size != 1 || !isKing(ours[0])) continue
+            val theirs = (1..50).map { pos[it] }.filter { colorOf(it) == lone.other }
+            if (theirs.none { isKing(it) }) continue
+            return when (theirs.size) {
+                3 -> 16
+                1, 2 -> 5
+                else -> null
+            }
+        }
+        return null
     }
 
     /** Whether [move] resets the no-progress counter (a capture or a man move). */

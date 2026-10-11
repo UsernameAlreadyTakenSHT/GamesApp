@@ -105,6 +105,24 @@ class DraughtsTest {
     }
 
     @Test
+    fun fmjdEndgameLimitsAgainstALoneKing() {
+        // Three kings against one: 16 moves each from the move that reached it.
+        val pos = position(whiteKings = listOf(46, 47, 48), blackKings = listOf(5))
+        val before = (11..42).map { position(whiteKings = listOf(46, 47, it), blackKings = listOf(5)) }
+        assertEquals(Draughts.Outcome.ONGOING, Draughts.outcome(pos, before.take(31), 0))
+        assertEquals(Draughts.Outcome.DRAW, Draughts.outcome(pos, before.take(32), 0))
+        // An earlier position with more material does not count.
+        val start = listOf(position(whiteKings = listOf(46, 47, 49), blackKings = listOf(5), blackMen = listOf(6)))
+        assertEquals(Draughts.Outcome.ONGOING, Draughts.outcome(pos, start + before.take(31), 0))
+        // King and man against king: 5 moves each.
+        val small = position(whiteKings = listOf(46), whiteMen = listOf(30), blackKings = listOf(5))
+        val smallBefore = (11..20).map { position(whiteKings = listOf(it), whiteMen = listOf(30), blackKings = listOf(5)) }
+        assertEquals(Draughts.Outcome.ONGOING, Draughts.outcome(small, smallBefore.take(9), 0))
+        assertEquals(Draughts.Outcome.DRAW, Draughts.outcome(small, smallBefore, 0))
+        assertEquals(null, Draughts.endgameMoves(Draughts.START))
+    }
+
+    @Test
     fun pdnGivesLandingSquaresNotCapturedOnes() {
         assertEquals("32-28", Draughts.toPdn(Draughts.START, Draughts.parseHub(Draughts.START, "32-28")!!))
         val pos = position(whiteMen = listOf(38), blackMen = listOf(32, 33, 22))
