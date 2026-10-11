@@ -28,7 +28,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,6 +47,9 @@ import io.github.usernamealreadytakensht.games.game.record.Exports
 import io.github.usernamealreadytakensht.games.game.record.GameRecord
 import io.github.usernamealreadytakensht.games.game.record.HistoryRepository
 import io.github.usernamealreadytakensht.games.game.record.PlayerResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val WinColor = Color(0xFF2E7D32)
 private val LossColor = Color(0xFFC62828)
@@ -79,7 +85,12 @@ private val GameRecord.title: String get() = variant ?: game
 fun HistoryScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val repo = remember { HistoryRepository(context) }
-    var records by remember { mutableStateOf(repo.all()) }
+    val scope = rememberCoroutineScope()
+    // Read off the main thread (up to 500 games with their files), again after every write:
+    // a game that just ended is added in the background and may land after this screen opens.
+    val version by HistoryRepository.version.collectAsState()
+    var records by remember { mutableStateOf<List<GameRecord>?>(null) }
+    LaunchedEffect(version) { records = withContext(Dispatchers.IO) { repo.all() } }
     var expanded by remember { mutableStateOf(setOf<String>()) }
     var opened by remember { mutableStateOf<GameRecord?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -93,10 +104,11 @@ fun HistoryScreen(onBack: () -> Unit) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
                     Text("History", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    if (records.isNotEmpty()) TextButton(onClick = { confirmClear = true }) { Text("Clear") }
+                    if (!records.isNullOrEmpty()) TextButton(onClick = { confirmClear = true }) { Text("Clear") }
                 }
             }
 
+            val records = records ?: return@LazyColumn // still loading
             if (records.isEmpty()) {
                 item {
                     Text(
@@ -135,8 +147,7 @@ fun HistoryScreen(onBack: () -> Unit) {
             record = r,
             onShare = { shareGame(context, r.export) },
             onDelete = {
-                repo.delete(r.endedAt)
-                records = repo.all()
+                scope.launch(Dispatchers.IO) { repo.delete(r.endedAt) } // the version bump reloads the list
                 opened = null
             },
             onDismiss = { opened = null },
@@ -147,9 +158,9 @@ fun HistoryScreen(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text("Clear history?") },
-            text = { Text("All ${records.size} recorded games and their stats will be deleted.") },
+            text = { Text("All ${records?.size ?: 0} recorded games and their stats will be deleted.") },
             confirmButton = {
-                Button(onClick = { repo.clear(); records = emptyList(); confirmClear = false }) { Text("Clear") }
+                Button(onClick = { scope.launch(Dispatchers.IO) { repo.clear() }; confirmClear = false }) { Text("Clear") }
             },
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
         )
