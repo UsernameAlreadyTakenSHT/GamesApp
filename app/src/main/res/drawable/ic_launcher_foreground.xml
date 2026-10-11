@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    App icon foreground (108 x 108 dp): the chess queen, alone and large. The tightest mask
-    is the launch (splash) screen's circle; a 50 dp box keeps the crown tips well inside it, and
-    the queen still fills the home-screen icon. The box sits 2 dp high because the drawing
-    is slightly bottom-heavy.
+    App icon foreground (108 x 108 dp): the chess queen, alone and large. Launchers show the
+    middle 72 dp, often as a circle: a 72 dp box keeps the crown tips and the base corners
+    inside that circle while the queen fills the icon. The box sits 1 dp high because the
+    drawing is slightly bottom-heavy. The launch screen has its own, smaller drawing
+    (ic_splash), since it shows this one much larger.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:drawable="@drawable/piece_lq"
-        android:left="29dp"
-        android:top="27dp"
-        android:right="29dp"
-        android:bottom="31dp" />
+        android:left="18dp"
+        android:top="17dp"
+        android:right="18dp"
+        android:bottom="19dp" />
 </layer-list>

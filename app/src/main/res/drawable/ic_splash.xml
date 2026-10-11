@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Launch screen icon (Android 12+). The system scales it to 288 dp, so on a 108 dp frame
+    like the app icon the queen gets a 32 dp box: about 85 dp on screen, well inside the
+    launch screen's 192 dp circle.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="108dp"
+        android:height="108dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/piece_lq"
+        android:left="38dp"
+        android:top="37dp"
+        android:right="38dp"
+        android:bottom="39dp" />
+</layer-list>
