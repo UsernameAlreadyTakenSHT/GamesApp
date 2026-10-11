@@ -178,6 +178,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         resigned = true
         resignedSide = if (_state.value.config.twoPlayers) position.toMove else _state.value.playerSide
         stopClock()
+        clearHint()
         clearSelection()
         publish()
         persist()
@@ -372,6 +373,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Side.FOX) foxBaseMs = 0 else huntersBaseMs = 0
                     cancelSearch()
+                    clearHint()
                     _state.update { it.copy(runningClock = null) }
                     publish()
                     persist()
@@ -438,7 +440,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> Fox.notation(v, m) },
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == FoxResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 foxMs = currentMs(Side.FOX),
                 huntersMs = currentMs(Side.HUNTERS),
             )
@@ -513,7 +515,8 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         hintJob = viewModelScope.launch {
             val move = runCatching { engine.bestMove(pos, null, HINT_MS) }.getOrNull() // no depth limit
             _state.update { it.copy(hintLoading = false) }
-            if (move == null || played.size != count) return@launch
+            // Same position only (an undo then another move restores the count), game still on.
+            if (move == null || position !== pos || played.size != count || isGameOver()) return@launch
             _state.update { it.copy(hint = setOf(move.from, move.to), hintText = Fox.notation(cfg.variant, move)) }
             publish()
         }

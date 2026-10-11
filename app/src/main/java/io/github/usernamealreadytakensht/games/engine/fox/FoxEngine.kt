@@ -6,6 +6,8 @@ import io.github.usernamealreadytakensht.games.game.fox.Fox.Position
 import io.github.usernamealreadytakensht.games.game.fox.Fox.Side
 import io.github.usernamealreadytakensht.games.game.fox.FoxVariant
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.random.Random
@@ -22,12 +24,16 @@ class FoxEngine {
     private var nodes = 0L
     private var aborted = false
     private val table = HashMap<Position, Entry>()
+    /** One search at a time: a stopped search still unwinding shares the fields above. */
+    private val searchLock = Mutex()
 
     private class Entry(val depth: Int, val value: Int, val flag: Int) // flag: 0 exact, 1 lower, 2 upper
 
     fun stop() { stopRequested = true }
 
-    suspend fun bestMove(pos: Position, depth: Int?, moveTimeMs: Int): Move? = withContext(Dispatchers.Default) {
+    suspend fun bestMove(pos: Position, depth: Int?, moveTimeMs: Int): Move? = searchLock.withLock { search(pos, depth, moveTimeMs) }
+
+    private suspend fun search(pos: Position, depth: Int?, moveTimeMs: Int): Move? = withContext(Dispatchers.Default) {
         stopRequested = false
         deadline = System.nanoTime() + moveTimeMs * 1_000_000L
         nodes = 0

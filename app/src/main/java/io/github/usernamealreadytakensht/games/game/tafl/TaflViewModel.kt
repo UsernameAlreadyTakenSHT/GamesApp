@@ -179,6 +179,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         resigned = true
         resignedSide = if (_state.value.config.twoPlayers) Tafl.sideToMove(game) else _state.value.playerSide
         stopClock()
+        clearHint()
         clearSelection()
         publish()
         persist()
@@ -276,20 +277,21 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         val seconds = ((budgetMs + 999) / 1000).toInt().coerceAtLeast(1)
         _state.update { it.copy(thinking = true) }
         publish()
-        if (budgetMs < seconds * 1000L) {
-            viewModelScope.launch {
-            hintJob?.join() // a hint search finishes (and restores the strength) first
+        viewModelScope.launch {
+            // A hint search finishes first: two OpenTafl searches at once share its static tables.
+            hintJob?.join()
+            val timer = if (budgetMs < seconds * 1000L) launch {
                 delay(budgetMs)
                 if (gen == generation) engine.stop()
-            }
-        }
-        viewModelScope.launch {
+            } else null
             val move = try {
                 engine.bestMove(g, cfg.depth, seconds)
             } catch (e: Exception) {
                 // Never crash the game over the AI: log it and fall back on any legal move.
                 Log.w(TAG, "OpenTafl search failed", e)
                 null
+            } finally {
+                timer?.cancel() // so it cannot stop a later search (a hint)
             } ?: Tafl.legalMoves(g).randomOrNull()
             if (gen != generation) return@launch
             _state.update { it.copy(thinking = false) }
@@ -381,6 +383,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Side.ATTACKERS) attackersBaseMs = 0 else defendersBaseMs = 0
                     cancelSearch()
+                    clearHint()
                     _state.update { it.copy(runningClock = null) }
                     publish()
                     persist()
@@ -445,7 +448,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                 captured = Tafl.lastCaptures(game),
                 moves = played.map { m -> m.toNotation() },
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == TaflResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 attackersMs = currentMs(Side.ATTACKERS),
                 defendersMs = currentMs(Side.DEFENDERS),
             )
@@ -512,7 +515,8 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         hintJob = viewModelScope.launch {
             val move = runCatching { engine.bestMove(g, null, 2) }.getOrNull() // no depth limit: full strength
             _state.update { it.copy(hintLoading = false) }
-            if (move == null || played.size != count) return@launch
+            // Same position only: an undo rebuilds the game object, then a move restores the count.
+            if (move == null || game !== g || played.size != count || isGameOver()) return@launch
             _state.update { it.copy(hint = setOf(move.fromX to move.fromY, move.toX to move.toY), hintText = move.toNotation()) }
             publish()
         }

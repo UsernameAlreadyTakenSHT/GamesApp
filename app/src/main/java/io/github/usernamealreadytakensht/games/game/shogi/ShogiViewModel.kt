@@ -200,6 +200,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
 
     fun choosePromotion(promote: Boolean) {
         val m = _state.value.pendingPromotion ?: return
+        // The clock may have run out while the dialog was open: no move after the game ended.
+        if (!_state.value.isPlayerTurn) { cancelPromotion(); return }
         _state.update { it.copy(pendingPromotion = null) }
         playPlayerMove(m.copy(promote = promote))
     }
@@ -251,6 +253,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         resigned = true
         resignedSide = if (_state.value.config.twoPlayers) game.position.sideToMove else _state.value.playerSide
         stopClock()
+        clearHint()
         clearSelection()
         publish()
         persist()
@@ -498,7 +501,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Side.SENTE) senteBaseMs = 0 else goteBaseMs = 0
                     cancelSearch()
-                    _state.update { it.copy(runningClock = null) }
+                    clearHint()
+                    _state.update { it.copy(runningClock = null, pendingPromotion = null) }
                     publish()
                     persist()
                     break
@@ -567,7 +571,6 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             inCheck -> "Check! $toMove to move."
             else -> "$toMove to move."
         } else when {
-            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
             flagged != null -> "Time's up — you win!"
@@ -576,6 +579,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             repetition -> "Perpetual check — $engineName wins."
             result == ShogiResult.PLAYER_WINS -> "Checkmate — you win!"
             result == ShogiResult.ENGINE_WINS -> "Checkmate — $engineName wins."
+            // After the results: resigning or flagging with a failed engine reports the result.
+            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             !engineReady -> "Starting $engineName…"
             _state.value.thinking -> "$engineName is thinking…"
             inCheck -> "Check! Your move."
@@ -591,7 +596,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 checkedKing = if (inCheck) pos.kingSquare(pos.sideToMove) else null,
                 moves = game.notations.toList(),
                 result = result,
-                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
+                statusText = _state.value.hintText?.takeIf { result == ShogiResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 senteMs = currentMs(Side.SENTE),
                 goteMs = currentMs(Side.GOTE),
                 senteByoyomiMs = byoyomiLeft(Side.SENTE),
@@ -617,6 +622,9 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             s.result == ShogiResult.ONGOING -> null
             resigned -> "投了"
             flagged != null -> "切れ負け"
+            // Perpetual check is a foul, not a draw: 反則勝ち when the side to move wins, 反則負け when it loses.
+            game.isRepetition() && s.result != ShogiResult.DRAW ->
+                if ((s.result == ShogiResult.PLAYER_WINS) == (game.position.sideToMove == s.playerSide)) "反則勝ち" else "反則負け"
             game.isRepetition() -> "千日手"
             else -> "詰み"
         }
@@ -675,7 +683,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
-            val move = uci?.takeIf { game.moves.size == moves.size }?.let { game.parseUci(it) } ?: return@launch
+            // Same position only (an undo then another move keeps the count), and not once the game is over.
+            val move = uci?.takeIf { game.uciMoves == moves && !isGameOver() }?.let { game.parseUci(it) } ?: return@launch
             _state.update {
                 it.copy(hint = setOfNotNull(move.from.takeIf { f -> f >= 0 }, move.to), hintText = Shogi.notate(game.position, move))
             }

@@ -5,6 +5,8 @@ import com.manywords.softworks.tafl.engine.ai.AiWorkspace
 import com.manywords.softworks.tafl.ui.UiCallback
 import io.github.usernamealreadytakensht.games.game.tafl.Tafl
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -15,6 +17,8 @@ import kotlinx.coroutines.withContext
 class OpenTaflEngine {
 
     @Volatile private var workspace: AiWorkspace? = null
+    /** One search at a time: AiWorkspace keeps its tables in static fields. */
+    private val searchLock = Mutex()
 
     private val quietUi = object : UiCallback {
         override fun statusText(text: String) {}
@@ -23,7 +27,9 @@ class OpenTaflEngine {
     }
 
     /** Best move for the current position of [game]. */
-    suspend fun bestMove(game: Game, depth: Int?, thinkSeconds: Int): Tafl.Move? = withContext(Dispatchers.Default) {
+    suspend fun bestMove(game: Game, depth: Int?, thinkSeconds: Int): Tafl.Move? = searchLock.withLock { search(game, depth, thinkSeconds) }
+
+    private suspend fun search(game: Game, depth: Int?, thinkSeconds: Int): Tafl.Move? = withContext(Dispatchers.Default) {
         val ws = AiWorkspace(quietUi, game, game.currentState, TT_SIZE_MB)
         workspace = ws
         try {
