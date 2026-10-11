@@ -25,7 +25,7 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
 
     override val weights: String? = kind.weights
     private var env: OrtEnvironment? = null
-    private var session: OrtSession? = null
+    @Volatile private var session: OrtSession? = null
     private val random = Random.Default
 
     override val isRunning: Boolean get() = session != null
@@ -43,15 +43,15 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
 
     /** The rating to imitate is passed per query, so "configuring" just stores it. */
     override suspend fun configure(strength: Int?) {
-        currentElo = strength ?: kind.defaultStrength ?: 1500
+        // null is "full strength" (the Hint button): the strongest rating the model imitates.
+        currentElo = strength ?: kind.eloMax
     }
 
     override suspend fun newGame() = Unit
 
     override suspend fun bestMove(moves: List<String>, moveTimeMs: Int, nodes: Int?, depth: Int?, startFen: String?): String? =
         withContext(Dispatchers.Default) {
-            val s = session ?: error("${kind.label} not started")
-            val e = env!!
+            val e = env ?: error("${kind.label} not started")
             val (board, tokens) = Maia3Encoder.encode(moves)
             val legal = Maia3Encoder.legalMoves(board)
             if (legal.isEmpty()) return@withContext null
@@ -63,8 +63,12 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
                 "oppo_elo" to OnnxTensor.createTensor(e, LongBuffer.wrap(elo), longArrayOf(1)),
             )
             val logits = try {
-                @Suppress("UNCHECKED_CAST") // ONNX Runtime returns the [1, n] logits as Array<FloatArray>
-                s.run(inputs).use { (it[0].value as Array<FloatArray>)[0] }
+                // Under the lock: quit() must not close the session in the middle of a run (native crash).
+                synchronized(runLock) {
+                    val s = session ?: error("${kind.label} not started")
+                    @Suppress("UNCHECKED_CAST") // ONNX Runtime returns the [1, n] logits as Array<FloatArray>
+                    s.run(inputs).use { (it[0].value as Array<FloatArray>)[0] }
+                }
             } finally {
                 inputs.values.forEach { it.close() }
             }
@@ -96,9 +100,14 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
 
     override fun stop() = Unit
 
+    /** Held while the session runs and while it is closed. */
+    private val runLock = Any()
+
     override fun quit() {
-        session?.close()
+        val s = session ?: return
         session = null
+        // Off the caller's (main) thread: a run in progress finishes first, then the session closes.
+        Thread { synchronized(runLock) { s.close() } }.start()
     }
 
     companion object {

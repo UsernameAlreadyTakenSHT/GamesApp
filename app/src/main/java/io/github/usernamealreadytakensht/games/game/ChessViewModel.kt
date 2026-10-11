@@ -201,6 +201,11 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     fun promote(type: PieceType) {
         val (from, to) = _state.value.pendingPromotion ?: return
         _state.update { it.copy(pendingPromotion = null) }
+        // The flag fell while the dialog was open: no move after the end of the game.
+        if (isGameOver()) {
+            cancelPromotion()
+            return
+        }
         playPlayerMove(ChessMove(from, to, Piece.make(_state.value.mover, type)))
     }
 
@@ -526,8 +531,11 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         if (!hasClock()) return
         val tc = _state.value.config.timeControl
         val now = SystemClock.elapsedRealtime()
-        if (_state.value.runningClock == mover) {
-            val spent = now - turnStartedAt
+        val running = _state.value.runningClock == mover
+        // The engine's move arriving while the clock is paused (app in the background): its
+        // time was charged at the pause, but the increment is still due.
+        if (running || (clockPaused && uciMoves.size > 1)) {
+            val spent = if (running) now - turnStartedAt else 0L
             var left = (if (mover == Side.WHITE) whiteBaseMs else blackBaseMs) - spent
             // Out of time before the 100 ms tick noticed: the flag fell, the increment (or the
             // per-move reset) does not save it.
@@ -572,7 +580,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Side.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
                     cancelSearch()
-                    _state.update { it.copy(runningClock = null) }
+                    // A promotion dialog left open goes with the game.
+                    _state.update { it.copy(runningClock = null, pendingPromotion = null, selected = null, legalTargets = emptySet()) }
                     publish()
                     persist()
                     break
