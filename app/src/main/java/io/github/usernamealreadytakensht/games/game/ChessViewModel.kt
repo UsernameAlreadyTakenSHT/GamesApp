@@ -599,11 +599,32 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- helpers
 
+    /**
+     * Whether [side] still has mating material: anything beyond a lone king or a king with a
+     * single bishop or knight (the FIDE dead-position cases that matter for a flag).
+     */
+    private fun canMate(side: Side): Boolean {
+        var minors = 0
+        for (i in 0 until 64) {
+            val p = session.pieceAt(Square.squareAt(i))
+            if (p == Piece.NONE || p.pieceSide != side) continue
+            when (p.pieceType) {
+                PieceType.KING -> {}
+                PieceType.BISHOP, PieceType.KNIGHT -> minors++
+                else -> return true
+            }
+        }
+        return minors >= 2
+    }
+
     /** Recomputes the snapshot from the board. */
     private fun publish() {
         val player = _state.value.playerSide
+        // FIDE: running out of time is a draw when the opponent could not mate by any series of moves.
+        val flagDraw = flagged?.let { !canMate(if (it == Side.WHITE) Side.BLACK else Side.WHITE) } == true
         val result = when {
             resigned -> if (resignedSide == player) Result.ENGINE_WINS else Result.PLAYER_WINS
+            flagDraw -> Result.DRAW
             flagged != null -> if (flagged == player) Result.ENGINE_WINS else Result.PLAYER_WINS
             session.isMate -> if (session.sideToMove == player) Result.ENGINE_WINS else Result.PLAYER_WINS
             session.isStalemate || session.isDraw -> Result.DRAW
@@ -616,6 +637,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val other = colorName(if (session.sideToMove == Side.WHITE) Side.BLACK else Side.WHITE)
         val status = if (_state.value.config.twoPlayers) when {
             resigned -> "${colorName(resignedSide)} resigned — ${colorName(if (resignedSide == Side.WHITE) Side.BLACK else Side.WHITE)} wins."
+            flagDraw -> "Time's up, but ${colorName(if (flagged == Side.WHITE) Side.BLACK else Side.WHITE)} cannot mate — draw."
             flagged != null -> "Time's up — ${colorName(if (flagged == Side.WHITE) Side.BLACK else Side.WHITE)} wins."
             session.isMate -> "Checkmate — $other wins."
             result == Result.DRAW && session.isStalemate -> "Stalemate — draw."
@@ -625,6 +647,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         } else when {
             // The game's end first: it is what the history and the PGN record as the reason.
             resigned -> "You resigned — $engineName wins."
+            flagDraw && flagged == player -> "Time's up, but $engineName cannot mate — draw."
+            flagDraw -> "Time's up, but you cannot mate — draw."
             flagged == player -> "Time's up — $engineName wins."
             flagged != null -> "Time's up — you win!"
             result == Result.PLAYER_WINS -> "Checkmate — you win!"
