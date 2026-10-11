@@ -34,6 +34,8 @@ import kotlin.random.Random
 
 enum class MorrisResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
+fun colorName(c: Color): String = if (c == Color.WHITE) "White" else "Black"
+
 /** Immutable snapshot of the morris game, consumed by the UI. */
 data class MorrisState(
     val config: MorrisConfig = MorrisConfig(),
@@ -67,7 +69,16 @@ data class MorrisState(
     val runningClock: Color? = null,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == MorrisResult.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == MorrisResult.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == MorrisResult.ONGOING && !thinking
+    /** The side whose men the screen's user plays now: theirs, or either side with two players. */
+    val mover: Color get() = if (config.twoPlayers) sideToMove else playerSide
+    fun sideLabel(side: Color): String = when {
+        config.twoPlayers -> colorName(side)
+        side == playerSide -> "You"
+        else -> config.opponentLabel
+    }
+    fun lost(side: Color): Boolean =
+        (result == MorrisResult.PLAYER_WINS && side != playerSide) || (result == MorrisResult.ENGINE_WINS && side == playerSide)
     val engineSide: Color get() = playerSide.other
     fun inHand(side: Color) = if (side == Color.WHITE) whiteInHand else blackInHand
     fun clockMs(side: Color): Long? = if (side == Color.WHITE) whiteMs else blackMs
@@ -96,6 +107,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private var pending: Move? = null
     private var generation = 0
     private var resigned = false
+    private var resignedSide: Color = Color.WHITE
     private var flagged: Color? = null
 
     var hasGame = false
@@ -116,7 +128,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- UI actions
 
     fun startGame(config: MorrisConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Color.WHITE else Color.BLACK)
+        resetGame(config, if (config.twoPlayers) Color.WHITE else config.playerSide ?: if (Random.nextBoolean()) Color.WHITE else Color.BLACK)
         val initial = config.timeControl.startingMs
         whiteBaseMs = initial ?: 0L
         blackBaseMs = initial ?: 0L
@@ -166,7 +178,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         val legal = Morris.legalMoves(position)
-        if (position.isPlacing(s.playerSide)) {
+        if (position.isPlacing(s.mover)) {
             offer(legal.filter { it.isPlacement && it.to == point })
             return
         }
@@ -204,7 +216,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         clearHint()
         pending = null
         undoOne()
-        if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
+        if (!s.config.twoPlayers && position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
         _state.update { it.copy(engineError = null) }
         // Time already spent on this turn is not refunded.
@@ -237,13 +249,14 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != MorrisResult.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) position.toMove else _state.value.playerSide
         stopClock()
         clearSelection()
         publish()
         persist()
     }
 
-    fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
+    fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     /** Freezes the running side's remaining time as its base (the turn's time is spent). */
     private fun chargeRunningClock() {
@@ -293,6 +306,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val cfg = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // Two players: no engine now; Hint starts one when asked.
+        if (cfg.twoPlayers) return
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -379,7 +394,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     private fun outcome(): Morris.Outcome = when {
-        resigned -> if (_state.value.playerSide == Color.WHITE) Morris.Outcome.BLACK_WINS else Morris.Outcome.WHITE_WINS
+        resigned -> if (resignedSide == Color.WHITE) Morris.Outcome.BLACK_WINS else Morris.Outcome.WHITE_WINS
         flagged != null -> if (flagged == Color.WHITE) Morris.Outcome.BLACK_WINS else Morris.Outcome.WHITE_WINS
         else -> Morris.outcome(position, history.dropLast(1), quietPlies)
     }
@@ -389,6 +404,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
         if (released || engineStarting || _state.value.engineError != null) return
+        if (_state.value.config.twoPlayers) return
         if (position.toMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val cfg = _state.value.config
@@ -537,8 +553,22 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             Morris.Outcome.WHITE_WINS -> if (player == Color.WHITE) MorrisResult.PLAYER_WINS else MorrisResult.ENGINE_WINS
             Morris.Outcome.BLACK_WINS -> if (player == Color.BLACK) MorrisResult.PLAYER_WINS else MorrisResult.ENGINE_WINS
         }
+        val twoPlayers = _state.value.config.twoPlayers
         val playerTurn = result == MorrisResult.ONGOING && position.toMove == player
-        val status = when {
+        val actor = position.toMove
+        val winner = if (result == MorrisResult.PLAYER_WINS) player else player.other
+        val status = if (twoPlayers) when {
+            resigned -> "${colorName(resignedSide)} resigned — ${colorName(resignedSide.other)} wins."
+            flagged != null -> "Time's up — ${colorName(flagged!!.other)} wins."
+            result == MorrisResult.DRAW -> "Draw."
+            result != MorrisResult.ONGOING -> if (position.onBoard(winner.other) < 3) "${colorName(winner)} wins: ${colorName(winner.other)} is down to two men."
+                                              else "${colorName(winner)} wins: ${colorName(winner.other)} cannot move."
+            pending != null -> "${colorName(actor)}: mill! Take an enemy man."
+            position.mayPlace(actor) && position.mayMove(actor) -> "${colorName(actor)}: place a man (${position.inHand(actor)} left) or slide one."
+            position.isPlacing(actor) -> "${colorName(actor)}: place a man (${position.inHand(actor)} left)."
+            position.isFlying(actor) -> "${colorName(actor)}: three men left, fly anywhere."
+            else -> "${colorName(actor)}: slide a man along a line."
+        } else when {
             _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned."
             flagged != null -> if (flagged == player) "You ran out of time." else "$engineName ran out of time."
@@ -589,13 +619,13 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val now = System.currentTimeMillis()
         val result = when (s.result) {
-            MorrisResult.PLAYER_WINS -> "You won"
-            MorrisResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
+            MorrisResult.PLAYER_WINS -> if (s.config.twoPlayers) "${colorName(s.playerSide)} won" else "You won"
+            MorrisResult.ENGINE_WINS -> if (s.config.twoPlayers) "${colorName(s.engineSide)} won" else "${s.config.opponentLabel} won"
             MorrisResult.ONGOING -> "In progress"
             else -> "Draw"
         }
-        val white = if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
-        val black = if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
+        val white = if (s.config.twoPlayers) "White player" else if (s.playerSide == Color.WHITE) "You" else s.config.opponentLabel
+        val black = if (s.config.twoPlayers) "Black player" else if (s.playerSide == Color.BLACK) "You" else s.config.opponentLabel
         val header = listOf("White" to white, "Black" to black, "Result" to result, "Status" to s.statusText)
         val text = Exports.plainText(s.config.variant.label, now, header, s.moves)
         return ExportedGame("morris-${Exports.fileStamp(now)}.txt", "text/plain", text)
@@ -610,8 +640,8 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Morris",
             variant = s.config.variant.label,
-            opponent = s.config.opponentLabel,
-            playerSide = if (s.playerSide == Color.WHITE) "White" else "Black",
+            opponent = if (s.config.twoPlayers) colorName(s.engineSide) else s.config.opponentLabel,
+            playerSide = colorName(s.playerSide),
             result = when (s.result) {
                 MorrisResult.PLAYER_WINS -> PlayerResult.WIN
                 MorrisResult.ENGINE_WINS -> PlayerResult.LOSS
@@ -620,6 +650,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.moves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

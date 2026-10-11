@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.morris
 
+import io.github.usernamealreadytakensht.games.game.morris.colorName
 import io.github.usernamealreadytakensht.games.ui.HintTint
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
@@ -126,17 +127,17 @@ fun MorrisScreen(
             }
 
             ClockRow(
-                state.config.opponentLabel, state.inHand(state.engineSide), state.engineSide,
+                state.sideLabel(state.engineSide), state.inHand(state.engineSide), state.engineSide,
                 state.clockMs(state.engineSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.engineSide, lost = state.result == MorrisResult.PLAYER_WINS,
+                active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
             Board(state, onTap = vm::onPointTapped)
 
             ClockRow(
-                "You", state.inHand(state.playerSide), state.playerSide,
+                state.sideLabel(state.playerSide), state.inHand(state.playerSide), state.playerSide,
                 state.clockMs(state.playerSide), state.config.timeControl.startingMs,
-                active = state.runningClock == state.playerSide, lost = state.result == MorrisResult.ENGINE_WINS,
+                active = state.runningClock == state.playerSide, lost = state.lost(state.playerSide),
             )
 
             Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically,
@@ -168,7 +169,7 @@ fun MorrisScreen(
         AlertDialog(
             onDismissRequest = { showResign = false },
             title = { Text("Resign?") },
-            text = { Text("The game will be recorded as a loss.") },
+            text = { Text(if (state.config.twoPlayers) "${colorName(state.sideToMove)} gives up the game." else "The game will be recorded as a loss.") },
             confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
             dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
         )
@@ -241,7 +242,7 @@ private fun Board(state: MorrisState, onTap: (Int) -> Unit) {
             // The half-played move: its man shows as a ghost on the destination, and has left its origin.
             if (pending != null) {
                 if (p == pending.from) continue
-                if (p == pending.to) { stone = Morris.stone(state.playerSide); alpha = 0.55f }
+                if (p == pending.to) { stone = Morris.stone(state.mover); alpha = 0.55f }
             }
             if (stone == Morris.EMPTY) continue
             Image(
@@ -302,8 +303,9 @@ private fun formatClock(ms: Long): String {
 @Composable
 private fun GameOverBanner(state: MorrisState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
-        MorrisResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        MorrisResult.ENGINE_WINS -> "${state.config.engine.family.label} won" to MaterialTheme.colorScheme.errorContainer
+        MorrisResult.PLAYER_WINS -> (if (state.config.twoPlayers) "${colorName(state.playerSide)} won" else "You won") to MaterialTheme.colorScheme.primaryContainer
+        MorrisResult.ENGINE_WINS -> if (state.config.twoPlayers) "${colorName(state.engineSide)} won" to MaterialTheme.colorScheme.primaryContainer
+            else "${state.config.engine.family.label} won" to MaterialTheme.colorScheme.errorContainer
         else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
     }
     Column(
@@ -311,7 +313,7 @@ private fun GameOverBanner(state: MorrisState, onRematch: () -> Unit, onNewGame:
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Rematch swaps colours.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.config.twoPlayers) "Rematch starts the same game again." else "Rematch swaps colours.", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
             OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }

@@ -255,7 +255,14 @@ private fun App() {
                 config = morrisDraft,
                 onChange = { morrisDraft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.MorrisOpponentSetup },
+                onNext = {
+                    if (morrisDraft.twoPlayers) {
+                        repo.saveLastMorrisConfig(morrisDraft)
+                        screen = Screen.MorrisGame(MorrisLaunch.NewGame(morrisDraft, ++gameCounter))
+                    } else {
+                        screen = Screen.MorrisOpponentSetup
+                    }
+                },
             )
         }
 
