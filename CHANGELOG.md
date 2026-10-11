@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 — 2026-10-11
+
+- **Hint button** in every game: the engine suggests a move at full strength (whatever level you play against); the move is highlighted on the board and written under it until you play.
+- App icon: the queen is sized to fit the launch screen too.
+
 ## 0.3.2 — 2026-09-28
 
 - **App icon**: just the chess queen, large and centred, so it reads the same on the home screen and in app lists.

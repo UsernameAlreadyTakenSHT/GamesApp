@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.usernamealreadytakensht.games"
         minSdk = 29
         targetSdk = 37
-        versionCode = 6
-        versionName = "0.3.2"
+        versionCode = 7
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

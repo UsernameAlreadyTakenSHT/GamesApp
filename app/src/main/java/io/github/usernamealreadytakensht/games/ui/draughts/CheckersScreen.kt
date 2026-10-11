@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.ui.draughts
 
+import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -136,6 +138,7 @@ fun CheckersScreen(
                     OutlinedButton(onClick = vm::undo, enabled = state.canUndo,
                         modifier = Modifier.weight(1f)) { Text("Undo") }
                     OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
+                    HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
             }
@@ -172,6 +175,7 @@ private fun Board(state: CheckersState, onTap: (Int) -> Unit) {
                             .fillMaxSize()
                             .background(if (playable) DarkSquare else LightSquare)
                             .then(if (sq in lastSquares) Modifier.background(LastMoveTint) else Modifier)
+                            .then(if (sq in state.hint) Modifier.background(HintTint) else Modifier)
                             .then(if (sq in state.partialPath) Modifier.background(PathTint) else Modifier)
                             .then(if (state.selected == sq) Modifier.background(SelectedTint) else Modifier)
                             .then(if (playable) Modifier.clickable { onTap(sq) } else Modifier),

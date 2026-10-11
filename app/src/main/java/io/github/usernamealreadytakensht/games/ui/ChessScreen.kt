@@ -164,6 +164,7 @@ fun ChessScreen(
                         Text("Undo")
                     }
                     OutlinedButton(onClick = vm::flipBoard, modifier = Modifier.weight(1f)) { Text("Flip") }
+                    HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
                     OutlinedButton(
                         onClick = { showResign = true },
                         enabled = state.sanMoves.isNotEmpty() || state.playerSide == Side.WHITE,
@@ -303,6 +304,7 @@ private fun Board(state: GameState, onTap: (Square) -> Unit) {
                         isSelected = state.selected == square,
                         isTarget = square in state.legalTargets,
                         isLastMove = state.lastMove?.let { it.first == square || it.second == square } == true,
+                        isHint = square in state.hint,
                         isCheck = state.checkedKing == square,
                         showFileLabel = row == 7,
                         showRankLabel = col == 0,
@@ -323,6 +325,7 @@ private fun SquareCell(
     isSelected: Boolean,
     isTarget: Boolean,
     isLastMove: Boolean,
+    isHint: Boolean,
     isCheck: Boolean,
     showFileLabel: Boolean,
     showRankLabel: Boolean,
@@ -335,6 +338,7 @@ private fun SquareCell(
         modifier = modifier
             .background(base)
             .then(if (isLastMove) Modifier.background(LastMoveTint) else Modifier)
+            .then(if (isHint) Modifier.background(HintTint) else Modifier)
             .then(if (isSelected) Modifier.background(SelectedTint) else Modifier)
             .then(if (isCheck) Modifier.background(CheckTint) else Modifier)
             .clickable(onClick = onTap),

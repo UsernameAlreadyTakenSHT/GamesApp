@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.ui.tafl
 
+import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -146,6 +148,7 @@ fun TaflScreen(
                     OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
                         Text("Undo")
                     }
+                    HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
             }
@@ -191,6 +194,7 @@ private fun Board(state: TaflState, onTap: (Int, Int) -> Unit) {
                             .background(base)
                             .border(0.5.dp, GridLine)
                             .then(if (sq in lastSquares) Modifier.background(LastMoveTint) else Modifier)
+                            .then(if (sq in state.hint) Modifier.background(HintTint) else Modifier)
                             .then(if (sq in captured) Modifier.background(CapturedTint) else Modifier)
                             .then(if (state.selected == sq) Modifier.background(SelectedTint) else Modifier)
                             .clickable { onTap(x, y) },

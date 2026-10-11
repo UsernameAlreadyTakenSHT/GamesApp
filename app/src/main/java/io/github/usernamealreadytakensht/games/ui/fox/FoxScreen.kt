@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.ui.fox
 
+import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -156,6 +158,7 @@ fun FoxScreen(
                     OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) {
                         Text("Undo")
                     }
+                    HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
             }
@@ -225,6 +228,9 @@ private fun PointBoard(
                 for (p in listOf(m.from, m.to)) {
                     drawCircle(LastMoveRing, radius = ring, center = Offset(cx(p).toPx(), cy(p).toPx()), style = ringStroke)
                 }
+            }
+            for (p in state.hint) {
+                drawCircle(HintTint.copy(alpha = 1f), radius = ring, center = Offset(cx(p).toPx(), cy(p).toPx()), style = ringStroke)
             }
             state.selected?.let { p ->
                 drawCircle(SelectedRing, radius = ring, center = Offset(cx(p).toPx(), cy(p).toPx()), style = ringStroke)

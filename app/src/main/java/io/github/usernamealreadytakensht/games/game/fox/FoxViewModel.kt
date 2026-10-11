@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game.fox
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -44,6 +46,10 @@ data class FoxState(
     val thinking: Boolean = false,
     val result: FoxResult = FoxResult.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Int> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val foxMs: Long? = null,
     val huntersMs: Long? = null,
     val runningClock: Side? = null,
@@ -61,6 +67,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     private val engine = FoxEngine()
 
     private var position: Position = Fox.start(FoxVariant.HOUNDS)
@@ -141,6 +148,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (played.isEmpty() || !s.canUndo) return
         cancelSearch()
+        clearHint()
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
@@ -198,6 +206,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         hasGame = true
         recorded = false
+        clearHint()
         _state.update { it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), runningClock = null) }
     }
 
@@ -209,6 +218,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: Move) {
+        stopHint()
         applyMove(move, clock = true)
         clearSelection()
         publish()
@@ -219,6 +229,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
     private fun clearSelection() = _state.update { it.copy(selected = null, targets = emptySet()) }
 
     private fun applyMove(move: Move, clock: Boolean) {
+        clearHint()
         val mover = position.toMove
         position = Fox.play(position, move)
         history += position
@@ -249,6 +260,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
             val move = try {
                 engine.bestMove(pos, cfg.depth, moveTime)
             } catch (e: Exception) {
@@ -400,7 +412,7 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> Fox.notation(v, m) },
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 foxMs = currentMs(Side.FOX),
                 huntersMs = currentMs(Side.HUNTERS),
             )
@@ -422,7 +434,6 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             FoxResult.PLAYER_WINS -> "You won"
             FoxResult.ENGINE_WINS -> "${s.config.opponentLabel} won"
             FoxResult.ONGOING -> "In progress"
-            else -> "Draw"
         }
         val v = s.config.variant
         val fox = if (s.playerSide == Side.FOX) "You" else s.config.opponentLabel
@@ -457,5 +468,34 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Thinking time for a hint. */
+    private val HINT_MS = 1500
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val cfg = s.config
+        val count = played.size
+        val pos = position
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val move = runCatching { engine.bestMove(pos, null, HINT_MS) }.getOrNull() // no depth limit
+            _state.update { it.copy(hintLoading = false) }
+            if (move == null || played.size != count) return@launch
+            _state.update { it.copy(hint = setOf(move.from, move.to), hintText = Fox.notation(cfg.variant, move)) }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine.stop()
     }
 }

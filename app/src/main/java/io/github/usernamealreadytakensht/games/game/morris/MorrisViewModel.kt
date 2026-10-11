@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game.morris
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -56,6 +58,10 @@ data class MorrisState(
     val engineError: String? = null,
     val result: MorrisResult = MorrisResult.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Int> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val whiteMs: Long? = null,
     val blackMs: Long? = null,
     val runningClock: Color? = null,
@@ -74,6 +80,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     private var engine: MorrisOpponent? = null
     private val engineLock = Mutex()
     private var engineReady = false
@@ -194,6 +201,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (played.isEmpty() || !s.canUndo) return
         cancelSearch()
+        clearHint()
         pending = null
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
@@ -272,6 +280,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         hasGame = true
         recorded = false
+        clearHint()
         _state.update {
             it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), removable = emptySet(),
                 pendingMove = null, runningClock = null)
@@ -331,6 +340,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: Move) {
+        stopHint()
         pending = null
         applyMove(move, clock = true)
         clearSelection()
@@ -343,6 +353,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(selected = null, targets = emptySet(), removable = emptySet(), pendingMove = null) }
 
     private fun applyMove(move: Move, clock: Boolean) {
+        clearHint()
         val mover = position.toMove
         position = Morris.play(position, move)
         history += position
@@ -386,6 +397,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
             var move: Move? = null
             var failure: String? = null
             // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
@@ -557,7 +569,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> m.toNotation() },
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 targets = when {
                     placingTargets != null -> placingTargets
                     !playerTurn || pending != null || it.selected == null -> emptySet()
@@ -610,5 +622,37 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Thinking time for a hint. */
+    private val HINT_MS = 1500
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val cfg = s.config
+        val count = played.size
+        val moves = played.toList()
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val reply = runCatching {
+                val eng = engineLock.withLock { liveEngine(cfg, restart = false) }
+                eng.bestMove(moves, null, HINT_MS) // no depth limit: full strength
+            }.getOrNull()
+            _state.update { it.copy(hintLoading = false) }
+            val move = reply?.takeIf { played.size == count && it in Morris.legalMoves(position) } ?: return@launch
+            _state.update { it.copy(hint = setOfNotNull(move.from.takeIf { f -> f >= 0 }, move.to), hintText = move.toNotation()) }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine?.stop()
     }
 }

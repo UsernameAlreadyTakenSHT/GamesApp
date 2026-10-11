@@ -61,6 +61,15 @@ class ShogiEngine(private val context: Context) {
         }
     }
 
+    /** Changes the `Skill Level` (-20 … 20) without starting a new game (hints run at 20). */
+    suspend fun setSkill(skill: Int): Unit = withContext(Dispatchers.IO) {
+        ioLock.withLock {
+            send("setoption name Skill Level value $skill")
+            send("isready")
+            readUntil("readyok")
+        }
+    }
+
     /** Best move after [moves] from the start position, or null when there is none. */
     suspend fun bestMove(moves: List<String>, moveTimeMs: Int): String? = withContext(Dispatchers.IO) {
         ioLock.withLock {

@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.ui.shogi
 
+import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -170,6 +172,7 @@ fun ShogiScreen(
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) { Text("Undo") }
+                    HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
                     OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
             }
@@ -253,6 +256,7 @@ private fun Board(state: ShogiState, cell: Dp, onTap: (Int) -> Unit) {
                             val tint = when {
                                 sq == state.selected -> SelectedTint
                                 sq == state.checkedKing -> CheckTint
+                                sq in state.hint -> HintTint
                                 sq in lastSquares -> LastMoveTint
                                 else -> Color.Transparent
                             }

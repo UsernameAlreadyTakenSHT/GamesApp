@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game.tafl
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -49,6 +51,10 @@ data class TaflState(
     val thinking: Boolean = false,
     val result: TaflResult = TaflResult.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Pair<Int, Int>> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val attackersMs: Long? = null,
     val defendersMs: Long? = null,
     val runningClock: Side? = null,
@@ -65,6 +71,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     private val engine = OpenTaflEngine()
 
     private var game: Game = Tafl.newGame(TaflVariant.COPENHAGEN)
@@ -144,6 +151,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (played.isEmpty() || !s.canUndo) return
         cancelSearch()
+        clearHint()
         undoOne()
         if (Tafl.sideToMove(game) != s.playerSide && played.isNotEmpty()) undoOne()
         clearSelection()
@@ -200,6 +208,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         hasGame = true
         recorded = false
+        clearHint()
         _state.update { it.copy(config = config, playerSide = side, selected = null, targets = emptySet(), runningClock = null) }
     }
 
@@ -211,6 +220,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: Move) {
+        stopHint()
         applyMove(move, clock = true)
         clearSelection()
         publish()
@@ -221,6 +231,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
     private fun clearSelection() = _state.update { it.copy(selected = null, targets = emptySet()) }
 
     private fun applyMove(move: Move, clock: Boolean) {
+        clearHint()
         val mover = Tafl.sideToMove(game)
         if (!Tafl.play(game, move)) return
         played += move
@@ -255,6 +266,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         publish()
         if (budgetMs < seconds * 1000L) {
             viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
                 delay(budgetMs)
                 if (gen == generation) engine.stop()
             }
@@ -412,7 +424,7 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
                 captured = Tafl.lastCaptures(game),
                 moves = played.map { m -> m.toNotation() },
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 attackersMs = currentMs(Side.ATTACKERS),
                 defendersMs = currentMs(Side.DEFENDERS),
             )
@@ -464,5 +476,30 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val count = played.size
+        val g = game
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val move = runCatching { engine.bestMove(g, null, 2) }.getOrNull() // no depth limit: full strength
+            _state.update { it.copy(hintLoading = false) }
+            if (move == null || played.size != count) return@launch
+            _state.update { it.copy(hint = setOf(move.fromX to move.fromY, move.toX to move.toY), hintText = move.toNotation()) }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine.stop()
     }
 }

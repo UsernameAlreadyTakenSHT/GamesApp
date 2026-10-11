@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game.shogi
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -54,6 +56,10 @@ data class ShogiState(
     val thinking: Boolean = false,
     val result: ShogiResult = ShogiResult.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Int> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val engineError: String? = null,
     /** Main time left per side (ms), null without a clock. */
     val senteMs: Long? = null,
@@ -77,6 +83,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     private val engine = ShogiEngine(app)
     private val engineLock = Mutex()
     private var engineReady = false
@@ -195,6 +202,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (game.moves.isEmpty() || !s.canUndo) return
         cancelSearch()
+        clearHint()
         game.undo()
         if (game.position.sideToMove != s.playerSide && game.moves.isNotEmpty()) game.undo()
         clearSelection()
@@ -271,6 +279,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         hasGame = true
         recorded = false
+        clearHint()
         _state.update {
             it.copy(config = config, playerSide = side, selected = null, selectedDrop = null, targets = emptySet(),
                 pendingPromotion = null, runningClock = null)
@@ -318,6 +327,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: Move) {
+        stopHint()
         applyMove(move)
         clearSelection()
         publish()
@@ -329,6 +339,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(selected = null, selectedDrop = null, targets = emptySet()) }
 
     private fun applyMove(move: Move) {
+        clearHint()
         val mover = game.position.sideToMove
         game.play(move)
         onMovePlayed(mover)
@@ -353,6 +364,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
             var move: Move? = null
             var failure: String? = null
             // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
@@ -553,7 +565,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 checkedKing = if (inCheck) pos.kingSquare(pos.sideToMove) else null,
                 moves = game.notations.toList(),
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 senteMs = currentMs(Side.SENTE),
                 goteMs = currentMs(Side.GOTE),
                 senteByoyomiMs = byoyomiLeft(Side.SENTE),
@@ -611,5 +623,43 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Thinking time for a hint. */
+    private val HINT_MS = 1500
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val config = s.config
+        val moves = game.uciMoves
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val uci = runCatching {
+                engineLock.withLock { liveEngine(config, restart = false) }
+                try {
+                    engine.setSkill(20) // full strength for the hint
+                    engine.bestMove(moves, HINT_MS)
+                } finally {
+                    withContext(NonCancellable) { engine.setSkill(ShogiLevels.skill(config.level)) }
+                }
+            }.getOrNull()
+            _state.update { it.copy(hintLoading = false) }
+            val move = uci?.takeIf { game.moves.size == moves.size }?.let { game.parseUci(it) } ?: return@launch
+            _state.update {
+                it.copy(hint = setOfNotNull(move.from.takeIf { f -> f >= 0 }, move.to), hintText = Shogi.notate(game.position, move))
+            }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine.stop()
     }
 }

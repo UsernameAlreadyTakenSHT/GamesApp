@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -45,6 +47,10 @@ data class GameState(
     val thinking: Boolean = false,
     val result: Result = Result.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Square> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val flipped: Boolean = false,
     val engineError: String? = null,
     /** Remaining time per side (ms), null without a clock. */
@@ -69,6 +75,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     /** Rules and move history; replaced on every new game (standard or Chess960). */
     private var session: ChessSession = StandardChess()
     private val uciMoves: List<String> get() = session.uciMoves
@@ -200,6 +207,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (uciMoves.isEmpty() || s.result != Result.ONGOING || !s.canUndo) return
         cancelSearch()
+        clearHint()
         undoOne()
         if (session.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
         _state.update {
@@ -285,6 +293,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         resigned = false
         hasGame = true
         recorded = false
+        clearHint()
         _state.update {
             it.copy(
                 config = config,
@@ -356,6 +365,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: ChessMove) {
+        stopHint()
         applyMove(move)
         _state.update { it.copy(selected = null, legalTargets = emptySet()) }
         publish()
@@ -364,6 +374,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun applyMove(move: ChessMove) {
+        clearHint()
         val mover = session.sideToMove
         // The king-square alias of a castle (see movesFrom) is played as the real move.
         val real = if (move.isCastle) move.copy(to = move.castleRook!!) else move
@@ -388,6 +399,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
             var move: ChessMove? = null
             var failure: String? = null
             // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
@@ -573,7 +585,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 checkedKing = if (inCheck) session.kingSquare(session.sideToMove) else null,
                 sanMoves = session.sanMoves,
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 resigned = resigned,
                 whiteMs = currentMs(Side.WHITE),
                 blackMs = currentMs(Side.BLACK),
@@ -643,5 +655,45 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Thinking time for a hint. */
+    private val HINT_MS = 1500
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val config = s.config
+        val moves = uciMoves.toList()
+        val startFen = if (session.chess960) session.startFen else null
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val uci = runCatching {
+                val eng = engineLock.withLock { liveEngine(config, restart = false) }
+                try {
+                    eng.configure(null) // full strength for the hint
+                    eng.bestMove(moves, HINT_MS, null, null, startFen)
+                } finally {
+                    withContext(NonCancellable) { eng.configure(config.strength) }
+                }
+            }.getOrNull()
+            _state.update { it.copy(hintLoading = false) }
+            val move = uci?.takeIf { uciMoves.size == moves.size }?.let { session.parseUci(it) } ?: return@launch
+            val to = move.castleRook ?: move.to
+            _state.update {
+                it.copy(hint = setOf(move.from, to), hintText = "${move.from.value().lowercase()} → ${to.value().lowercase()}")
+            }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine?.stop()
     }
 }

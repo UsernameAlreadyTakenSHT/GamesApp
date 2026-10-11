@@ -1,5 +1,7 @@
 package io.github.usernamealreadytakensht.games.game.draughts
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -47,6 +49,10 @@ data class CheckersState(
     val thinking: Boolean = false,
     val result: DraughtsResult = DraughtsResult.ONGOING,
     val statusText: String = "",
+    /** Squares of the suggested move, shown until a move is played. */
+    val hint: Set<Int> = emptySet(),
+    val hintText: String? = null,
+    val hintLoading: Boolean = false,
     val flipped: Boolean = false,
     val engineError: String? = null,
     val whiteMs: Long? = null,
@@ -67,6 +73,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
     private val records = HistoryRepository(app)
     /** Whether the finished game was already added to the history. */
     private var recorded = false
+    private var hintJob: Job? = null
     private var engine: MarcherEngine? = null
     private val engineLock = Mutex()
     private var engineReady = false
@@ -182,6 +189,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         if (played.isEmpty() || !s.canUndo) return
         cancelSearch()
+        clearHint()
         undoOne()
         if (position.toMove != s.playerSide && played.isNotEmpty()) undoOne()
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet(), engineError = null) }
@@ -260,6 +268,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         flagged = null
         hasGame = true
         recorded = false
+        clearHint()
         // Black starts at the bottom of our board: flip when the player takes White.
         _state.update {
             it.copy(config = config, playerSide = side, flipped = side == Color.WHITE,
@@ -304,6 +313,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun playPlayerMove(move: Move) {
+        stopHint()
         applyMove(move, clock = true)
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet()) }
         publish()
@@ -312,6 +322,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun applyMove(move: Move, clock: Boolean) {
+        clearHint()
         val mover = position.toMove
         position = Checkers.play(position, move)
         history += position
@@ -355,6 +366,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(thinking = true) }
         publish()
         viewModelScope.launch {
+            hintJob?.join() // a hint search finishes (and restores the strength) first
             var move: Move? = null
             var failure: String? = null
             // A failed search (dead or hung engine, unusable reply) gets one retry on a fresh engine.
@@ -514,7 +526,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
                 lastMove = played.lastOrNull(),
                 moves = played.map { m -> Checkers.notation(m) },
                 result = result,
-                statusText = status,
+                statusText = _state.value.hintText?.let { h -> "Hint: $h" } ?: status,
                 whiteMs = currentMs(Color.WHITE),
                 blackMs = currentMs(Color.BLACK),
             )
@@ -571,5 +583,36 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
             export = exportGame(),
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
+    }
+
+    // ---------------------------------------------------------------- hint
+
+    /** Thinking time for a hint. */
+    private val HINT_MS = 1500
+
+    /** Asks the engine, at full strength, for a move for the player; shown until a move is played. */
+    fun requestHint() {
+        val s = _state.value
+        if (!s.isPlayerTurn || s.hintLoading || !hasGame) return
+        val cfg = s.config
+        val count = played.size
+        val pos = position
+        _state.update { it.copy(hintLoading = true) }
+        hintJob = viewModelScope.launch {
+            val reply = runCatching {
+                engineLock.withLock { ensureEngine(cfg.engine).bestMove(pos, null, HINT_MS) } // full strength
+            }.getOrNull()
+            _state.update { it.copy(hintLoading = false) }
+            val move = reply?.takeIf { played.size == count && it in Checkers.legalMoves(position) } ?: return@launch
+            _state.update { it.copy(hint = move.path.toSet(), hintText = Checkers.notation(move)) }
+            publish()
+        }
+    }
+
+    private fun clearHint() = _state.update { it.copy(hint = emptySet(), hintText = null) }
+
+    /** The player moved while a hint was being searched: end that search now. */
+    private fun stopHint() {
+        if (hintJob?.isActive == true) engine?.stop()
     }
 }
