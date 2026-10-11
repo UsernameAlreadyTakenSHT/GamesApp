@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 — 2026-10-11
+
+- **App icon**: the queen is larger on the home screen.
+- **Launch screen**: shows the whole app icon (board and queen), with the same proportions as on the home screen, instead of an oversized queen.
+
 ## 0.5.2 — 2026-10-11
 
 ### New rules
