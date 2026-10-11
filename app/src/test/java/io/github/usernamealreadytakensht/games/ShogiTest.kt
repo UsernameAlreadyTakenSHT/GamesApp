@@ -109,4 +109,13 @@ class ShogiTest {
         val fen = "l6nl/5+P1gk/2np1S3/p1p4Pp/3P2Sp1/1PPb2P1P/P5GS1/R8/LN4bKL[RGgsnppppp] w - - 0 1"
         assertEquals(fen, Position.fromFen(fen).toFen())
     }
+
+    @Test
+    fun enteringKingDeclaration() {
+        // Sente king in the enemy camp with 10 pieces there: 18 points on the board.
+        val board = "GGGGK4/SSSS5/RB7/9/9/9/9/9/8k"
+        assertTrue(Position.fromFen("$board[RB] w - - 0 1").canDeclare) // 28 points
+        assertFalse(Position.fromFen("$board[R] w - - 0 1").canDeclare) // 23 points
+        assertFalse(Position.fromFen("GGGGK4/SSS6/RB7/9/9/9/9/9/8k[RBS] w - - 0 1").canDeclare) // 9 pieces in camp
+    }
 }

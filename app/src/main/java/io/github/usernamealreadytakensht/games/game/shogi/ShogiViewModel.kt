@@ -70,6 +70,8 @@ data class ShogiState(
     val senteByoyomiMs: Long? = null,
     val goteByoyomiMs: Long? = null,
     val runningClock: Side? = null,
+    /** The side to move meets the entering-king declaration rule (see [Shogi.Position.canDeclare]). */
+    val canDeclare: Boolean = false,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == ShogiResult.ONGOING
     val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == ShogiResult.ONGOING && !thinking
@@ -108,6 +110,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var resigned = false
     private var resignedSide: Side = Side.SENTE
     private var flagged: Side? = null
+    /** The side that won by declaring an entering king (入玉宣言). */
+    private var declared: Side? = null
 
     var hasGame = false
         private set
@@ -264,6 +268,24 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         persist()
     }
 
+    /** Ends the game with an entering-king win for the side to move, when the rule allows it. */
+    fun declare() {
+        if (!_state.value.isPlayerTurn || !game.position.canDeclare) return
+        stopHint()
+        declareWin()
+    }
+
+    private fun declareWin() {
+        cancelSearch()
+        declared = game.position.sideToMove
+        stopClock()
+        clearHint()
+        clearSelection()
+        _state.update { it.copy(pendingPromotion = null) }
+        publish()
+        persist()
+    }
+
     fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     /** Freezes the running side's remaining time as its base (the turn's time is spent). */
@@ -299,6 +321,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         game = Shogi.Game()
         resigned = false
         flagged = null
+        declared = null
         hasGame = true
         recorded = false
         clearHint()
@@ -372,6 +395,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private fun outcome(): Shogi.Outcome = when {
         resigned -> if (resignedSide == Side.SENTE) Shogi.Outcome.GOTE_WINS else Shogi.Outcome.SENTE_WINS
         flagged != null -> if (flagged == Side.SENTE) Shogi.Outcome.GOTE_WINS else Shogi.Outcome.SENTE_WINS
+        declared != null -> if (declared == Side.SENTE) Shogi.Outcome.SENTE_WINS else Shogi.Outcome.GOTE_WINS
         else -> game.outcome()
     }
 
@@ -382,6 +406,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         if (released || engineStarting || _state.value.engineError != null) return
         if (_state.value.config.twoPlayers) return
         if (game.position.sideToMove == _state.value.playerSide || isGameOver()) return
+        // Fairy-Stockfish does not declare an entering king itself: the app does it for it.
+        if (game.position.canDeclare) { declareWin(); return }
         val gen = ++generation
         val config = _state.value.config
         val moves = game.uciMoves
@@ -419,8 +445,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         val base = ShogiLevels.moveTimeMs(cfg.level).toLong()
         val remaining = currentMs(game.position.sideToMove) ?: return base.toInt()
         val budget = when (val tc = cfg.timeControl) {
-            // In byoyomi, use a good part of the period: it comes back after every move.
-            // In byoyomi, what is left of the period (less than all of it when resumed after a pause).
+            // In byoyomi, a good part of what is left of the period (less than all of it when resumed after a pause).
             is TimeControl.Byoyomi -> if (remaining > 0) remaining / 20 + tc.byoyomiMs / 2
                 else (byoyomiLeft(game.position.sideToMove) ?: tc.byoyomiMs) * 6 / 10
             // What is left of this move's time (less than the full period after a pause).
@@ -571,12 +596,13 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             Shogi.Outcome.GOTE_WINS -> if (player == Side.GOTE) ShogiResult.PLAYER_WINS else ShogiResult.ENGINE_WINS
         }
         val inCheck = pos.inCheck()
-        val repetition = result != ShogiResult.ONGOING && !resigned && flagged == null && game.isRepetition()
+        val repetition = result != ShogiResult.ONGOING && !resigned && flagged == null && declared == null && game.isRepetition()
         val toMove = sideName(pos.sideToMove)
         val other = sideName(pos.sideToMove.other)
         val status = if (_state.value.config.twoPlayers) when {
             resigned -> "${sideName(resignedSide)} resigned — ${sideName(resignedSide.other)} wins."
             flagged != null -> "Time's up — ${sideName(flagged!!.other)} wins."
+            declared != null -> "${sideName(declared!!)} declares an entering-king win."
             repetition && result == ShogiResult.DRAW -> "Sennichite: fourfold repetition, draw."
             repetition -> "Perpetual check — ${if (out == Shogi.Outcome.SENTE_WINS) "Sente" else "Gote"} wins."
             result != ShogiResult.ONGOING -> "Checkmate — $other wins."
@@ -586,6 +612,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
             flagged != null -> "Time's up — you win!"
+            declared == player -> "Entering-king win declared — you win!"
+            declared != null -> "$engineName declares an entering-king win."
             repetition && result == ShogiResult.DRAW -> "Sennichite: fourfold repetition, draw."
             repetition && result == ShogiResult.PLAYER_WINS -> "Perpetual check by $engineName — you win!"
             repetition -> "Perpetual check — $engineName wins."
@@ -613,6 +641,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 goteMs = currentMs(Side.GOTE),
                 senteByoyomiMs = byoyomiLeft(Side.SENTE),
                 goteByoyomiMs = byoyomiLeft(Side.GOTE),
+                canDeclare = result == ShogiResult.ONGOING && pos.canDeclare,
             )
         }
         recordIfFinished()
@@ -634,6 +663,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             s.result == ShogiResult.ONGOING -> null
             resigned -> "投了"
             flagged != null -> "切れ負け"
+            declared != null -> "入玉勝ち"
             // Perpetual check is a foul, not a draw: 反則勝ち when the side to move wins, 反則負け when it loses.
             game.isRepetition() && s.result != ShogiResult.DRAW ->
                 if ((s.result == ShogiResult.PLAYER_WINS) == (game.position.sideToMove == s.playerSide)) "反則勝ち" else "反則負け"

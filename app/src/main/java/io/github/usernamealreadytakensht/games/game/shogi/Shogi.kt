@@ -122,6 +122,28 @@ object Shogi {
         /** Whether the side to move is in check (cached, like [legalMoves]). */
         val isCheck: Boolean by lazy(LazyThreadSafetyMode.NONE) { inCheck(sideToMove) }
 
+        /**
+         * Whether the side to move may declare an entering-king win (入玉宣言, the 27-point rule
+         * of the JSA and of computer shogi): its king is in the enemy camp and not in check,
+         * with at least 10 other pieces there, and those pieces plus its hand are worth 28
+         * points for sente, 27 for gote (rook and bishop 5, every other piece 1).
+         */
+        val canDeclare: Boolean by lazy(LazyThreadSafetyMode.NONE) {
+            val us = sideToMove
+            val king = kingSquare(us)
+            if (king < 0 || !inZone(king, us) || isCheck) return@lazy false
+            var pieces = 0
+            var points = 0
+            for (sq in 0 until 81) {
+                val p = board[sq] ?: continue
+                if (p.side != us || p.kind == Kind.KING || !inZone(sq, us)) continue
+                pieces++
+                points += if (p.kind == Kind.ROOK || p.kind == Kind.BISHOP) 5 else 1
+            }
+            Kind.HAND.forEachIndexed { i, k -> points += hands[us.ordinal][i] * if (k == Kind.ROOK || k == Kind.BISHOP) 5 else 1 }
+            pieces >= 10 && points >= if (us == Side.SENTE) 28 else 27
+        }
+
         private fun isLegal(m: Move): Boolean {
             val next = play(m)
             if (next.inCheck(sideToMove)) return false

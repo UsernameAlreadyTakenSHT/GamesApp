@@ -177,6 +177,9 @@ fun ShogiScreen(
                     // Only on your own turn: KIF records a resignation (投了) as a move of the side to move.
                     OutlinedButton(onClick = { showResign = true }, enabled = state.isPlayerTurn, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
+                if (state.canDeclare && state.isPlayerTurn) {
+                    Button(onClick = vm::declare, modifier = Modifier.fillMaxWidth()) { Text("Declare entering-king win") }
+                }
             }
 
             MoveList(state.moves)
