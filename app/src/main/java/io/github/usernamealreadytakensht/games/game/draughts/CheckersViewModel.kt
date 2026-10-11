@@ -423,6 +423,7 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun cancelSearch() {
         generation++
+        if (_state.value.thinking) engine?.stop()
         _state.update { it.copy(thinking = false) }
     }
 

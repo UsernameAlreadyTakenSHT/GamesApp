@@ -101,8 +101,13 @@ class MarcherEngine(private val context: Context, val kind: DraughtsEngineKind) 
         if (from < 0 || to < 0) null else from to to
     }
 
-    /** Marcher checks its clock itself; a running search cannot be interrupted from outside. */
-    fun stop() {}
+    /**
+     * Marcher has no stop command: a search is cut by ending the process, which makes the
+     * pending read fail at once. The next search restarts the engine (see ensureEngine).
+     */
+    fun stop() {
+        process?.destroy()
+    }
 
     fun quit() {
         runCatching { send("quit") }
