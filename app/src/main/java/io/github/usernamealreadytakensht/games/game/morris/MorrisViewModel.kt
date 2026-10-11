@@ -252,6 +252,7 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
         resigned = true
         resignedSide = if (_state.value.config.twoPlayers) position.toMove else _state.value.playerSide
         stopClock()
+        pending = null
         clearSelection()
         publish()
         persist()
@@ -523,6 +524,9 @@ class MorrisViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Color.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
                     cancelSearch()
+                    // A mill waiting for its removal is dropped with the game.
+                    pending = null
+                    clearSelection()
                     _state.update { it.copy(runningClock = null) }
                     publish()
                     persist()

@@ -511,7 +511,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                     flagged = running
                     if (running == Color.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
                     cancelSearch()
-                    _state.update { it.copy(runningClock = null) }
+                    // A capture half entered by the player is dropped with the game.
+                    _state.update { it.copy(runningClock = null, selected = null, partialPath = emptyList(), targets = emptySet()) }
                     publish()
                     persist()
                     break
