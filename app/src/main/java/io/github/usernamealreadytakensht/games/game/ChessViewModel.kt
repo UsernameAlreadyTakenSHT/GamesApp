@@ -101,6 +101,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Bumped by every [finishLoad]: only the latest one clears [engineStarting] and moves. */
+    private var loadId = 0
     /** Set while the game screen is not shown: no engine runs then. */
     private var released = false
 
@@ -212,7 +214,11 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val out = LinkedHashMap<ChessMove, Square>()
         for (m in moves) {
             out[m] = m.to
-            if (m.isCastle && m.castleKingTo != m.to && m.castleKingTo !in plain) out[m.copy(to = m.castleKingTo)] = m.castleKingTo
+            // No alias when the king does not move (e.g. king g1, rook h1): its own square would
+            // become a target, and tapping the selected king again would castle.
+            if (m.isCastle && m.castleKingTo != m.to && m.castleKingTo != m.from && m.castleKingTo !in plain) {
+                out[m.copy(to = m.castleKingTo)] = m.castleKingTo
+            }
         }
         return out
     }
@@ -335,8 +341,13 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // A start still running for an earlier game must not report into this one.
+        val load = ++loadId
         // Two players: no engine now; Hint starts one when asked.
-        if (config.twoPlayers) return
+        if (config.twoPlayers) {
+            engineStarting = false
+            return
+        }
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -347,13 +358,14 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                     eng.newGame()
                 }
             } catch (e: Exception) {
+                if (load != loadId) return@launch
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
             } finally {
-                engineStarting = false
+                if (load == loadId) engineStarting = false
             }
-            maybeEngineMove()
+            if (load == loadId) maybeEngineMove()
         }
     }
 
@@ -430,6 +442,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             for (attempt in 0..1) {
                 try {
                     val eng = engineLock.withLock { liveEngine(config, restart = attempt > 0) }
+                    // Cancelled while waiting for the hint or the engine: the "stop" went out
+                    // before this search, which would run its full time for nothing.
+                    if (gen != generation) return@launch
                     val uci = eng.bestMove(moves, moveTime, eng.nodesFor(config.strength), eng.depthFor(config.strength), startFen)
                     if (gen != generation) return@launch // game changed meanwhile
                     move = uci?.let { session.parseUci(it) }
@@ -455,7 +470,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val base = ((engine?.moveTimeMs(cfg.strength) ?: 1000) * cfg.thinking.factor).toLong()
         val remaining = currentMs(session.sideToMove) ?: return base.toInt()
         val budget = when (val tc = _state.value.config.timeControl) {
-            is TimeControl.PerMove -> tc.perMoveMs / 2
+            // What is left of the move's budget: less than the full budget after an undo
+            // charged the engine's thinking time to it.
+            is TimeControl.PerMove -> remaining / 2
             is TimeControl.Fischer -> remaining / 10 + tc.incrementMs / 2
             else -> remaining / 10
         }
@@ -512,6 +529,14 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.runningClock == mover) {
             val spent = now - turnStartedAt
             var left = (if (mover == Side.WHITE) whiteBaseMs else blackBaseMs) - spent
+            // Out of time before the 100 ms tick noticed: the flag fell, the increment (or the
+            // per-move reset) does not save it.
+            if (left <= 0L) {
+                flagged = mover
+                if (mover == Side.WHITE) whiteBaseMs = 0 else blackBaseMs = 0
+                stopClock()
+                return
+            }
             left = when (tc) {
                 is TimeControl.Fischer -> left + tc.incrementMs
                 is TimeControl.PerMove -> tc.perMoveMs
@@ -598,7 +623,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             inCheck -> "Check! $toMove to move."
             else -> "$toMove to move."
         } else when {
-            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
+            // The game's end first: it is what the history and the PGN record as the reason.
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
             flagged != null -> "Time's up — you win!"
@@ -606,11 +631,14 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             result == Result.ENGINE_WINS -> "Checkmate — $engineName wins."
             result == Result.DRAW && session.isStalemate -> "Stalemate — draw."
             result == Result.DRAW -> "Draw."
+            _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             !engineReady -> "Starting $engineName…"
             thinking -> "$engineName is thinking…"
             inCheck -> "Check! Your move."
             else -> "Your move (${if (player == Side.WHITE) "white" else "black"})."
         }
+        // A hint shown when the game ends (resign, flag) goes: the status must give the result.
+        if (result != Result.ONGOING) clearHint()
         _state.update {
             it.copy(
                 pieces = List(64) { i -> session.pieceAt(Square.squareAt(i)) },
@@ -716,7 +744,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }.getOrNull()
             _state.update { it.copy(hintLoading = false) }
-            val move = uci?.takeIf { uciMoves.size == moves.size }?.let { session.parseUci(it) } ?: return@launch
+            // Same moves, not just as many: with two players, undo + another move keeps the count.
+            // Nor once the game ended meanwhile (resigned, flagged).
+            val move = uci?.takeIf { uciMoves == moves && !isGameOver() }?.let { session.parseUci(it) } ?: return@launch
             val to = move.castleRook ?: move.to
             _state.update {
                 it.copy(hint = setOf(move.from, to), hintText = "${move.from.value().lowercase()} → ${to.value().lowercase()}")
