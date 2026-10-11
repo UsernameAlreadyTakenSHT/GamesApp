@@ -39,10 +39,13 @@ data class GameRecord(
     /** Result as shown in the history: Win / Loss / Draw, or who won a two-player game. */
     val resultLabel: String
         get() = if (!twoPlayers) result.label else when (result) {
-            PlayerResult.WIN -> "$playerSide wins"
-            PlayerResult.LOSS -> "$opponent wins"
+            PlayerResult.WIN -> wins(playerSide)
+            PlayerResult.LOSS -> wins(opponent)
             PlayerResult.DRAW -> "Draw"
         }
+
+    /** "White wins", "Defenders win". */
+    private fun wins(side: String) = if (side.endsWith("s") || side.endsWith("Geese")) "$side win" else "$side wins"
 
     /** Opponent without its strength setting: "Stockfish 19 · Elo 1500" -> "Stockfish 19". */
     val engine: String get() = opponent.substringBefore(" · ")

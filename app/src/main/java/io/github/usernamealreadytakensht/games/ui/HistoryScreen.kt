@@ -66,6 +66,8 @@ private class Score(games: List<GameRecord>) {
     val line: String get() = "$wins W · $draws D · $losses L"
 }
 
+private fun movesText(n: Int) = if (n == 1) "1 move" else "$n moves"
+
 /** Name shown for a record: its rule set when the family has several. */
 private val GameRecord.title: String get() = variant ?: game
 
@@ -236,8 +238,8 @@ private fun RecordRow(r: GameRecord, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
-                if (r.twoPlayers) "${Exports.readableDate(r.endedAt)} · ${r.moveCount} moves"
-                else "${Exports.readableDate(r.endedAt)} · ${r.playerSide} · ${r.moveCount} moves",
+                if (r.twoPlayers) "${Exports.readableDate(r.endedAt)} · ${movesText(r.moveCount)}"
+                else "${Exports.readableDate(r.endedAt)} · ${r.playerSide} · ${movesText(r.moveCount)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -255,8 +257,8 @@ private fun RecordDialog(record: GameRecord, onShare: () -> Unit, onDelete: () -
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(if (record.twoPlayers) "Two players" else "vs ${record.opponent}", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    if (record.twoPlayers) "${Exports.readableDate(record.endedAt)} · ${record.moveCount} moves"
-                    else "${Exports.readableDate(record.endedAt)} · you played ${record.playerSide.lowercase()} · ${record.moveCount} moves",
+                    if (record.twoPlayers) "${Exports.readableDate(record.endedAt)} · ${movesText(record.moveCount)}"
+                    else "${Exports.readableDate(record.endedAt)} · you played ${record.playerSide.lowercase()} · ${movesText(record.moveCount)}",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (record.reason.isNotEmpty()) Text(record.reason, style = MaterialTheme.typography.bodySmall)
