@@ -36,6 +36,9 @@ class SanmillEngine(
     /** Serialises command/response exchanges; `stop()` deliberately bypasses it. */
     private val ioLock = Mutex()
 
+    /** Set by stop(): a move that closes a mill then skips its second search (the removal). */
+    @Volatile private var stopRequested = false
+
     override val isRunning: Boolean get() = process?.isAlive == true
 
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
@@ -78,12 +81,13 @@ class SanmillEngine(
             val legal = Morris.legalMoves(pos)
             if (legal.isEmpty()) return@withContext null
 
+            stopRequested = false
             val tokens = history.flatMap { it.toUciTokens() }.toMutableList()
             val first = ask(tokens, depth, moveTimeMs) ?: return@withContext null
             val (from, to) = parseStep(first) ?: return@withContext null
             val candidates = legal.filter { it.from == from && it.to == to }
             if (candidates.isEmpty()) return@withContext null
-            if (!candidates[0].closesMill) return@withContext candidates[0]
+            if (!candidates[0].closesMill || stopRequested) return@withContext candidates[0]
 
             // The move closes a mill: ask which man to take (the engine now expects "xNN").
             tokens += first
@@ -124,6 +128,7 @@ class SanmillEngine(
     }
 
     override fun stop() {
+        stopRequested = true
         runCatching { send("stop") }
     }
 
