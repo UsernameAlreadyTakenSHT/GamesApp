@@ -226,12 +226,15 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         if (game.moves.isEmpty() || !s.canUndo) return
         cancelSearch()
         clearHint()
+        val running = _state.value.runningClock
+        val byoyomiUsed = byoyomiSpent()
         game.undo()
         if (!s.config.twoPlayers && game.position.sideToMove != s.playerSide && game.moves.isNotEmpty()) game.undo()
         clearSelection()
         _state.update { it.copy(engineError = null) }
-        // Time already spent on this turn is not refunded.
+        // Time already spent on this turn is not refunded, byoyomi included when the same side moves again.
         chargeRunningClock()
+        if (running == game.position.sideToMove) byoyomiCarryMs = byoyomiUsed
         restartTurnClock()
         publish()
         persist()
