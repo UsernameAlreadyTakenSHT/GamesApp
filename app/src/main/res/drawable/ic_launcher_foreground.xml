@@ -1,16 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    App icon foreground (108 x 108 dp): the chess queen, alone and large. Launchers show the
-    middle 72 dp, often as a circle: a 72 dp box keeps the crown tips and the base corners
-    inside that circle while the queen fills the icon. The box sits 1 dp high because the
-    drawing is slightly bottom-heavy. The launch screen has its own, smaller drawing
-    (ic_splash), since it shows this one much larger.
+    App icon foreground: the chess queen, alone and large. Launchers show the middle 72 of
+    108 dp, often as a circle: a box of two thirds of the icon keeps the crown tips and the
+    base corners inside that circle while the queen fills the icon. It sits 1/108 high
+    because the drawing is slightly bottom-heavy. Insets are fractions, not dp, so the
+    queen keeps its proportions at any size (the launch screen draws the icon at 240 dp).
 -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:drawable="@drawable/piece_lq"
-        android:left="18dp"
-        android:top="17dp"
-        android:right="18dp"
-        android:bottom="19dp" />
-</layer-list>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/piece_lq"
+    android:insetLeft="16.67%"
+    android:insetTop="15.74%"
+    android:insetRight="16.67%"
+    android:insetBottom="17.59%" />
