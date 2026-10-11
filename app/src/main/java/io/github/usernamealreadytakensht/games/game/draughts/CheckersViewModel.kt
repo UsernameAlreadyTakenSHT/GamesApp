@@ -65,7 +65,8 @@ data class CheckersState(
     /** The side whose pieces the screen's user moves now: theirs, or either side with two players. */
     val mover: Color get() = if (config.twoPlayers) sideToMove else playerSide
     /** Side shown at the bottom of the board (and of the clocks). */
-    val bottomSide: Color get() = if (config.twoPlayers) (if (flipped) Color.WHITE else Color.BLACK) else playerSide
+    /** The side drawn at the bottom: the player's at first, then whatever Flip shows (clocks follow). */
+    val bottomSide: Color get() = if (flipped) Color.WHITE else Color.BLACK
     val topSide: Color get() = bottomSide.other
     fun sideLabel(side: Color): String = when {
         config.twoPlayers -> colorName(side)
