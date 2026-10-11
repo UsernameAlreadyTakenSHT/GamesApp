@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.4 — 2026-10-11
+
+- **Launch screen**: shows the app icon exactly as on the home screen (board and queen, same proportions); the queen was blown up before.
+
 ## 0.5.3 — 2026-10-11
 
 - **App icon**: the queen is larger on the home screen.
