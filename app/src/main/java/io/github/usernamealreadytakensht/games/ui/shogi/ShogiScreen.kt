@@ -174,7 +174,8 @@ fun ShogiScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = vm::undo, enabled = state.canUndo, modifier = Modifier.weight(1f)) { Text("Undo") }
                     HintButton(state.hintLoading, state.isPlayerTurn, vm::requestHint, Modifier.weight(1f))
-                    OutlinedButton(onClick = { showResign = true }, modifier = Modifier.weight(1f)) { Text("Resign") }
+                    // Only on your own turn: KIF records a resignation (投了) as a move of the side to move.
+                    OutlinedButton(onClick = { showResign = true }, enabled = state.isPlayerTurn, modifier = Modifier.weight(1f)) { Text("Resign") }
                 }
             }
 

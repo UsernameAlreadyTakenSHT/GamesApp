@@ -118,6 +118,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var turnStartedAt = 0L
     /** Byoyomi already used in the current turn when the clock was paused (resumed, not refilled). */
     private var byoyomiCarryMs = 0L
+    /** When the game began (KIF 開始日時), kept across resumes. */
+    private var startedAt = System.currentTimeMillis()
     private var clockJob: Job? = null
     private var clockPaused = false
 
@@ -160,6 +162,9 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         for (uci in saved.moves) game.play(game.parseUci(uci) ?: break)
         senteBaseMs = saved.senteMs ?: 0L
         goteBaseMs = saved.goteMs ?: 0L
+        // The byoyomi already used in the turn in progress, so a resume does not refill it.
+        byoyomiCarryMs = saved.byoyomiUsedMs
+        saved.startedAt?.let { startedAt = it }
         finishLoad()
         return true
     }
@@ -290,6 +295,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         stopClock()
         clockPaused = false
         byoyomiCarryMs = 0L
+        startedAt = System.currentTimeMillis()
         game = Shogi.Game()
         resigned = false
         flagged = null
@@ -439,6 +445,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                 moves = game.uciMoves,
                 senteMs = currentMs(Side.SENTE),
                 goteMs = currentMs(Side.GOTE),
+                byoyomiUsedMs = if (clockPaused) byoyomiCarryMs else byoyomiSpent(),
+                startedAt = startedAt,
             ),
         )
     }
@@ -633,7 +641,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             ShogiResult.ENGINE_WINS -> if (s.playerSide == Side.SENTE) "後手" else "先手"
             else -> null
         }
-        return ExportedGame("shogi-${Exports.fileStamp(now)}.kif", "text/plain", game.kif(sente, gote, now, ending, winner))
+        return ExportedGame("shogi-${Exports.fileStamp(now)}.kif", "text/plain", game.kif(sente, gote, startedAt, ending, winner))
     }
 
     /** A game that just ended goes to the history, once. */

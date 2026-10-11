@@ -145,6 +145,10 @@ data class SavedShogiGame(
     val moves: List<String>,
     val senteMs: Long?,
     val goteMs: Long?,
+    /** Byoyomi already used in the turn in progress (0 while main time remains). */
+    val byoyomiUsedMs: Long = 0L,
+    /** When the game began, for the KIF header; null in saves from 0.5.1 and before. */
+    val startedAt: Long? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("config", config.toJson())
@@ -152,6 +156,8 @@ data class SavedShogiGame(
         put("moves", JSONArray(moves))
         put("senteMs", senteMs ?: -1L)
         put("goteMs", goteMs ?: -1L)
+        put("byoyomiUsed", byoyomiUsedMs)
+        startedAt?.let { put("startedAt", it) }
     }
 
     companion object {
@@ -163,6 +169,8 @@ data class SavedShogiGame(
                 moves = List(moves.length()) { moves.getString(it) },
                 senteMs = o.getLong("senteMs").takeIf { it >= 0 },
                 goteMs = o.getLong("goteMs").takeIf { it >= 0 },
+                byoyomiUsedMs = o.optLong("byoyomiUsed", 0L),
+                startedAt = o.optLong("startedAt", -1L).takeIf { it >= 0 },
             )
         }
     }
