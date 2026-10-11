@@ -498,6 +498,19 @@ internal fun <T> Segmented(items: List<T>, selected: T, label: (T) -> String, on
     }
 }
 
+/** "Mode" section of the setup screens: against an engine, or two people on one phone. */
+@Composable
+internal fun ModeSection(twoPlayers: Boolean, onChange: (Boolean) -> Unit) {
+    SectionTitle("Mode")
+    Segmented(
+        items = listOf(false, true),
+        selected = twoPlayers,
+        label = { if (it) "Two players" else "vs Engine" },
+        onSelect = onChange,
+    )
+    if (twoPlayers) Hint("Two people take turns on this phone. No engine plays; Hint still works.")
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun <T> ChipFlow(items: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {

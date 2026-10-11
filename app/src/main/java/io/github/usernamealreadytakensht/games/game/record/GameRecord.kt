@@ -20,7 +20,8 @@ enum class PlayerResult(val label: String) { WIN("Win"), LOSS("Loss"), DRAW("Dra
 /**
  * A finished game as the history keeps it. [game] is the game's family ("Chess", "Draughts"…)
  * used to group the stats; [variant] the rule set when the family has several ("Chess960",
- * "English checkers", "Copenhagen"…).
+ * "English checkers", "Copenhagen"…). In a [twoPlayers] game, [playerSide] is the first side
+ * and [opponent] the second one, and [result] is from the first side's point of view.
  */
 data class GameRecord(
     val endedAt: Long,
@@ -32,7 +33,17 @@ data class GameRecord(
     val reason: String,
     val moveCount: Int,
     val export: ExportedGame,
+    /** Two people on one phone: kept in the history, left out of the stats. */
+    val twoPlayers: Boolean = false,
 ) {
+    /** Result as shown in the history: Win / Loss / Draw, or who won a two-player game. */
+    val resultLabel: String
+        get() = if (!twoPlayers) result.label else when (result) {
+            PlayerResult.WIN -> "$playerSide wins"
+            PlayerResult.LOSS -> "$opponent wins"
+            PlayerResult.DRAW -> "Draw"
+        }
+
     /** Opponent without its strength setting: "Stockfish 19 · Elo 1500" -> "Stockfish 19". */
     val engine: String get() = opponent.substringBefore(" · ")
 
@@ -46,6 +57,7 @@ data class GameRecord(
         put("reason", reason)
         put("moves", moveCount)
         put("export", export.toJson())
+        if (twoPlayers) put("twoPlayers", true)
     }
 
     companion object {
@@ -59,6 +71,7 @@ data class GameRecord(
             reason = o.optString("reason"),
             moveCount = o.optInt("moves"),
             export = ExportedGame.fromJson(o.getJSONObject("export")),
+            twoPlayers = o.optBoolean("twoPlayers", false),
         )
     }
 }

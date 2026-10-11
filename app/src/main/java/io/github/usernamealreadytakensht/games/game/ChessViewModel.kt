@@ -30,6 +30,8 @@ import kotlin.random.Random
 
 enum class Result { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
+fun colorName(side: Side): String = if (side == Side.WHITE) "White" else "Black"
+
 /** Immutable snapshot of the game, consumed by the UI. */
 data class GameState(
     val config: GameConfig = GameConfig(),
@@ -60,9 +62,23 @@ data class GameState(
     val runningClock: Side? = null,
 ) {
     val canUndo: Boolean get() = sanMoves.isNotEmpty() && result == Result.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == Result.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == Result.ONGOING && !thinking
     val engineSide: Side get() = if (playerSide == Side.WHITE) Side.BLACK else Side.WHITE
+    /** The side whose pieces the screen's user moves now: theirs, or either side with two players. */
+    val mover: Side get() = if (config.twoPlayers) sideToMove else playerSide
+    /** Side shown at the bottom of the board (and of the clocks). */
+    val bottomSide: Side get() = if (config.twoPlayers) (if (flipped) Side.BLACK else Side.WHITE) else playerSide
+    val topSide: Side get() = if (bottomSide == Side.WHITE) Side.BLACK else Side.WHITE
+    /** Name for a side's bar: you / the engine, or the colour with two players. */
+    fun sideLabel(side: Side): String = when {
+        config.twoPlayers -> colorName(side)
+        side == playerSide -> "You"
+        else -> config.opponentLabel
+    }
     fun clockMs(side: Side): Long? = if (side == Side.WHITE) whiteMs else blackMs
+    /** Whether [side] lost the finished game (its clock turns red). */
+    fun lost(side: Side): Boolean =
+        (result == Result.PLAYER_WINS && side != playerSide) || (result == Result.ENGINE_WINS && side == playerSide)
 }
 
 class ChessViewModel(app: Application) : AndroidViewModel(app) {
@@ -100,6 +116,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private var clockPaused = false
     private var flagged: Side? = null
     private var resigned = false
+    /** Who resigned: the player, or the side to move in a two-player game. */
+    private var resignedSide: Side = Side.WHITE
 
     private val _state = MutableStateFlow(GameState())
     val state: StateFlow<GameState> = _state
@@ -112,7 +130,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startGame(config: GameConfig, startFen: String? = null) {
         val fen = if (config.chess960) startFen ?: Chess960.startFen(Random.nextInt(960)) else null
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.WHITE else Side.BLACK, fen)
+        val side = if (config.twoPlayers) Side.WHITE else config.playerSide ?: if (Random.nextBoolean()) Side.WHITE else Side.BLACK
+        resetGame(config, side, fen)
         val initial = config.timeControl.startingMs
         whiteBaseMs = initial ?: 0L
         blackBaseMs = initial ?: 0L
@@ -170,7 +189,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
         // Select / re-select one of the player's pieces.
         val piece = session.pieceAt(square)
-        if (piece != Piece.NONE && piece.pieceSide == s.playerSide) {
+        if (piece != Piece.NONE && piece.pieceSide == s.mover) {
             _state.update { it.copy(selected = square, legalTargets = movesFrom(square).values.toSet()) }
         } else {
             _state.update { it.copy(selected = null, legalTargets = emptySet()) }
@@ -180,7 +199,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     fun promote(type: PieceType) {
         val (from, to) = _state.value.pendingPromotion ?: return
         _state.update { it.copy(pendingPromotion = null) }
-        playPlayerMove(ChessMove(from, to, Piece.make(_state.value.playerSide, type)))
+        playPlayerMove(ChessMove(from, to, Piece.make(_state.value.mover, type)))
     }
 
     /**
@@ -209,7 +228,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         clearHint()
         undoOne()
-        if (session.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
+        // Against the engine, its reply goes too; with two players, one move at a time.
+        if (!s.config.twoPlayers && session.sideToMove != s.playerSide && uciMoves.isNotEmpty()) undoOne()
         _state.update {
             it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null, engineError = null)
         }
@@ -244,6 +264,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != Result.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) session.sideToMove else _state.value.playerSide
         stopClock()
         _state.update { it.copy(selected = null, legalTargets = emptySet(), pendingPromotion = null) }
         publish()
@@ -253,7 +274,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     /** New game with the same settings (and Chess960 start position) and the colours swapped. */
     fun rematch() {
         val s = _state.value
-        startGame(s.config.copy(playerSide = s.engineSide), session.startFen)
+        startGame(if (s.config.twoPlayers) s.config else s.config.copy(playerSide = s.engineSide), session.startFen)
     }
 
     fun flipBoard() = _state.update { it.copy(flipped = !it.flipped) }
@@ -314,6 +335,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // Two players: no engine now; Hint starts one when asked.
+        if (config.twoPlayers) return
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -389,6 +412,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
         if (released || engineStarting || _state.value.engineError != null) return
+        if (_state.value.config.twoPlayers) return
         if (session.sideToMove == _state.value.playerSide || isGameOver()) return
 
         val gen = ++generation
@@ -554,7 +578,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     private fun publish() {
         val player = _state.value.playerSide
         val result = when {
-            resigned -> Result.ENGINE_WINS
+            resigned -> if (resignedSide == player) Result.ENGINE_WINS else Result.PLAYER_WINS
             flagged != null -> if (flagged == player) Result.ENGINE_WINS else Result.PLAYER_WINS
             session.isMate -> if (session.sideToMove == player) Result.ENGINE_WINS else Result.PLAYER_WINS
             session.isStalemate || session.isDraw -> Result.DRAW
@@ -563,7 +587,17 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val inCheck = session.inCheck
         val thinking = _state.value.thinking
         val engineName = _state.value.config.engine.label
-        val status = when {
+        val toMove = colorName(session.sideToMove)
+        val other = colorName(if (session.sideToMove == Side.WHITE) Side.BLACK else Side.WHITE)
+        val status = if (_state.value.config.twoPlayers) when {
+            resigned -> "${colorName(resignedSide)} resigned — ${colorName(if (resignedSide == Side.WHITE) Side.BLACK else Side.WHITE)} wins."
+            flagged != null -> "Time's up — ${colorName(if (flagged == Side.WHITE) Side.BLACK else Side.WHITE)} wins."
+            session.isMate -> "Checkmate — $other wins."
+            result == Result.DRAW && session.isStalemate -> "Stalemate — draw."
+            result == Result.DRAW -> "Draw."
+            inCheck -> "Check! $toMove to move."
+            else -> "$toMove to move."
+        } else when {
             _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
@@ -604,8 +638,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
     fun exportGame(): ExportedGame {
         val s = _state.value
         val now = System.currentTimeMillis()
-        val white = if (s.playerSide == Side.WHITE) "You" else s.config.opponentLabel
-        val black = if (s.playerSide == Side.BLACK) "You" else s.config.opponentLabel
+        val white = if (s.config.twoPlayers) "White player" else if (s.playerSide == Side.WHITE) "You" else s.config.opponentLabel
+        val black = if (s.config.twoPlayers) "Black player" else if (s.playerSide == Side.BLACK) "You" else s.config.opponentLabel
         val result = when (s.result) {
             Result.PLAYER_WINS -> if (s.playerSide == Side.WHITE) "1-0" else "0-1"
             Result.ENGINE_WINS -> if (s.playerSide == Side.WHITE) "0-1" else "1-0"
@@ -643,8 +677,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Chess",
             variant = if (session.chess960) "Chess960" else null,
-            opponent = s.config.opponentLabel,
-            playerSide = if (s.playerSide == Side.WHITE) "White" else "Black",
+            opponent = if (s.config.twoPlayers) colorName(s.engineSide) else s.config.opponentLabel,
+            playerSide = colorName(s.playerSide),
             result = when (s.result) {
                 Result.PLAYER_WINS -> PlayerResult.WIN
                 Result.ENGINE_WINS -> PlayerResult.LOSS
@@ -653,6 +687,7 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.sanMoves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

@@ -326,6 +326,8 @@ data class GameConfig(
     val thinking: ThinkingTime = ThinkingTime.NORMAL,
     /** Fischer random chess: a random start position, played against Fairy-Stockfish. */
     val chess960: Boolean = false,
+    /** Two people on one phone, no engine (the engine settings are kept for Hint and later). */
+    val twoPlayers: Boolean = false,
 ) {
     /** Same settings under the other rules, with an engine that plays them. */
     fun withChess960(on: Boolean): GameConfig {
@@ -347,6 +349,7 @@ data class GameConfig(
         put("clock", timeControl.toJson())
         put("thinking", thinking.name)
         put("chess960", chess960)
+        put("twoPlayers", twoPlayers)
     }
 
     companion object {
@@ -365,6 +368,7 @@ data class GameConfig(
                 },
                 timeControl = TimeControl.fromJson(o.optJSONObject("clock") ?: JSONObject()),
                 thinking = runCatching { ThinkingTime.valueOf(o.getString("thinking")) }.getOrDefault(ThinkingTime.NORMAL),
+                twoPlayers = o.optBoolean("twoPlayers", false),
             ).let { c ->
                 // Keep the engine consistent with the rules (an older save, or a family change).
                 val chess960 = o.optBoolean("chess960", false)

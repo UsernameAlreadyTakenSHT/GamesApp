@@ -164,7 +164,14 @@ private fun App() {
                 config = draft,
                 onChange = { draft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.OpponentSetup },
+                onNext = {
+                    if (draft.twoPlayers) {
+                        repo.saveLastConfig(draft)
+                        screen = Screen.ChessGame(ChessLaunch.NewGame(draft, ++gameCounter))
+                    } else {
+                        screen = Screen.OpponentSetup
+                    }
+                },
             )
         }
 

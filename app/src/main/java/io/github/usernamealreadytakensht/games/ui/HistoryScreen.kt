@@ -107,10 +107,12 @@ fun HistoryScreen(onBack: () -> Unit) {
                 return@LazyColumn
             }
 
-            item { OverallCard(Score(records)) }
+            // Stats are about you against the engines: two-player games only show in the list.
+            val vsEngine = records.filterNot { it.twoPlayers }
+            if (vsEngine.isNotEmpty()) item { OverallCard(Score(vsEngine)) }
 
-            item { SectionTitle("By game") }
-            val byGame = records.groupBy { it.title }.toList().sortedByDescending { it.second.size }
+            if (vsEngine.isNotEmpty()) item { SectionTitle("By game") }
+            val byGame = vsEngine.groupBy { it.title }.toList().sortedByDescending { it.second.size }
             items(byGame, key = { "game-" + it.first }) { (title, games) ->
                 GameScoreCard(
                     title = title,
@@ -226,17 +228,21 @@ private fun RecordRow(r: GameRecord, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(6.dp).heightIn(min = 36.dp).background(r.result.color(), RoundedCornerShape(3.dp)))
+        Box(Modifier.width(6.dp).heightIn(min = 36.dp).background(if (r.twoPlayers) DrawColor else r.result.color(), RoundedCornerShape(3.dp)))
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("${r.title} · vs ${r.engine}", style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${Exports.readableDate(r.endedAt)} · ${r.playerSide} · ${r.moveCount} moves",
+                if (r.twoPlayers) "${r.title} · two players" else "${r.title} · vs ${r.engine}",
+                style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (r.twoPlayers) "${Exports.readableDate(r.endedAt)} · ${r.moveCount} moves"
+                else "${Exports.readableDate(r.endedAt)} · ${r.playerSide} · ${r.moveCount} moves",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(r.result.label, color = r.result.color(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(r.resultLabel, color = if (r.twoPlayers) DrawColor else r.result.color(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -244,12 +250,13 @@ private fun RecordRow(r: GameRecord, onClick: () -> Unit) {
 private fun RecordDialog(record: GameRecord, onShare: () -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${record.title} · ${record.result.label}") },
+        title = { Text("${record.title} · ${record.resultLabel}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("vs ${record.opponent}", style = MaterialTheme.typography.bodyMedium)
+                Text(if (record.twoPlayers) "Two players" else "vs ${record.opponent}", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "${Exports.readableDate(record.endedAt)} · you played ${record.playerSide.lowercase()} · ${record.moveCount} moves",
+                    if (record.twoPlayers) "${Exports.readableDate(record.endedAt)} · ${record.moveCount} moves"
+                    else "${Exports.readableDate(record.endedAt)} · you played ${record.playerSide.lowercase()} · ${record.moveCount} moves",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (record.reason.isNotEmpty()) Text(record.reason, style = MaterialTheme.typography.bodySmall)

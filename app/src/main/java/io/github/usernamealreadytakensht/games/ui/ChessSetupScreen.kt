@@ -40,7 +40,15 @@ fun GameSetupScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
+    SetupScaffold(
+        title = "New game",
+        step = if (config.twoPlayers) "" else "1 / 2",
+        onBack = onBack,
+        action = if (config.twoPlayers) "Play" else "Next",
+        onAction = onNext,
+    ) {
+        ModeSection(config.twoPlayers) { onChange(config.copy(twoPlayers = it)) }
+
         SectionTitle("Rules")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
             CHESS_RULES.forEach { (label, tagline, is960) ->
@@ -65,13 +73,15 @@ fun GameSetupScreen(
             Hint("Fischer random: the pieces of the back rank are shuffled (bishops on opposite colours, king between the rooks), one of 960 setups drawn at random. Castling puts king and rook on their usual squares. Played against Fairy-Stockfish.")
         }
 
-        SectionTitle("Your color")
-        ColorCards(
-            white = R.drawable.piece_lk,
-            black = R.drawable.piece_dk,
-            selected = config.playerSide?.let { it == Side.WHITE },
-            onSelect = { onChange(config.copy(playerSide = it?.let { w -> if (w) Side.WHITE else Side.BLACK })) },
-        )
+        if (!config.twoPlayers) {
+            SectionTitle("Your color")
+            ColorCards(
+                white = R.drawable.piece_lk,
+                black = R.drawable.piece_dk,
+                selected = config.playerSide?.let { it == Side.WHITE },
+                onSelect = { onChange(config.copy(playerSide = it?.let { w -> if (w) Side.WHITE else Side.BLACK })) },
+            )
+        }
 
         ClockSection(config.timeControl) { onChange(config.copy(timeControl = it)) }
 
