@@ -351,7 +351,14 @@ private fun App() {
                 config = shogiDraft,
                 onChange = { shogiDraft = it },
                 onBack = { screen = Screen.Home },
-                onNext = { screen = Screen.ShogiOpponentSetup },
+                onNext = {
+                    if (shogiDraft.twoPlayers) {
+                        repo.saveLastShogiConfig(shogiDraft)
+                        screen = Screen.ShogiGame(ShogiLaunch.NewGame(shogiDraft, ++gameCounter))
+                    } else {
+                        screen = Screen.ShogiOpponentSetup
+                    }
+                },
             )
         }
 

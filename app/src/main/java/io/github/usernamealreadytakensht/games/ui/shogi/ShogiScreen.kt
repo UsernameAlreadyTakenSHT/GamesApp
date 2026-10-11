@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.shogi
 
+import io.github.usernamealreadytakensht.games.game.shogi.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
@@ -127,25 +128,25 @@ fun ShogiScreen(
             }
 
             ClockRow(
-                "${state.config.opponentLabel} · ${sideName(state.engineSide)}",
+                state.sideLabel(state.engineSide),
                 state.clockMs(state.engineSide), state.byoyomiMs(state.engineSide), state.config.timeControl,
-                active = state.runningClock == state.engineSide, lost = state.result == ShogiResult.PLAYER_WINS,
+                active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 // Nine cells plus a coordinate margin on the right.
                 val cell = (maxWidth - 16.dp) / 9
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Hand(state, state.engineSide, cell, onTap = {})
+                    Hand(state, state.engineSide, cell, onTap = if (state.config.twoPlayers) vm::onHandTapped else { _ -> })
                     Board(state, cell, onTap = vm::onSquareTapped)
                     Hand(state, state.playerSide, cell, onTap = vm::onHandTapped)
                 }
             }
 
             ClockRow(
-                "You · ${sideName(state.playerSide)}",
+                state.sideLabel(state.playerSide),
                 state.clockMs(state.playerSide), state.byoyomiMs(state.playerSide), state.config.timeControl,
-                active = state.runningClock == state.playerSide, lost = state.result == ShogiResult.ENGINE_WINS,
+                active = state.runningClock == state.playerSide, lost = state.lost(state.playerSide),
             )
 
             Row(
@@ -216,14 +217,13 @@ fun ShogiScreen(
         AlertDialog(
             onDismissRequest = { showResign = false },
             title = { Text("Resign?") },
-            text = { Text("The game will be recorded as a loss.") },
+            text = { Text(if (state.config.twoPlayers) "${sideName(state.sideToMove)} gives up the game." else "The game will be recorded as a loss.") },
             confirmButton = { Button(onClick = { showResign = false; vm.resign() }) { Text("Resign") } },
             dismissButton = { TextButton(onClick = { showResign = false }) { Text("Keep playing") } },
         )
     }
 }
 
-private fun sideName(side: Side) = if (side == Side.SENTE) "sente" else "gote"
 
 /** The player's side is always at the bottom: the board turns round when playing gote. */
 @Composable
@@ -310,7 +310,9 @@ private fun Board(state: ShogiState, cell: Dp, onTap: (Int) -> Unit) {
 private fun Hand(state: ShogiState, side: Side, cell: Dp, onTap: (Kind) -> Unit) {
     val counts = state.hand(side)
     val kinds = Kind.HAND.reversed().filter { counts[Kind.HAND.indexOf(it)] > 0 }
-    val mine = side == state.playerSide
+    // Pieces of the side to move can be picked for a drop (both hands with two players).
+    val mine = side == state.mover
+    val upright = side == state.playerSide
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -323,7 +325,11 @@ private fun Hand(state: ShogiState, side: Side, cell: Dp, onTap: (Kind) -> Unit)
     ) {
         if (kinds.isEmpty()) {
             Text(
-                if (mine) "Your captured pieces" else "Captured by ${state.config.opponentLabel.substringBefore(" ·")}",
+                when {
+                    state.config.twoPlayers -> "${sideName(side)}'s captured pieces"
+                    side == state.playerSide -> "Your captured pieces"
+                    else -> "Captured by ${state.config.opponentLabel.substringBefore(" ·")}"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -336,7 +342,7 @@ private fun Hand(state: ShogiState, side: Side, cell: Dp, onTap: (Kind) -> Unit)
                     .background(if (mine && state.selectedDrop == kind) SelectedTint else Color.Transparent, RoundedCornerShape(6.dp))
                     .then(if (mine) Modifier.clickable { onTap(kind) } else Modifier),
             ) {
-                ShogiPiece(kind, false, side, upright = mine, state.config.pieces, cell)
+                ShogiPiece(kind, false, side, upright = upright, state.config.pieces, cell)
                 if (n > 1) {
                     Text(
                         "$n",
@@ -405,8 +411,9 @@ private fun formatClock(ms: Long): String {
 @Composable
 private fun GameOverBanner(state: ShogiState, onRematch: () -> Unit, onNewGame: () -> Unit) {
     val (title, color) = when (state.result) {
-        ShogiResult.PLAYER_WINS -> "You won" to MaterialTheme.colorScheme.primaryContainer
-        ShogiResult.ENGINE_WINS -> "Fairy-Stockfish won" to MaterialTheme.colorScheme.errorContainer
+        ShogiResult.PLAYER_WINS -> (if (state.config.twoPlayers) "${sideName(state.playerSide)} won" else "You won") to MaterialTheme.colorScheme.primaryContainer
+        ShogiResult.ENGINE_WINS -> if (state.config.twoPlayers) "${sideName(state.engineSide)} won" to MaterialTheme.colorScheme.primaryContainer
+            else "Fairy-Stockfish won" to MaterialTheme.colorScheme.errorContainer
         else -> "Draw" to MaterialTheme.colorScheme.surfaceVariant
     }
     Column(
@@ -414,7 +421,7 @@ private fun GameOverBanner(state: ShogiState, onRematch: () -> Unit, onNewGame: 
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Text("Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
+        Text(if (state.config.twoPlayers) "Rematch starts the same game again." else "Rematch swaps sides.", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onRematch, modifier = Modifier.weight(1f)) { Text("Rematch") }
             OutlinedButton(onClick = onNewGame, modifier = Modifier.weight(1f)) { Text("New game") }

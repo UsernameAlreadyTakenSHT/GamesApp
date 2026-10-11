@@ -34,6 +34,8 @@ import kotlin.random.Random
 
 enum class ShogiResult { ONGOING, PLAYER_WINS, ENGINE_WINS, DRAW }
 
+fun sideName(side: Side): String = if (side == Side.SENTE) "Sente" else "Gote"
+
 /** Immutable snapshot of the shogi game, consumed by the UI. */
 data class ShogiState(
     val config: ShogiConfig = ShogiConfig(),
@@ -70,7 +72,16 @@ data class ShogiState(
     val runningClock: Side? = null,
 ) {
     val canUndo: Boolean get() = moves.isNotEmpty() && result == ShogiResult.ONGOING
-    val isPlayerTurn: Boolean get() = sideToMove == playerSide && result == ShogiResult.ONGOING && !thinking
+    val isPlayerTurn: Boolean get() = (config.twoPlayers || sideToMove == playerSide) && result == ShogiResult.ONGOING && !thinking
+    /** The side whose pieces the screen's user moves now: theirs, or either side with two players. */
+    val mover: Side get() = if (config.twoPlayers) sideToMove else playerSide
+    fun sideLabel(side: Side): String = when {
+        config.twoPlayers -> sideName(side)
+        side == playerSide -> "You · ${sideName(side).lowercase()}"
+        else -> "${config.opponentLabel} · ${sideName(side).lowercase()}"
+    }
+    fun lost(side: Side): Boolean =
+        (result == ShogiResult.PLAYER_WINS && side != playerSide) || (result == ShogiResult.ENGINE_WINS && side == playerSide)
     val engineSide: Side get() = playerSide.other
     fun clockMs(side: Side): Long? = if (side == Side.SENTE) senteMs else goteMs
     fun byoyomiMs(side: Side): Long? = if (side == Side.SENTE) senteByoyomiMs else goteByoyomiMs
@@ -95,6 +106,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var game = Shogi.Game()
     private var generation = 0
     private var resigned = false
+    private var resignedSide: Side = Side.SENTE
     private var flagged: Side? = null
 
     var hasGame = false
@@ -117,7 +129,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- UI actions
 
     fun startGame(config: ShogiConfig) {
-        resetGame(config, config.playerSide ?: if (Random.nextBoolean()) Side.SENTE else Side.GOTE)
+        resetGame(config, if (config.twoPlayers) Side.SENTE else config.playerSide ?: if (Random.nextBoolean()) Side.SENTE else Side.GOTE)
         val initial = config.timeControl.startingMs
         senteBaseMs = initial ?: 0L
         goteBaseMs = initial ?: 0L
@@ -168,7 +180,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val piece = game.position.at(sq)
-        if (piece != null && piece.side == s.playerSide && s.selected != sq) {
+        if (piece != null && piece.side == s.mover && s.selected != sq) {
             val targets = game.legalMoves().filter { it.from == sq }.map { it.to }.toSet()
             _state.update { it.copy(selected = sq, selectedDrop = null, targets = targets) }
         } else {
@@ -204,7 +216,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         cancelSearch()
         clearHint()
         game.undo()
-        if (game.position.sideToMove != s.playerSide && game.moves.isNotEmpty()) game.undo()
+        if (!s.config.twoPlayers && game.position.sideToMove != s.playerSide && game.moves.isNotEmpty()) game.undo()
         clearSelection()
         _state.update { it.copy(engineError = null) }
         // Time already spent on this turn is not refunded.
@@ -237,13 +249,14 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.result != ShogiResult.ONGOING || !hasGame) return
         cancelSearch()
         resigned = true
+        resignedSide = if (_state.value.config.twoPlayers) game.position.sideToMove else _state.value.playerSide
         stopClock()
         clearSelection()
         publish()
         persist()
     }
 
-    fun rematch() = startGame(_state.value.config.copy(playerSide = _state.value.engineSide))
+    fun rematch() = startGame(_state.value.config.let { if (it.twoPlayers) it else it.copy(playerSide = _state.value.engineSide) })
 
     /** Freezes the running side's remaining time as its base (the turn's time is spent). */
     private fun chargeRunningClock() {
@@ -292,6 +305,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // Two players: no engine now; Hint starts one when asked.
+        if (config.twoPlayers) return
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -346,7 +361,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun outcome(): Shogi.Outcome = when {
-        resigned -> if (_state.value.playerSide == Side.SENTE) Shogi.Outcome.GOTE_WINS else Shogi.Outcome.SENTE_WINS
+        resigned -> if (resignedSide == Side.SENTE) Shogi.Outcome.GOTE_WINS else Shogi.Outcome.SENTE_WINS
         flagged != null -> if (flagged == Side.SENTE) Shogi.Outcome.GOTE_WINS else Shogi.Outcome.SENTE_WINS
         else -> game.outcome()
     }
@@ -356,6 +371,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private fun maybeEngineMove() {
         // The first start reports its own failure; later searches restart the engine themselves.
         if (released || engineStarting || _state.value.engineError != null) return
+        if (_state.value.config.twoPlayers) return
         if (game.position.sideToMove == _state.value.playerSide || isGameOver()) return
         val gen = ++generation
         val config = _state.value.config
@@ -540,7 +556,17 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         }
         val inCheck = pos.inCheck()
         val repetition = result != ShogiResult.ONGOING && !resigned && flagged == null && game.isRepetition()
-        val status = when {
+        val toMove = sideName(pos.sideToMove)
+        val other = sideName(pos.sideToMove.other)
+        val status = if (_state.value.config.twoPlayers) when {
+            resigned -> "${sideName(resignedSide)} resigned — ${sideName(resignedSide.other)} wins."
+            flagged != null -> "Time's up — ${sideName(flagged!!.other)} wins."
+            repetition && result == ShogiResult.DRAW -> "Sennichite: fourfold repetition, draw."
+            repetition -> "Perpetual check — ${if (out == Shogi.Outcome.SENTE_WINS) "Sente" else "Gote"} wins."
+            result != ShogiResult.ONGOING -> "Checkmate — $other wins."
+            inCheck -> "Check! $toMove to move."
+            else -> "$toMove to move."
+        } else when {
             _state.value.engineError != null -> "Engine error: ${_state.value.engineError}"
             resigned -> "You resigned — $engineName wins."
             flagged == player -> "Time's up — $engineName wins."
@@ -585,8 +611,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     fun exportGame(): ExportedGame {
         val s = _state.value
         val now = System.currentTimeMillis()
-        val sente = if (s.playerSide == Side.SENTE) "You" else s.config.opponentLabel
-        val gote = if (s.playerSide == Side.GOTE) "You" else s.config.opponentLabel
+        val sente = if (s.config.twoPlayers) "Sente player" else if (s.playerSide == Side.SENTE) "You" else s.config.opponentLabel
+        val gote = if (s.config.twoPlayers) "Gote player" else if (s.playerSide == Side.GOTE) "You" else s.config.opponentLabel
         val ending = when {
             s.result == ShogiResult.ONGOING -> null
             resigned -> "投了"
@@ -611,8 +637,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             endedAt = System.currentTimeMillis(),
             game = "Shogi",
             variant = null,
-            opponent = s.config.opponentLabel,
-            playerSide = if (s.playerSide == Side.SENTE) "Sente" else "Gote",
+            opponent = if (s.config.twoPlayers) sideName(s.engineSide) else s.config.opponentLabel,
+            playerSide = sideName(s.playerSide),
             result = when (s.result) {
                 ShogiResult.PLAYER_WINS -> PlayerResult.WIN
                 ShogiResult.ENGINE_WINS -> PlayerResult.LOSS
@@ -621,6 +647,7 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             reason = s.statusText,
             moveCount = s.moves.size,
             export = exportGame(),
+            twoPlayers = s.config.twoPlayers,
         )
         viewModelScope.launch(Dispatchers.IO) { records.add(record) }
     }

@@ -1,5 +1,6 @@
 package io.github.usernamealreadytakensht.games.ui.shogi
 
+import io.github.usernamealreadytakensht.games.ui.ModeSection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,15 +44,25 @@ fun ShogiGameSetupScreen(
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
-    SetupScaffold(title = "New game", step = "1 / 2", onBack = onBack, action = "Next", onAction = onNext) {
-        SectionTitle("Your side")
-        SideCards(
-            first = "Sente" to listOf(R.drawable.shogi_sente),
-            second = "Gote" to listOf(R.drawable.shogi_gote),
-            selected = config.playerSide?.let { it == Shogi.Side.SENTE },
-            onSelect = { onChange(config.copy(playerSide = it?.let { s -> if (s) Shogi.Side.SENTE else Shogi.Side.GOTE })) },
-        )
-        Hint("Sente moves first. Captured pieces change sides and can be dropped back on the board.")
+    SetupScaffold(
+        title = "New game",
+        step = if (config.twoPlayers) "" else "1 / 2",
+        onBack = onBack,
+        action = if (config.twoPlayers) "Play" else "Next",
+        onAction = onNext,
+    ) {
+        ModeSection(config.twoPlayers) { onChange(config.copy(twoPlayers = it)) }
+
+        if (!config.twoPlayers) {
+            SectionTitle("Your side")
+            SideCards(
+                first = "Sente" to listOf(R.drawable.shogi_sente),
+                second = "Gote" to listOf(R.drawable.shogi_gote),
+                selected = config.playerSide?.let { it == Shogi.Side.SENTE },
+                onSelect = { onChange(config.copy(playerSide = it?.let { s -> if (s) Shogi.Side.SENTE else Shogi.Side.GOTE })) },
+            )
+            Hint("Sente moves first. Captured pieces change sides and can be dropped back on the board.")
+        }
 
         SectionTitle("Pieces")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.height(IntrinsicSize.Max)) {
