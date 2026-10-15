@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.5 — 2026-10-15
+
+- **Fully offline**: the app no longer has the Internet permission. ONNX Runtime (used by Maia 3) had added it along with a telemetry uploader; both are removed and its telemetry is turned off.
+- Engines now follow their published releases: **Rodent V 1.2** and **Berserk 14**.
+- Updated libraries: ONNX Runtime 1.31.0, chesslib 1.3.7.
+
 ## 0.5.4 — 2026-10-11
 
 - **Launch screen**: shows the app icon exactly as on the home screen (board and queen, same proportions); the queen was blown up before.
