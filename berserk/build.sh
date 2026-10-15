@@ -8,7 +8,7 @@
 # pthread_create is wrapped (bigstack.c) to enforce a 64 MB thread stack on Bionic.
 set -euo pipefail
 
-REF="${1:-32628515050b83805bab4afa1026dd2bcaa93f55}"   # pinned commit; pass a ref to override
+REF="${1:-8ae895a6151695be4a50d4fb65b0c131659c513a}"   # release 14; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/berserk"
 SRC="$WORK/src"
@@ -37,9 +37,10 @@ VERSION="$(grep '^VERSION' makefile | sed 's/.*= *//')"
 [ -f "$NET" ] || curl -fsSL -o "$NET" \
   "https://github.com/jhonnold/berserk-networks/releases/download/networks/$NET"
 
-SRCS="attacks.c bench.c berserk.c bits.c board.c datagen.c eval.c history.c move.c movegen.c \
-movepick.c perft.c random.c search.c see.c tb.c thread.c transposition.c uci.c util.c zobrist.c \
-nn/accumulator.c nn/evaluate.c pyrrhic/tbprobe.c"
+# The source list as the makefile has it (its SRC variable, continued over several lines):
+# it changes between versions.
+SRCS="$(awk '/^SRC[[:space:]]*=/ { on = 1; sub(/^SRC[[:space:]]*=/, "") }
+  on { line = $0; more = sub(/\\[[:space:]]*$/, "", line); printf "%s ", line; if (!more) exit }' makefile)"
 
 build() { # abi  triple  cflags...
   local abi=$1 triple=$2; shift 2

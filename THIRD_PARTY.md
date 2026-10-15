@@ -15,7 +15,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | chesslib | https://github.com/bhlangonijr/chesslib | Apache-2.0 |
 | Reckless 0.9.0 | https://github.com/codedeliveryservice/Reckless | AGPL-3.0 |
 | PlentyChess 8.0.0 (+ network 0178r) | https://github.com/Yoshie2000/PlentyChess | GPL-3.0 |
-| Berserk 14 (dev 2026-09, + network 9b84c340af7e) | https://github.com/jhonnold/berserk | GPL-3.0 |
+| Berserk 14 (+ network 9b84c340af7e) | https://github.com/jhonnold/berserk | GPL-3.0 |
 | Fairy-Stockfish (master 2024-09-26, largeboards build; Chess960 and shogi opponent) | https://github.com/fairy-stockfish/Fairy-Stockfish | GPL-3.0 |
 | Stockfish NNUE network nn-46832cfbead3 (Fairy-Stockfish's Chess960 evaluation) | https://tests.stockfishchess.org/api/nn/nn-46832cfbead3.nnue | GPL-3.0 (Stockfish project) |
 | Fairy-Stockfish shogi NNUE network shogi-878ca61334a7 | https://fairy-stockfish.github.io/nnue/ | as published by the Fairy-Stockfish project |
@@ -60,8 +60,8 @@ checked against SHA-256 sums in `lc0/build.sh` and `fairy/build.sh`.
 | Leela Chess Zero | tag `v0.32.1` |
 | Reckless | tag `v0.9.0` |
 | PlentyChess | tag `b-v8.0.0` |
-| Berserk | `32628515050b83805bab4afa1026dd2bcaa93f55` |
-| Rodent V | `6f6a465bca24ca1fd54f75c91562e915c448884c` |
+| Berserk | tag `14` (`8ae895a6151695be4a50d4fb65b0c131659c513a`) |
+| Rodent V | tag `Rodent_v_1.2` (`b53ffaf670590932957cb63b7b6d871f6f33b7d8`) |
 | Fairy-Stockfish | `9f778da667f6e07dae1e85d3e2ea204fc6dee94d` |
 | Scan (rhalbersma mirror) | `7aae17e7b7bfc47744601afb1ee7655e18983ce5` |
 | Moby Dam (rhalbersma mirror) | `cf2d49981001757bb4c09b53a9ec147733de75ab` |
@@ -69,5 +69,6 @@ checked against SHA-256 sums in `lc0/build.sh` and `fairy/build.sh`.
 | Sanmill | `8901a06f088bf49a1602fee8686ed25ac5a33925` |
 | OpenTafl | `6895051d5a3b32612d12e93e2cd4584d23f94bb3` |
 
-Berserk, Rodent V, Scan and Moby Dam were first built from their default branch in
-September 2026; the pins are those branches' heads on 2026-09-27.
+Engines are pinned to their latest published release. Those without a usable one stay on a
+commit: Fairy-Stockfish (last release 2021), Sanmill (its last release predates the Rust engine),
+and the Scan and Moby Dam mirrors (no releases); those pins are the branches' heads on 2026-09-27.

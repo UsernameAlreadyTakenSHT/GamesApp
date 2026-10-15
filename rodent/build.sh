@@ -19,7 +19,7 @@
 #    personalities (v2 and Tal) and the opening books are shipped as assets.
 set -euo pipefail
 
-REF="${1:-6f6a465bca24ca1fd54f75c91562e915c448884c}"   # pinned commit; pass a ref to override
+REF="${1:-b53ffaf670590932957cb63b7b6d871f6f33b7d8}"   # release Rodent_v_1.2; pass a ref to override
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/rodent"
 SRC="$WORK/src"
