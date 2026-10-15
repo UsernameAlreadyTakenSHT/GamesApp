@@ -34,6 +34,7 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
         if (session != null) return@withContext
         val file = NetAssets.ensure(context, kind.weights ?: error("${kind.label} has no model file"))
         val e = OrtEnvironment.getEnvironment()
+        e.setTelemetry(false) // the app is offline (the manifest also drops the network permissions)
         val opts = OrtSession.SessionOptions().apply {
             setIntraOpNumThreads((Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4))
         }
