@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6 — 2026-11-08
+
+- Updated libraries: ONNX Runtime 1.31.1, Compose 2026.09, AndroidX Core 1.19.1, Kotlin coroutines 1.11.0.
+- Built with Kotlin 2.4.21, Android Gradle Plugin 9.5.1 and Gradle 9.9.0. No change in how the app plays.
+
 ## 0.5.5 — 2026-10-15
 
 - **Fully offline**: the app no longer has the Internet permission. ONNX Runtime (used by Maia 3) had added it along with a telemetry uploader; both are removed and its telemetry is turned off.
