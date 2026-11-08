@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.7 — 2026-11-08
+
+- **International draughts**: captures are written in standard notation in the move list and the hint ("21x23"), instead of also listing the taken men ("21x23x27x28").
+
 ## 0.5.6 — 2026-11-08
 
 - Updated libraries: ONNX Runtime 1.31.1, Compose 2026.09, AndroidX Core 1.19.1, Kotlin coroutines 1.11.0.
