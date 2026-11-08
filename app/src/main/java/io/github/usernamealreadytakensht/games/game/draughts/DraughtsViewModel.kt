@@ -600,7 +600,8 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
                 squares = List(51) { i -> if (i == 0) Draughts.EMPTY else position[i] },
                 sideToMove = position.toMove,
                 lastMove = played.lastOrNull(),
-                moves = played.map { m -> m.toHub() },
+                // PDN notation ("28x19"), not the engines' Hub form, which also lists the taken men.
+                moves = played.mapIndexed { i, m -> Draughts.toPdn(history[i], m) },
                 result = result,
                 statusText = _state.value.hintText?.takeIf { result == DraughtsResult.ONGOING }?.let { h -> "Hint: $h" } ?: status,
                 whiteMs = currentMs(Color.WHITE),
@@ -688,7 +689,7 @@ class DraughtsViewModel(app: Application) : AndroidViewModel(app) {
             // Same ply count is not enough: an undo then another move (two players) gets back to it.
             // Nor once the game ended meanwhile (resigned, flagged).
             val move = hub?.takeIf { played.size == count && position == asked && !isGameOver() }?.let { Draughts.parseHub(position, it) } ?: return@launch
-            _state.update { it.copy(hint = setOf(move.from) + move.path, hintText = move.toHub()) }
+            _state.update { it.copy(hint = setOf(move.from) + move.path, hintText = Draughts.toPdn(position, move)) }
             publish()
         }
     }
