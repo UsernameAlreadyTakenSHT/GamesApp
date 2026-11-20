@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.8 — 2026-11-20
+
+Fixes from a full review of the code; no new feature.
+
+- **Screens fit every window**: on short screens, with a large display size, in split screen and on tablets or foldables, the board shrinks instead of pushing the buttons off the screen; in a wide window the controls sit beside the board; the screen scrolls when nothing else fits.
+- Clocks: a move made just after the flag fell now loses on time in hnefatafl, the fox games and shogi too; the Fischer increment is no longer lost when the engine moves while the app is in the background, in every game (it was chess only).
+- Shogi: Undo or New game while the network is loading no longer leaves an old search running.
+- Nine Men's Morris: Sanmill plays at the same strength before and after a Hint.
+- The app comes back to the game in progress, or to the settings being edited, after Android closed it in the background, instead of the home screen.
+- Draughts: Resume keeps its rule set until you leave the game.
+- Backup: the game history is included in the Android backup and in a device transfer.
+- Shogi KIF files and the clocks use Western digits whatever the language of the phone.
+- Maia 3: a failure to load ONNX Runtime shows "Engine error" instead of closing the app.
+
 ## 0.5.7 — 2026-11-08
 
 - **International draughts**: captures are written in standard notation in the move list and the hint ("21x23"), instead of also listing the taken men ("21x23x27x28").
