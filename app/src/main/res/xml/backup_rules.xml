@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-   Auto Backup before Android 12: only the saved games and settings (SharedPreferences),
-   not the engine files extracted from the APK (see data_extraction_rules.xml).
+   Auto Backup before Android 12: only the saved games and settings (SharedPreferences) and
+   the history of finished games, not the engine files extracted from the APK (see
+   data_extraction_rules.xml).
 -->
 <full-backup-content>
     <include domain="sharedpref" path="." />
+    <include domain="file" path="history.json" />
 </full-backup-content>

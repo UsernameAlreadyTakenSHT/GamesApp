@@ -102,6 +102,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     private var engineReady = false
     /** True while [finishLoad] starts the engine: searches wait for it to finish. */
     private var engineStarting = false
+    /** Bumped by every [finishLoad]: only the latest one clears [engineStarting] and moves. */
+    private var loadId = 0
     /** Set while the game screen is not shown: no engine runs then. */
     private var released = false
 
@@ -340,8 +342,13 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         persist()
         val config = _state.value.config
         _state.update { it.copy(engineError = null) }
+        // A start still running for an earlier game must not report into this one.
+        val load = ++loadId
         // Two players: no engine now; Hint starts one when asked.
-        if (config.twoPlayers) return
+        if (config.twoPlayers) {
+            engineStarting = false
+            return
+        }
         engineStarting = true
         released = false
         viewModelScope.launch {
@@ -352,14 +359,15 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
                     engineReady = true
                 }
             } catch (e: Exception) {
+                if (load != loadId) return@launch
                 _state.update { it.copy(engineError = e.message ?: e.toString()) }
                 publish()
                 return@launch
             } finally {
-                engineStarting = false
+                if (load == loadId) engineStarting = false
             }
             publish()
-            maybeEngineMove()
+            if (load == loadId) maybeEngineMove()
         }
     }
 
@@ -426,6 +434,9 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
             for (attempt in 0..1) {
                 try {
                     engineLock.withLock { liveEngine(config, restart = attempt > 0) }
+                    // Cancelled while the engine was (re)starting: the "stop" went out before
+                    // this search, which would run its full time for nothing.
+                    if (gen != generation) return@launch
                     val uci = engine.bestMove(moves, moveTime)
                     if (gen != generation) return@launch
                     move = uci?.let { game.parseUci(it) }
@@ -503,12 +514,26 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun onMovePlayed(mover: Side) {
+        // Byoyomi used before a pause: already inside turnStartedAt while the clock runs.
+        val carried = byoyomiCarryMs
         byoyomiCarryMs = 0L // a move made in time starts a fresh period
         if (!hasClock()) return
         val tc = _state.value.config.timeControl
         val now = SystemClock.elapsedRealtime()
-        if (_state.value.runningClock == mover) {
-            var left = (if (mover == Side.SENTE) senteBaseMs else goteBaseMs) - (now - turnStartedAt)
+        val running = _state.value.runningClock == mover
+        // The engine's move arriving while the clock is paused (app in the background): its
+        // time was charged at the pause, but the increment is still due.
+        if (running || (clockPaused && game.moves.size > 1)) {
+            val spent = if (running) now - turnStartedAt else carried
+            var left = (if (mover == Side.SENTE) senteBaseMs else goteBaseMs) - spent
+            // Out of time (byoyomi period included) before the 100 ms tick noticed: the flag
+            // fell, the increment (or the per-move reset) does not save it.
+            if (left + ((tc as? TimeControl.Byoyomi)?.byoyomiMs ?: 0L) <= 0L) {
+                flagged = mover
+                if (mover == Side.SENTE) senteBaseMs = 0 else goteBaseMs = 0
+                stopClock()
+                return
+            }
             left = when (tc) {
                 is TimeControl.Fischer -> left + tc.incrementMs
                 is TimeControl.PerMove -> tc.perMoveMs

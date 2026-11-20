@@ -99,16 +99,7 @@ class SanmillEngine(
     /** One `position … / go …` exchange; returns the engine's move token, or null for "none". */
     private suspend fun ask(tokens: List<String>, depth: Int?, moveTimeMs: Int): String? = ioLock.withLock {
         send(if (tokens.isEmpty()) "position startpos" else "position startpos moves ${tokens.joinToString(" ")}")
-        // MCTS is sized by SkillLevel (iterations), the tree searches by the go depth.
-        if (kind == MorrisEngineKind.SANMILL_MCTS) {
-            send("setoption name SkillLevel value ${(depth ?: 30).coerceIn(1, 30)}")
-            send("go movetime $moveTimeMs")
-        } else if (depth != null) {
-            send("go depth $depth movetime $moveTimeMs")
-        } else {
-            send("setoption name SkillLevel value 30")
-            send("go movetime $moveTimeMs")
-        }
+        searchCommands(kind, depth, moveTimeMs).forEach { send(it) }
         val line = readUntil("bestmove", moveTimeMs + Watchdog.SEARCH_SLACK_MS)
         val token = line.substringAfter("bestmove").trim().split(' ').firstOrNull()
         if (token.isNullOrEmpty() || token == "none") null else token
@@ -169,6 +160,30 @@ class SanmillEngine(
 
     companion object {
         private const val TAG = "SanmillEngine"
+
+        /** Sanmill's own default for its `SkillLevel` option. */
+        private const val DEFAULT_SKILL_LEVEL = 1
+
+        /**
+         * The commands of one search. MCTS is sized by SkillLevel (iterations), the tree
+         * searches by the go depth. SkillLevel is sent with every search: a Hint (no depth)
+         * raises it to 30, and the engine keeps an option until it is set again, so a
+         * depth-limited search puts it back to the default it had before any Hint.
+         */
+        fun searchCommands(kind: MorrisEngineKind, depth: Int?, moveTimeMs: Int): List<String> = when {
+            kind == MorrisEngineKind.SANMILL_MCTS -> listOf(
+                "setoption name SkillLevel value ${(depth ?: 30).coerceIn(1, 30)}",
+                "go movetime $moveTimeMs",
+            )
+            depth != null -> listOf(
+                "setoption name SkillLevel value $DEFAULT_SKILL_LEVEL",
+                "go depth $depth movetime $moveTimeMs",
+            )
+            else -> listOf(
+                "setoption name SkillLevel value 30",
+                "go movetime $moveTimeMs",
+            )
+        }
 
         /** Our combined move as the engine's tokens: "d7", "a1-d1", plus "xg7" for a removal. */
         fun Morris.Move.toUciTokens(): List<String> {

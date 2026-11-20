@@ -2,6 +2,9 @@ package io.github.usernamealreadytakensht.games.ui.tafl
 
 import io.github.usernamealreadytakensht.games.game.tafl.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.GameScreenLayout
+import io.github.usernamealreadytakensht.games.ui.gameBoard
+import io.github.usernamealreadytakensht.games.ui.gameMoves
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Image
@@ -103,9 +106,8 @@ fun TaflScreen(
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -128,7 +130,7 @@ fun TaflScreen(
                 active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
-            if (state.squares.isNotEmpty()) Board(state, onTap = vm::onSquareTapped)
+            if (state.squares.isNotEmpty()) Box(Modifier.gameBoard()) { Board(state, onTap = vm::onSquareTapped) }
 
             ClockRow(
                 state.sideLabel(state.playerSide), state.playerSide,
@@ -154,7 +156,7 @@ fun TaflScreen(
                 }
             }
 
-            MoveList(state.moves, modifier = Modifier.weight(1f))
+            MoveList(state.moves, modifier = Modifier.gameMoves())
         }
     }
 
@@ -252,7 +254,7 @@ private fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
-    return if (ms < 10_000) "%d:%02d.%d".format(m, s, (ms % 1000) / 100) else "%d:%02d".format(m, s)
+    return if (ms < 10_000) "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, (ms % 1000) / 100) else "%d:%02d".format(java.util.Locale.ROOT, m, s)
 }
 
 @Composable

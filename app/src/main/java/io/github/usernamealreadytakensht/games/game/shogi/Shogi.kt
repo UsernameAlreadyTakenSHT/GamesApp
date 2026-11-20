@@ -391,10 +391,10 @@ object Shogi {
             played.forEachIndexed { i, m ->
                 val before = positions[i]
                 val previousTo = played.getOrNull(i - 1)?.to
-                appendLine("%4d %s   ( 0:00/00:00:00)".format(i + 1, kifMove(before, m, previousTo)))
+                appendLine("%4d %s   ( 0:00/00:00:00)".format(java.util.Locale.ROOT, i + 1, kifMove(before, m, previousTo)))
             }
             if (ending != null) {
-                appendLine("%4d %s   ( 0:00/00:00:00)".format(played.size + 1, ending))
+                appendLine("%4d %s   ( 0:00/00:00:00)".format(java.util.Locale.ROOT, played.size + 1, ending))
                 if (winner != null) appendLine("まで${played.size}手で${winner}の勝ち")
                 else appendLine("まで${played.size}手で$ending")
             }

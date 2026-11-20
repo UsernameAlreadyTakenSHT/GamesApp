@@ -17,6 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,8 +26,14 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import io.github.usernamealreadytakensht.games.engine.NetAssets
+import io.github.usernamealreadytakensht.games.game.GameConfig
 import io.github.usernamealreadytakensht.games.game.GameRepository
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
+import io.github.usernamealreadytakensht.games.game.fox.FoxConfig
+import io.github.usernamealreadytakensht.games.game.morris.MorrisConfig
+import io.github.usernamealreadytakensht.games.game.shogi.ShogiConfig
+import io.github.usernamealreadytakensht.games.game.tafl.TaflConfig
 import io.github.usernamealreadytakensht.games.ui.ChessLaunch
 import io.github.usernamealreadytakensht.games.ui.draughts.DraughtsLaunch
 import io.github.usernamealreadytakensht.games.ui.draughts.CheckersScreen
@@ -54,6 +62,7 @@ import io.github.usernamealreadytakensht.games.ui.shogi.ShogiLaunch
 import io.github.usernamealreadytakensht.games.ui.shogi.ShogiOpponentSetupScreen
 import io.github.usernamealreadytakensht.games.ui.shogi.ShogiScreen
 import io.github.usernamealreadytakensht.games.ui.theme.GamesTheme
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,7 +101,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private sealed interface Screen {
+internal sealed interface Screen {
     data object Home : Screen
     data object GameSetup : Screen
     data object OpponentSetup : Screen
@@ -115,20 +124,99 @@ private sealed interface Screen {
     data object History : Screen
 }
 
+/**
+ * The screen as it is kept across a recreation of the activity (the process may have died
+ * meanwhile). A game screen is kept as "resume the saved game", never as its new-game launch:
+ * restoring that one would start the game again over the save.
+ */
+internal fun screenKey(screen: Screen): String = when (screen) {
+    is Screen.ChessGame -> "ChessGame"
+    is Screen.DraughtsGame -> "DraughtsGame:" + when (val l = screen.launch) {
+        is DraughtsLaunch.NewGame -> l.config.variant.name
+        is DraughtsLaunch.Resume -> l.variant.name
+    }
+    is Screen.MorrisGame -> "MorrisGame"
+    is Screen.TaflGame -> "TaflGame"
+    is Screen.FoxGame -> "FoxGame"
+    is Screen.ShogiGame -> "ShogiGame"
+    Screen.Home -> "Home"
+    Screen.GameSetup -> "GameSetup"
+    Screen.OpponentSetup -> "OpponentSetup"
+    Screen.DraughtsSetup -> "DraughtsSetup"
+    Screen.DraughtsOpponentSetup -> "DraughtsOpponentSetup"
+    Screen.MorrisSetup -> "MorrisSetup"
+    Screen.MorrisOpponentSetup -> "MorrisOpponentSetup"
+    Screen.TaflSetup -> "TaflSetup"
+    Screen.TaflOpponentSetup -> "TaflOpponentSetup"
+    Screen.FoxSetup -> "FoxSetup"
+    Screen.FoxOpponentSetup -> "FoxOpponentSetup"
+    Screen.ShogiSetup -> "ShogiSetup"
+    Screen.ShogiOpponentSetup -> "ShogiOpponentSetup"
+    Screen.History -> "History"
+}
+
+/** The screen for a [screenKey]; the home screen for a key this version does not know. */
+internal fun screenOf(key: String): Screen = when (key.substringBefore(':')) {
+    "GameSetup" -> Screen.GameSetup
+    "OpponentSetup" -> Screen.OpponentSetup
+    "ChessGame" -> Screen.ChessGame(ChessLaunch.Resume)
+    "DraughtsSetup" -> Screen.DraughtsSetup
+    "DraughtsOpponentSetup" -> Screen.DraughtsOpponentSetup
+    "DraughtsGame" -> Screen.DraughtsGame(
+        DraughtsLaunch.Resume(
+            runCatching { DraughtsVariant.valueOf(key.substringAfter(':')) }.getOrDefault(DraughtsVariant.INTERNATIONAL),
+        ),
+    )
+    "MorrisSetup" -> Screen.MorrisSetup
+    "MorrisOpponentSetup" -> Screen.MorrisOpponentSetup
+    "MorrisGame" -> Screen.MorrisGame(MorrisLaunch.Resume)
+    "TaflSetup" -> Screen.TaflSetup
+    "TaflOpponentSetup" -> Screen.TaflOpponentSetup
+    "TaflGame" -> Screen.TaflGame(TaflLaunch.Resume)
+    "FoxSetup" -> Screen.FoxSetup
+    "FoxOpponentSetup" -> Screen.FoxOpponentSetup
+    "FoxGame" -> Screen.FoxGame(FoxLaunch.Resume)
+    "ShogiSetup" -> Screen.ShogiSetup
+    "ShogiOpponentSetup" -> Screen.ShogiOpponentSetup
+    "ShogiGame" -> Screen.ShogiGame(ShogiLaunch.Resume)
+    "History" -> Screen.History
+    else -> Screen.Home
+}
+
+private val ScreenSaver = Saver<Screen, String>(save = { screenKey(it) }, restore = { screenOf(it) })
+
+/** Keeps the settings being edited on the setup screens, in the JSON form they are stored in. */
+private fun <T : Any> jsonSaver(toJson: (T) -> JSONObject, fromJson: (JSONObject) -> T) =
+    Saver<T, String>(save = { toJson(it).toString() }, restore = { fromJson(JSONObject(it)) })
+
 /** Minimal navigation: home → game setup → opponent setup → game. */
 @Composable
 private fun App() {
     val context = LocalContext.current
     val repo = remember { GameRepository(context) }
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
-    var gameCounter by remember { mutableIntStateOf(0) }
+    // Saved with the activity's state: the screen and the settings being edited come back
+    // after the system recreated the activity or killed the process in the background.
+    var screen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Home) }
+    var gameCounter by rememberSaveable { mutableIntStateOf(0) }
     // Settings being edited across the two setup screens; seeded from the last game played.
-    var draft by remember { mutableStateOf(repo.loadLastConfig()) }
-    var draughtsDraft by remember { mutableStateOf(repo.loadLastDraughtsConfig()) }
-    var morrisDraft by remember { mutableStateOf(repo.loadLastMorrisConfig()) }
-    var taflDraft by remember { mutableStateOf(repo.loadLastTaflConfig()) }
-    var foxDraft by remember { mutableStateOf(repo.loadLastFoxConfig()) }
-    var shogiDraft by remember { mutableStateOf(repo.loadLastShogiConfig()) }
+    var draft by rememberSaveable(stateSaver = jsonSaver(GameConfig::toJson, GameConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastConfig())
+    }
+    var draughtsDraft by rememberSaveable(stateSaver = jsonSaver(DraughtsConfig::toJson, DraughtsConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastDraughtsConfig())
+    }
+    var morrisDraft by rememberSaveable(stateSaver = jsonSaver(MorrisConfig::toJson, MorrisConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastMorrisConfig())
+    }
+    var taflDraft by rememberSaveable(stateSaver = jsonSaver(TaflConfig::toJson, TaflConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastTaflConfig())
+    }
+    var foxDraft by rememberSaveable(stateSaver = jsonSaver(FoxConfig::toJson, FoxConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastFoxConfig())
+    }
+    var shogiDraft by rememberSaveable(stateSaver = jsonSaver(ShogiConfig::toJson, ShogiConfig.Companion::fromJson)) {
+        mutableStateOf(repo.loadLastShogiConfig())
+    }
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
@@ -137,7 +225,11 @@ private fun App() {
             onChess = { draft = repo.loadLastConfig(); screen = Screen.GameSetup },
             onResumeChess = { screen = Screen.ChessGame(ChessLaunch.Resume) },
             onDraughts = { draughtsDraft = repo.loadLastDraughtsConfig(); screen = Screen.DraughtsSetup },
-            onResumeDraughts = { screen = Screen.DraughtsGame(DraughtsLaunch.Resume) },
+            // The rules of the game to resume are fixed here, at the tap: the latest save.
+            onResumeDraughts = {
+                val variant = repo.loadLatestDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
+                screen = Screen.DraughtsGame(DraughtsLaunch.Resume(variant))
+            },
             savedMorris = repo.loadMorrisGame(),
             onMorris = { morrisDraft = repo.loadLastMorrisConfig(); screen = Screen.MorrisSetup },
             onResumeMorris = { screen = Screen.MorrisGame(MorrisLaunch.Resume) },
@@ -229,10 +321,10 @@ private fun App() {
 
         is Screen.DraughtsGame -> {
             BackHandler { screen = Screen.Home }
-            // A new game carries its rules; a resumed one takes them from the save.
+            // A new game carries its rules; a resumed one those of the save picked on the home screen.
             val variant = when (val l = s.launch) {
                 is DraughtsLaunch.NewGame -> l.config.variant
-                DraughtsLaunch.Resume -> repo.loadLatestDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
+                is DraughtsLaunch.Resume -> l.variant
             }
             if (variant == DraughtsVariant.ENGLISH) {
                 CheckersScreen(

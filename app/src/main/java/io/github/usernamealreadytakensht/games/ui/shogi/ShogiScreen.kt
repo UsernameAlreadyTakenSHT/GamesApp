@@ -2,6 +2,8 @@ package io.github.usernamealreadytakensht.games.ui.shogi
 
 import io.github.usernamealreadytakensht.games.game.shogi.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.GameScreenLayout
+import io.github.usernamealreadytakensht.games.ui.gameBoard
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.background
@@ -43,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -108,9 +111,10 @@ fun ShogiScreen(
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            spacing = 6.dp,
+            squareBoard = false,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,10 +137,13 @@ fun ShogiScreen(
                 active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                // Nine cells plus a coordinate margin on the right.
-                val cell = (maxWidth - 16.dp) / 9
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            BoxWithConstraints(modifier = Modifier.gameBoard()) {
+                // Nine cells plus a coordinate margin on the right. In height: eleven cells (the
+                // board and the two hands), the file numbers, and the hands' padding and gaps.
+                // The smaller of the two cells fits both ways.
+                val fileNumbers = with(LocalDensity.current) { MaterialTheme.typography.labelSmall.lineHeight.toDp() }
+                val cell = minOf((maxWidth - 16.dp) / 9, (maxHeight - fileNumbers - 30.dp) / 11).coerceAtLeast(1.dp)
+                Column(modifier = Modifier.width(cell * 9 + 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Hand(state, state.engineSide, cell, onTap = if (state.config.twoPlayers) vm::onHandTapped else { _ -> })
                     Board(state, cell, onTap = vm::onSquareTapped)
                     Hand(state, state.playerSide, cell, onTap = vm::onHandTapped)
@@ -409,7 +416,7 @@ private fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
-    return if (ms < 10_000) "%d:%02d.%d".format(m, s, (ms % 1000) / 100) else "%d:%02d".format(m, s)
+    return if (ms < 10_000) "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, (ms % 1000) / 100) else "%d:%02d".format(java.util.Locale.ROOT, m, s)
 }
 
 @Composable

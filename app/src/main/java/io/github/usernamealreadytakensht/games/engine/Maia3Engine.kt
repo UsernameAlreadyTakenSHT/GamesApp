@@ -9,6 +9,7 @@ import com.github.bhlangonijr.chesslib.Piece
 import io.github.usernamealreadytakensht.games.game.EngineKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 import kotlin.math.exp
@@ -33,7 +34,13 @@ class Maia3Engine(private val context: Context, override val kind: EngineKind) :
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (session != null) return@withContext
         val file = NetAssets.ensure(context, kind.weights ?: error("${kind.label} has no model file"))
-        val e = OrtEnvironment.getEnvironment()
+        val e = try {
+            OrtEnvironment.getEnvironment()
+        } catch (err: LinkageError) {
+            // The native library failing to load is an Error, which the game screens do not
+            // catch: report it like any other engine failure instead of crashing the app.
+            throw IOException("ONNX Runtime could not be loaded", err)
+        }
         e.setTelemetry(false) // the app is offline (the manifest also drops the network permissions)
         val opts = OrtSession.SessionOptions().apply {
             setIntraOpNumThreads((Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4))

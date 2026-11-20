@@ -2,6 +2,9 @@ package io.github.usernamealreadytakensht.games.ui.morris
 
 import io.github.usernamealreadytakensht.games.game.morris.colorName
 import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.GameScreenLayout
+import io.github.usernamealreadytakensht.games.ui.gameBoard
+import io.github.usernamealreadytakensht.games.ui.gameMoves
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Canvas
@@ -107,9 +110,8 @@ fun MorrisScreen(
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -132,7 +134,7 @@ fun MorrisScreen(
                 active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
-            Board(state, onTap = vm::onPointTapped)
+            Box(Modifier.gameBoard()) { Board(state, onTap = vm::onPointTapped) }
 
             ClockRow(
                 state.sideLabel(state.playerSide), state.inHand(state.playerSide), state.playerSide,
@@ -161,7 +163,7 @@ fun MorrisScreen(
                 }
             }
 
-            MoveList(state.moves, modifier = Modifier.weight(1f))
+            MoveList(state.moves, modifier = Modifier.gameMoves())
         }
     }
 
@@ -297,7 +299,7 @@ private fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
-    return if (ms < 10_000) "%d:%02d.%d".format(m, s, (ms % 1000) / 100) else "%d:%02d".format(m, s)
+    return if (ms < 10_000) "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, (ms % 1000) / 100) else "%d:%02d".format(java.util.Locale.ROOT, m, s)
 }
 
 @Composable

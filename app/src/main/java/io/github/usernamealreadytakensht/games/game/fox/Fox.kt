@@ -27,7 +27,6 @@ object Fox {
 
     class Position(val variant: FoxVariant, val board: IntArray, val toMove: Side) {
         operator fun get(p: Int) = board[p]
-        val board2 get() = board
 
         fun foxes(): List<Int> = board.indices.filter { board[it] == FOX }
         fun hunters(): Int = board.count { it == HUNTER }

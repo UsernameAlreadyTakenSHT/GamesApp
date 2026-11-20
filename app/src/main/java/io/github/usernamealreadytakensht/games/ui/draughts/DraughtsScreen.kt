@@ -2,6 +2,9 @@ package io.github.usernamealreadytakensht.games.ui.draughts
 
 import io.github.usernamealreadytakensht.games.game.draughts.colorName
 import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.GameScreenLayout
+import io.github.usernamealreadytakensht.games.ui.gameBoard
+import io.github.usernamealreadytakensht.games.ui.gameMoves
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Image
@@ -56,6 +59,7 @@ import io.github.usernamealreadytakensht.games.game.draughts.Draughts
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsConfig
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsResult
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsState
+import io.github.usernamealreadytakensht.games.game.draughts.DraughtsVariant
 import io.github.usernamealreadytakensht.games.game.draughts.DraughtsViewModel
 
 private val LightSquare = Color(0xFFEAD9C0)
@@ -64,10 +68,10 @@ private val SelectedTint = Color(0x8020A0FF)
 private val LastMoveTint = Color(0x60F5D742)
 private val PathTint = Color(0x8060C060)
 
-/** How the game screen is entered: a fresh game with [config], or the saved one. */
+/** How the game screen is entered: a fresh game with [config], or the saved one of [Resume.variant]. */
 sealed interface DraughtsLaunch {
     data class NewGame(val config: DraughtsConfig, val id: Int) : DraughtsLaunch
-    data object Resume : DraughtsLaunch
+    data class Resume(val variant: DraughtsVariant) : DraughtsLaunch
 }
 
 @Composable
@@ -83,7 +87,7 @@ fun DraughtsScreen(
     LaunchedEffect(launch) {
         when (launch) {
             is DraughtsLaunch.NewGame -> vm.startGame(launch.config)
-            DraughtsLaunch.Resume -> if (!vm.resumeGame()) onBack()
+            is DraughtsLaunch.Resume -> if (!vm.resumeGame()) onBack()
         }
     }
 
@@ -101,9 +105,8 @@ fun DraughtsScreen(
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -123,7 +126,7 @@ fun DraughtsScreen(
             ClockRow(state.sideLabel(state.topSide), state.clockMs(state.topSide), state.config.timeControl.startingMs,
                 active = state.runningClock == state.topSide, lost = state.lost(state.topSide))
 
-            Board(state, onTap = vm::onSquareTapped)
+            Box(Modifier.gameBoard()) { Board(state, onTap = vm::onSquareTapped) }
 
             ClockRow(state.sideLabel(state.bottomSide), state.clockMs(state.bottomSide), state.config.timeControl.startingMs,
                 active = state.runningClock == state.bottomSide, lost = state.lost(state.bottomSide))
@@ -149,7 +152,7 @@ fun DraughtsScreen(
                 }
             }
 
-            MoveList(state.moves, modifier = Modifier.weight(1f))
+            MoveList(state.moves, modifier = Modifier.gameMoves())
         }
     }
 
@@ -237,7 +240,7 @@ private fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
-    return if (ms < 10_000) "%d:%02d.%d".format(m, s, (ms % 1000) / 100) else "%d:%02d".format(m, s)
+    return if (ms < 10_000) "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, (ms % 1000) / 100) else "%d:%02d".format(java.util.Locale.ROOT, m, s)
 }
 
 @Composable

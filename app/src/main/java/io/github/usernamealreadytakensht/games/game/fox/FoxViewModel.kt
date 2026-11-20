@@ -1,7 +1,5 @@
 package io.github.usernamealreadytakensht.games.game.fox
 
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import io.github.usernamealreadytakensht.games.game.record.ExportedGame
 import io.github.usernamealreadytakensht.games.game.record.Exports
@@ -353,8 +351,20 @@ class FoxViewModel(app: Application) : AndroidViewModel(app) {
         if (!hasClock()) return
         val tc = _state.value.config.timeControl
         val now = SystemClock.elapsedRealtime()
-        if (_state.value.runningClock == mover) {
-            var left = (if (mover == Side.FOX) foxBaseMs else huntersBaseMs) - (now - turnStartedAt)
+        val running = _state.value.runningClock == mover
+        // The engine's move arriving while the clock is paused (app in the background): its
+        // time was charged at the pause, but the increment is still due.
+        if (running || (clockPaused && played.size > 1)) {
+            val spent = if (running) now - turnStartedAt else 0L
+            var left = (if (mover == Side.FOX) foxBaseMs else huntersBaseMs) - spent
+            // Out of time before the 100 ms tick noticed: the flag fell, the increment (or the
+            // per-move reset) does not save it.
+            if (left <= 0L) {
+                flagged = mover
+                if (mover == Side.FOX) foxBaseMs = 0 else huntersBaseMs = 0
+                stopClock()
+                return
+            }
             left = when (tc) {
                 is TimeControl.Fischer -> left + tc.incrementMs
                 is TimeControl.PerMove -> tc.perMoveMs

@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
    Backup and device transfer (Android 12+): only the saved games and settings
-   (SharedPreferences). Engine networks and data extracted to files/ are rebuilt from the
-   APK on demand and would blow the backup quota (hundreds of MB).
+   (SharedPreferences) and the history of finished games (files/history.json). Engine
+   networks and data extracted to files/ are rebuilt from the APK on demand and would blow
+   the backup quota (hundreds of MB).
 -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="." />
+        <include domain="file" path="history.json" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="." />
+        <include domain="file" path="history.json" />
     </device-transfer>
 </data-extraction-rules>

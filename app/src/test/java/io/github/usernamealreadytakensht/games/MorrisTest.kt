@@ -1,9 +1,11 @@
 package io.github.usernamealreadytakensht.games
 
+import io.github.usernamealreadytakensht.games.engine.morris.SanmillEngine
 import io.github.usernamealreadytakensht.games.game.morris.Morris
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Color
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Move
 import io.github.usernamealreadytakensht.games.game.morris.Morris.Position
+import io.github.usernamealreadytakensht.games.game.morris.MorrisEngineKind
 import io.github.usernamealreadytakensht.games.game.morris.MorrisVariant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -155,5 +157,29 @@ class MorrisTest {
         for (m in listOf("d7", "a1-d1", "g7xa1", "a1-d1xg7")) assertEquals(m, Move.parse(m)!!.toNotation())
         assertEquals(null, Move.parse("d4"))
         assertEquals(null, Move.parse("zz"))
+    }
+
+    @Test
+    fun everySanmillSearchSetsItsSkillLevel() {
+        // A Hint (no depth) raises SkillLevel to 30; the next depth-limited search must not inherit it.
+        for (kind in listOf(MorrisEngineKind.SANMILL_MTDF, MorrisEngineKind.SANMILL_ALPHABETA)) {
+            assertEquals(
+                listOf("setoption name SkillLevel value 30", "go movetime 1500"),
+                SanmillEngine.searchCommands(kind, null, 1500),
+            )
+            assertEquals(
+                listOf("setoption name SkillLevel value 1", "go depth 5 movetime 6000"),
+                SanmillEngine.searchCommands(kind, 5, 6000),
+            )
+        }
+        // MCTS is sized by SkillLevel itself.
+        assertEquals(
+            listOf("setoption name SkillLevel value 5", "go movetime 6000"),
+            SanmillEngine.searchCommands(MorrisEngineKind.SANMILL_MCTS, 5, 6000),
+        )
+        assertEquals(
+            listOf("setoption name SkillLevel value 30", "go movetime 1500"),
+            SanmillEngine.searchCommands(MorrisEngineKind.SANMILL_MCTS, null, 1500),
+        )
     }
 }

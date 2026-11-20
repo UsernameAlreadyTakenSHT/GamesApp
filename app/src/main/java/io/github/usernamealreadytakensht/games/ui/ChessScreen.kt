@@ -108,12 +108,11 @@ fun ChessScreen(
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
                 .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -138,7 +137,7 @@ fun ChessScreen(
                 lost = state.lost(state.topSide),
             )
 
-            Board(state, onTap = vm::onSquareTapped)
+            Box(Modifier.gameBoard()) { Board(state, onTap = vm::onSquareTapped) }
 
             ClockRow(
                 name = state.sideLabel(state.bottomSide),
@@ -174,7 +173,7 @@ fun ChessScreen(
                 }
             }
 
-            MoveList(state.sanMoves, modifier = Modifier.weight(1f))
+            MoveList(state.sanMoves, modifier = Modifier.gameMoves())
         }
     }
 
@@ -262,9 +261,9 @@ private fun formatClock(ms: Long): String {
     val s = totalSec % 60
     return if (ms < 10_000) {
         val tenths = (ms % 1000) / 100
-        "%d:%02d.%d".format(m, s, tenths)
+        "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, tenths)
     } else {
-        "%d:%02d".format(m, s)
+        "%d:%02d".format(java.util.Locale.ROOT, m, s)
     }
 }
 

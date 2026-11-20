@@ -96,6 +96,21 @@ class ShogiTest {
     }
 
     @Test
+    fun kifMoveNumbersAreAsciiWhateverThePhoneLanguage() {
+        val before = java.util.Locale.getDefault()
+        java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-SA-u-nu-arab"))
+        try {
+            val g = Shogi.Game()
+            g.play(g.parseUci("c3c4")!!)
+            val kif = g.kif("You", "Engine", 0L, "投了", "後手")
+            assertTrue(kif.lines().any { it.startsWith("   1 ") })
+            assertTrue(kif.lines().any { it.startsWith("   2 投了") })
+        } finally {
+            java.util.Locale.setDefault(before)
+        }
+    }
+
+    @Test
     fun fourfoldRepetitionIsADraw() {
         val g = Shogi.Game()
         repeat(3) {

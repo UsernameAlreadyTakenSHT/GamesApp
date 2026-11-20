@@ -2,6 +2,9 @@ package io.github.usernamealreadytakensht.games.ui.fox
 
 import io.github.usernamealreadytakensht.games.game.fox.sideName
 import io.github.usernamealreadytakensht.games.ui.HintTint
+import io.github.usernamealreadytakensht.games.ui.GameScreenLayout
+import io.github.usernamealreadytakensht.games.ui.gameBoard
+import io.github.usernamealreadytakensht.games.ui.gameMoves
 import io.github.usernamealreadytakensht.games.ui.HintButton
 import io.github.usernamealreadytakensht.games.ui.ShareGameButton
 import androidx.compose.foundation.Canvas
@@ -9,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,9 +114,8 @@ fun FoxScreen(
 
     val v = state.variant
     Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
+        GameScreenLayout(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -135,7 +138,7 @@ fun FoxScreen(
                 active = state.runningClock == state.engineSide, lost = state.lost(state.engineSide),
             )
 
-            if (state.points.isNotEmpty()) {
+            if (state.points.isNotEmpty()) Box(Modifier.gameBoard()) {
                 if (v == FoxVariant.HOUNDS) Checkerboard(state, onTap = vm::onPointTapped)
                 else CrossBoard(state, onTap = vm::onPointTapped)
             }
@@ -164,7 +167,7 @@ fun FoxScreen(
                 }
             }
 
-            MoveList(state.moves, modifier = Modifier.weight(1f))
+            MoveList(state.moves, modifier = Modifier.gameMoves())
         }
     }
 
@@ -331,7 +334,7 @@ private fun formatClock(ms: Long): String {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
-    return if (ms < 10_000) "%d:%02d.%d".format(m, s, (ms % 1000) / 100) else "%d:%02d".format(m, s)
+    return if (ms < 10_000) "%d:%02d.%d".format(java.util.Locale.ROOT, m, s, (ms % 1000) / 100) else "%d:%02d".format(java.util.Locale.ROOT, m, s)
 }
 
 @Composable
