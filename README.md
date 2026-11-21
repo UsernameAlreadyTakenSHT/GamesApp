@@ -129,7 +129,7 @@ engine's tactics.
 ## Building
 
 The Android project builds with Android Studio as usual, **but the engine binaries and
-networks are not committed** (they weigh ~375 MB per ABI). Generate them once with the
+networks are not committed** (they weigh ~475 MB per ABI). Generate them once with the
 scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 
 ```
