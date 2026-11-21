@@ -2,7 +2,11 @@
 
 ## Unreleased
 
+<<<<<<< HEAD
 - **Chess**: new opponent, **Gaia** 4.4 (Rust). Twenty levels, from about 580 Elo to grandmaster and then full strength: the low levels play like a beginner (they overlook moves and leave pieces hanging) instead of only searching less far.
+=======
+- **Chess**: new opponent **ShashChess 42.3**, a Stockfish derivative built on Alexander Shashin's theory. Four variants: one that picks its approach from the position, and the **Tal** (attack), **Capablanca** (strategic) and **Petrosian** (defence) styles. Elo 1320–3190 or full strength.
+>>>>>>> worktree-agent-ae7c2a57b285b75bb
 
 ## 0.5.8 — 2026-11-20
 

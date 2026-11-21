@@ -17,6 +17,7 @@ local.properties
 # Stockfish: cloned sources + compiled binaries (see stockfish/build.sh)
 /stockfish/src/
 /stockfish/src11/
+/shashchess/src/
 /app/src/main/jniLibs/
 
 # Lc0: cloned sources, Meson tarball and downloaded networks (see lc0/build.sh)
