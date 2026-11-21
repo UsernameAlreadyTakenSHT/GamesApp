@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-11-21
+
+Four new chess opponents. The download grows by about 200 MB (Gaia and ShashChess each carry a large network).
 
 - **Chess**: two new opponents, **c4ke** 3.0 and **ice4** 6.1: complete engines written to fit in 4 KB, with a hand-written evaluation instead of a neural network, and still far stronger than any human. Strength by search depth, as for Reckless or Berserk.
 - **Chess**: new opponent, **Gaia** 4.4 (Rust). Twenty levels, from about 580 Elo to grandmaster and then full strength: the low levels play like a beginner (they overlook moves and leave pieces hanging) instead of only searching less far.
