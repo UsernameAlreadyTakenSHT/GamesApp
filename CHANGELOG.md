@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Chess**: new opponent **ShashChess 42.3**, a Stockfish derivative built on Alexander Shashin's theory. Four variants: one that picks its approach from the position, and the **Tal** (attack), **Capablanca** (strategic) and **Petrosian** (defence) styles. Elo 1320–3190 or full strength.
+
 ## 0.5.8 — 2026-11-20
 
 Fixes from a full review of the code; no new feature.

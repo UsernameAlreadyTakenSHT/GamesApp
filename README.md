@@ -27,6 +27,7 @@ depends on how the engine can be limited.
 | | Engine | Versions / networks | Strength setting | Range |
 |--|--------|--------------------|------------------|-------|
 | <img src="app/src/main/res/drawable-nodpi/logo_stockfish.png" width="32" alt=""> | **Stockfish** | 19 (NNUE), 11 (last classical evaluation) | `UCI_Elo` | 1320–3190 (SF 19), 1350–2850 (SF 11), or Max |
+| <img src="app/src/main/res/drawable-nodpi/logo_shashchess.png" width="32" alt=""> | **ShashChess** 42.3 | Styles: ShashChess (picks its approach from the position), Tal, Capablanca, Petrosian | `UCI_Elo` | 1320–3190, or Max; a Stockfish derivative built on Shashin's theory, same network as Stockfish 19 |
 | <img src="app/src/main/res/drawable-nodpi/logo_lc0.png" width="32" alt=""> | **Leela Chess Zero** 0.32.1 | Bad Gyal 8 (128x10), T1 256x10 distilled | Search nodes per move | 1 → 1000 nodes, or time-based |
 | | | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
 | <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
@@ -130,6 +131,7 @@ scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 
 ```
 ./stockfish/build.sh      # Stockfish 19 + 11
+./shashchess/build.sh     # ShashChess (embeds the same network as Stockfish 19)
 ./lc0/build.sh            # Lc0 + Bad Gyal, T1 and Maia networks
 ./reckless/build.sh       # needs rustup (installed by the script's instructions)
 ./plentychess/build.sh    # needs a running x86_64 emulator (network pre-processing)
@@ -156,6 +158,7 @@ The build produces one APK per ABI (`app-x86_64-debug.apk` for the emulator,
 See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
 
 - Engines: [Stockfish](https://github.com/official-stockfish/Stockfish),
+  [ShashChess](https://github.com/amchess/ShashChess),
   [Leela Chess Zero](https://github.com/LeelaChessZero/lc0),
   [PlentyChess](https://github.com/Yoshie2000/PlentyChess),
   [Berserk](https://github.com/jhonnold/berserk),
@@ -177,7 +180,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Aligning Superhuman AI with Human Behavior](https://arxiv.org/abs/2006.01855) (KDD 2020) and
   [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).
 - Logos: Stockfish icon by Klein Maetschke, Lc0 logo from lczero.org, Maia icon from the
-  Maia platform, Reckless, Sunfish, Rodent V and Sanmill logos from their repositories. PlentyChess has
+  Maia platform, Reckless, Sunfish, Rodent V, ShashChess and Sanmill logos from their repositories. PlentyChess has
   no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
   get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do
   Fairy-Stockfish (sparkles, no logo upstream) and the draughts engines Scan (radar sweep) and Moby Dam (sperm whale).

@@ -6,6 +6,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Component | Source | License |
 |-----------|--------|---------|
 | Stockfish 19 and 11 | https://github.com/official-stockfish/Stockfish | GPL-3.0 |
+| ShashChess 42.3 (+ Stockfish NNUE network nn-1a298aa575a0, the one Stockfish 19 embeds) | https://github.com/amchess/ShashChess | GPL-3.0 |
 | Leela Chess Zero (lc0) v0.32.1 | https://github.com/LeelaChessZero/lc0 | GPL-3.0 |
 | Bad Gyal 8 network | https://github.com/dkappe/leela-chess-weights | as published by the author |
 | T1 256x10 distilled network | https://lczero.org (networks-contrib) | GPL-3.0 (Lc0 project) |
@@ -35,6 +36,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Maia icon | https://github.com/CSSLab/maia-platform-frontend (`public/maia-ios-icon.png`) | GPL-3.0 (part of the repository) |
 | Sunfish logo | https://github.com/thomasahle/sunfish (`docs/logo/`) | GPL-3.0 (part of the repository) |
 | Rodent V logo | https://github.com/nescitus/Rodent-V (`logo.png`) | GPL-3.0 (part of the repository) |
+| ShashChess logo | https://github.com/amchess/ShashChess (`logo/ShashChess.bmp`) | GPL-3.0 (part of the repository) |
 
 ## Papers to cite
 
@@ -57,6 +59,7 @@ checked against SHA-256 sums in `lc0/build.sh` and `fairy/build.sh`.
 | Engine | Revision |
 |--------|----------|
 | Stockfish 19 / 11 | tags `sf_19` / `sf_11` |
+| ShashChess | tag `42.3` (`076bcfc1ffc6267601fdf933e78e34782a29eefb`) |
 | Leela Chess Zero | tag `v0.32.1` |
 | Reckless | tag `v0.9.0` |
 | PlentyChess | tag `b-v8.0.0` |

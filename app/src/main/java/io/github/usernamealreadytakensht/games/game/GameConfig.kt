@@ -10,6 +10,7 @@ import org.json.JSONObject
 /** Display order: the engines you can dial to your level first, then the depth-only ones. */
 enum class EngineFamily(val label: String, val tagline: String, val monogram: String, val hue: Float) {
     STOCKFISH("Stockfish", "The reference. Adjustable Elo.", "SF", 210f),
+    SHASHCHESS("ShashChess", "Stockfish in Tal, Capablanca or Petrosian style.", "Sh", 250f),
     LC0("Leela Chess Zero", "Neural networks, positional style.", "Lc0", 150f),
     MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
     RODENT("Rodent", "Seven personalities.", "Ro", 100f),
@@ -57,6 +58,8 @@ enum class EngineKind(
     val dataDir: String? = null,
     /** Rodent personality file, relative to [dataDir]. */
     val personality: String? = null,
+    /** ShashChess style: the boolean UCI options switched on at start (none = it adapts to the position). */
+    val styleOptions: List<String> = emptyList(),
 ) {
     STOCKFISH_19(
         EngineFamily.STOCKFISH, "Stockfish 19", "libstockfish.so", StrengthKind.ELO,
@@ -66,6 +69,28 @@ enum class EngineKind(
         EngineFamily.STOCKFISH, "Stockfish 11", "libstockfish11.so", StrengthKind.ELO,
         "Last classical release (hand-crafted evaluation): sharper, more materialistic style.",
         eloMin = 1350, eloMax = 2850,
+    ),
+    SHASHCHESS_42(
+        EngineFamily.SHASHCHESS, "ShashChess 42.3", "libshashchess.so", StrengthKind.ELO,
+        "Stockfish derivative built on Shashin's theory: picks the Tal, Capablanca or Petrosian " +
+            "approach by itself, from the type of position.",
+        eloMin = 1320, eloMax = 3190,
+    ),
+    SHASHCHESS_TAL(
+        EngineFamily.SHASHCHESS, "Tal", "libshashchess.so", StrengthKind.ELO,
+        "Starts from the Tal reading of the position: attack.",
+        eloMin = 1320, eloMax = 3190, styleOptions = listOf("High Tal", "Middle Tal", "Low Tal"),
+    ),
+    SHASHCHESS_CAPABLANCA(
+        EngineFamily.SHASHCHESS, "Capablanca", "libshashchess.so", StrengthKind.ELO,
+        "Starts from the Capablanca reading of the position: strategic, quiet play.",
+        eloMin = 1320, eloMax = 3190, styleOptions = listOf("Capablanca"),
+    ),
+    SHASHCHESS_PETROSIAN(
+        EngineFamily.SHASHCHESS, "Petrosian", "libshashchess.so", StrengthKind.ELO,
+        "Starts from the Petrosian reading of the position: defence.",
+        eloMin = 1320, eloMax = 3190,
+        styleOptions = listOf("High Petrosian", "Middle Petrosian", "Low Petrosian"),
     ),
     LC0_BADGYAL(
         EngineFamily.LC0, "Bad Gyal 8", "liblc0.so", StrengthKind.NODES,

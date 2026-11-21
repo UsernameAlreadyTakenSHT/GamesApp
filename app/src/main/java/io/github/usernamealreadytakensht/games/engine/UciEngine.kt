@@ -82,6 +82,7 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
                 send("setoption name PersonalityFile value $it")
                 send("setoption name OwnBook value true") // personalities come with their own book
             }
+            kind.styleOptions.forEach { send("setoption name $it value true") }
             send("ucinewgame")
             send("isready")
             readUntil("readyok")

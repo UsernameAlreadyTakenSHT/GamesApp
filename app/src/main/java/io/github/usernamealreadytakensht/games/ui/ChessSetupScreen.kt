@@ -94,6 +94,7 @@ fun GameSetupScreen(
 private val EngineFamily.logoRes: Int?
     get() = when (this) {
         EngineFamily.STOCKFISH -> R.drawable.logo_stockfish
+        EngineFamily.SHASHCHESS -> R.drawable.logo_shashchess
         EngineFamily.LC0 -> R.drawable.logo_lc0
         EngineFamily.RECKLESS -> R.drawable.logo_reckless
         EngineFamily.SUNFISH -> R.drawable.logo_sunfish
