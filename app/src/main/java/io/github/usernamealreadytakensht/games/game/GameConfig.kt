@@ -10,7 +10,7 @@ import org.json.JSONObject
 /** Display order: the engines you can dial to your level first, then the depth-only ones. */
 enum class EngineFamily(val label: String, val tagline: String, val monogram: String, val hue: Float) {
     STOCKFISH("Stockfish", "The reference. Adjustable Elo.", "SF", 210f),
-    SHASHCHESS("ShashChess", "Stockfish in Tal, Capablanca or Petrosian style.", "Sh", 250f),
+    SHASHCHESS("ShashChess", "Stockfish with three styles.", "Sh", 250f),
     LC0("Leela Chess Zero", "Neural networks, positional style.", "Lc0", 150f),
     MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
     RODENT("Rodent", "Seven personalities.", "Ro", 100f),
@@ -18,6 +18,8 @@ enum class EngineFamily(val label: String, val tagline: String, val monogram: St
     RECKLESS("Reckless", "Top-tier engine in Rust.", "Rk", 30f),
     PLENTY("PlentyChess", "Top-tier engine in C++.", "Pc", 280f),
     BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
+    C4KE("c4ke", "A master in 4 KB.", "c4", 340f),
+    ICE4("ice4", "A master in 4 KB.", "i4", 200f),
     SUNFISH("Sunfish", "Tiny and beatable.", "Sf", 50f),
     FAIRY("Fairy-Stockfish", "Stockfish for chess variants. Adjustable Elo.", "FS", 190f),
     ;
@@ -121,6 +123,16 @@ enum class EngineKind(
     BERSERK_14(
         EngineFamily.BERSERK, "Berserk 14", "libberserk.so", StrengthKind.DEPTH,
         "Top-tier C engine (~3500 Elo). Strength is set by the search depth per move.",
+    ),
+    C4KE_3(
+        EngineFamily.C4KE, "c4ke 3.0", "libc4ke.so", StrengthKind.DEPTH,
+        "A complete engine whose compressed source fits in 4 KiB, hand-written evaluation and all, " +
+            "and still far beyond any human (~3150 Elo). Strength is set by the search depth per move.",
+    ),
+    ICE4_6(
+        EngineFamily.ICE4, "ice4 6.1", "libice4.so", StrengthKind.DEPTH,
+        "The engine that fits in 4096 bytes, hand-written evaluation and all, and still far beyond " +
+            "any human (~3000 Elo). Strength is set by the search depth per move.",
     ),
     SUNFISH_2026(
         EngineFamily.SUNFISH, "Sunfish 2026", "", StrengthKind.DEPTH,
@@ -245,6 +257,8 @@ enum class EngineKind(
             else -> "Strong club player"
         } else when {
             value == null -> "Full strength, unbeatable"
+            // The ~1600 floor is the neural evaluation's; the 4 KB engines have none.
+            value <= 2 && (family == EngineFamily.ICE4 || family == EngineFamily.C4KE) -> "Blind to 2-move tactics"
             value <= 2 -> "Solid but blind to 2-move tactics (~1600+)"
             value <= 5 -> "Strong club player"
             value <= 10 -> "Expert"

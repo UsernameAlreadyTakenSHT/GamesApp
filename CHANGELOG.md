@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Chess**: two new opponents, **c4ke** 3.0 and **ice4** 6.1: complete engines written to fit in 4 KB, with a hand-written evaluation instead of a neural network, and still far stronger than any human. Strength by search depth, as for Reckless or Berserk.
 - **Chess**: new opponent, **Gaia** 4.4 (Rust). Twenty levels, from about 580 Elo to grandmaster and then full strength: the low levels play like a beginner (they overlook moves and leave pieces hanging) instead of only searching less far.
 - **Chess**: new opponent, **ShashChess** 42.3, a Stockfish derivative built on Alexander Shashin's theory. Four variants: one that picks its approach from the position, and the **Tal** (attack), **Capablanca** (strategic) and **Petrosian** (defence) styles. Elo 1320–3190 or full strength.
 

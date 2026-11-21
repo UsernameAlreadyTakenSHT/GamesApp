@@ -30,6 +30,10 @@ local.properties
 /plentychess/src/
 /berserk/src/
 
+# ice4 / c4ke: cloned sources (see ice4/build.sh, c4ke/build.sh)
+/ice4/src/
+/c4ke/src/
+
 # Gaia: cloned sources and downloaded network (see gaia/build.sh)
 /gaia/src/
 /gaia/nets/

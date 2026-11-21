@@ -21,6 +21,8 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Fairy-Stockfish (master 2024-09-26, largeboards build; Chess960 and shogi opponent) | https://github.com/fairy-stockfish/Fairy-Stockfish | GPL-3.0 |
 | Stockfish NNUE network nn-46832cfbead3 (Fairy-Stockfish's Chess960 evaluation) | https://tests.stockfishchess.org/api/nn/nn-46832cfbead3.nnue | GPL-3.0 (Stockfish project) |
 | Fairy-Stockfish shogi NNUE network shogi-878ca61334a7 | https://fairy-stockfish.github.io/nnue/ | as published by the Fairy-Stockfish project |
+| ice4 6.1 (its plain source compiled as the `OPENBENCH` build, unmodified; not the 4096-byte artefact) | https://github.com/MinusKelvin/ice4 | GPL-3.0 |
+| c4ke 3.0 (its plain source compiled as upstream's `make c4ke`, unmodified; not the 4 KiB artefact) | https://github.com/citrus610/c4ke | MIT |
 | Sunfish 2026 (Kotlin port in app/.../engine/Sunfish.kt) | https://github.com/thomasahle/sunfish | GPL-3.0 |
 | Maia-3 5M model (exported to ONNX) | https://github.com/CSSLab/maia3 · https://huggingface.co/UofTCSSLab/Maia3-5M | AGPL-3.0 (repository; the Hugging Face model card states no license) |
 | ONNX Runtime (Android) | https://github.com/microsoft/onnxruntime | MIT |
@@ -35,6 +37,8 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Leela Chess Zero logo | https://github.com/LeelaChessZero/lczero.org (`static/images/logo.svg`) | no license stated in the website repository |
 | Reckless mascot | https://github.com/codedeliveryservice/Reckless (README image) | AGPL-3.0 (part of the project) |
 | Maia icon | https://github.com/CSSLab/maia-platform-frontend (`public/maia-ios-icon.png`) | GPL-3.0 (part of the repository) |
+| ice4 logo (set on a plain square) | https://github.com/MinusKelvin/ice4 (`logo.png`, by Analog) | GPL-3.0 (part of the repository) |
+| c4ke logo (set on a plain square) | https://github.com/citrus610/c4ke (`logo.png`) | MIT (part of the repository) |
 | Sunfish logo | https://github.com/thomasahle/sunfish (`docs/logo/`) | GPL-3.0 (part of the repository) |
 | Rodent V logo | https://github.com/nescitus/Rodent-V (`logo.png`) | GPL-3.0 (part of the repository) |
 | ShashChess logo | https://github.com/amchess/ShashChess (`logo/ShashChess.bmp`) | GPL-3.0 (part of the repository) |
@@ -66,6 +70,8 @@ checked against SHA-256 sums in `lc0/build.sh`, `fairy/build.sh` and `gaia/build
 | Gaia | tag `v4.4.4` (`85f8c96b5251241b03958710b9e5860334fdd44b`) |
 | PlentyChess | tag `b-v8.0.0` |
 | Berserk | tag `14` (`8ae895a6151695be4a50d4fb65b0c131659c513a`) |
+| ice4 | tag `v6.1` (`2bd7a54f9bb47a61a7cd97f3db9f52eadd4e2c19`) |
+| c4ke | tag `v3.0` (`22e318f59b3a9eed1d2b8161da832222d4a51033`) |
 | Rodent V | tag `Rodent_v_1.2` (`b53ffaf670590932957cb63b7b6d871f6f33b7d8`) |
 | Fairy-Stockfish | `9f778da667f6e07dae1e85d3e2ea204fc6dee94d` |
 | Scan (rhalbersma mirror) | `7aae17e7b7bfc47744601afb1ee7655e18983ce5` |

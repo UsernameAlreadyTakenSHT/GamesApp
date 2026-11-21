@@ -70,6 +70,7 @@ interface ChessEngine {
         fun create(context: Context, kind: EngineKind, strength: Int?): ChessEngine = when (kind.family) {
             EngineFamily.SUNFISH -> SunfishEngine(kind)
             EngineFamily.MAIA -> Maia3Engine(context, kind)
+            EngineFamily.ICE4, EngineFamily.C4KE -> TinyUciEngine(context, kind)
             else -> UciEngine(context, kind, strength)
         }
     }

@@ -100,6 +100,8 @@ private val EngineFamily.logoRes: Int?
         EngineFamily.SUNFISH -> R.drawable.logo_sunfish
         EngineFamily.MAIA -> R.drawable.logo_maia
         EngineFamily.RODENT -> R.drawable.logo_rodent
+        EngineFamily.ICE4 -> R.drawable.logo_ice4
+        EngineFamily.C4KE -> R.drawable.logo_c4ke
         else -> null
     }
 
