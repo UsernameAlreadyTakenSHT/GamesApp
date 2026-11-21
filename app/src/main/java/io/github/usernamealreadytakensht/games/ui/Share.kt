@@ -18,16 +18,21 @@ import java.io.File
  * analysis site) and as an attached file (.pgn, .pdn, .kif or .txt) served by FileProvider.
  */
 fun shareGame(context: Context, game: ExportedGame) {
-    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-    val file = File(dir, game.fileName).apply { writeText(game.text) }
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.exports", file)
+    // The attached file is a bonus: when it cannot be written (full disk), the text still goes out.
+    val uri = runCatching {
+        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = File(dir, game.fileName).apply { writeText(game.text) }
+        FileProvider.getUriForFile(context, "${context.packageName}.exports", file)
+    }.getOrNull()
     val send = Intent(Intent.ACTION_SEND).apply {
-        type = game.mimeType
+        type = if (uri != null) game.mimeType else "text/plain"
         putExtra(Intent.EXTRA_SUBJECT, game.fileName)
         putExtra(Intent.EXTRA_TEXT, game.text)
-        putExtra(Intent.EXTRA_STREAM, uri)
-        clipData = ClipData.newRawUri(game.fileName, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (uri != null) {
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri(game.fileName, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     }
     context.startActivity(Intent.createChooser(send, "Share game"))
 }

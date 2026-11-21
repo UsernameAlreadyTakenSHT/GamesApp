@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Fixes from a bug hunt over the whole app; no new feature.
+
+- **No more crash when the phone's storage is full**: saving a finished game to the history, deleting from it, and Share all failed hard; the history is now left as it was, and Share sends the text alone.
+- **Home screen scrolls** in split screen or with a large display size, where the last row of games could not be reached.
+- **Draughts**: with an international game and an English checkers game both in progress, each has its own Resume link (only the latest could be resumed, and the other could be overwritten).
+- **Engine clocks**: a chess engine restarted after you came back to a game (Gaia, Lc0, Rodent take a moment to load) no longer spends that time out of its thinking budget and loses on a short per-move clock; Sanmill no longer thinks twice as long as planned when its move closes a mill.
+- **Undo with a time per move** gives the move to replay its full time again, in every game, instead of the little that was left.
+- **Fox games**: a chain of captures may end on the point it started from (some three-goose captures were refused); the built-in opponent reports and prefers the shortest win correctly.
+- **Chess**: Flip against the engine turns the names and clocks round with the board; a hint cancelled by playing at once no longer delays the engine's reply; c4ke and ice4 can no longer hang for half a minute when a search is cancelled at the wrong instant.
+- Leaving the app while an engine was still unpacking its network (first game of shogi, mostly) no longer leaves that engine running in memory.
+- Setup screens: the keyboard no longer covers the custom clock fields.
+- `stockfish/build.sh`: stray lines before the script removed.
+
 ## 0.6.0 — 2026-11-21
 
 Four new chess opponents. The download grows by about 200 MB (Gaia and ShashChess each carry a large network).

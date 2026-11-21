@@ -1,32 +1,4 @@
-build x86_64    x86-64-sse41-popcnt x86_64-linux-android29
-build arm64-v8a armv8               aarch64-linux-android29
-"$MAKE" clean >/dev/null 2>&1 || true
-
-# ---------------------------------------------------------------------------
-# Stockfish 11: last "classical" (pre-NNUE) release, kept as an alternative engine.
-# Its Makefile predates NDK support, so we drive clang directly and force OS=Android
-# for the PIE / no -lpthread flags. ~1 MB per ABI.
-# ---------------------------------------------------------------------------
-SRC11="$ROOT/stockfish/src11"
-if [ ! -d "$SRC11/.git" ]; then
-  git clone --depth 1 --branch sf_11 https://github.com/official-stockfish/Stockfish.git "$SRC11"
-fi
-cd "$SRC11/src"
-
-build11() { # abi  arch  triple
-  local abi=$1 arch=$2 triple=$3
-  echo ">> Build SF11 $abi ($arch)"
-  "$MAKE" clean >/dev/null 2>&1 || true
-  "$MAKE" -j"$(nproc 2>/dev/null || echo 4)" build ARCH="$arch" COMP=clang OS=Android \n      COMPCXX="$TC/clang++$EXT --target=$triple -static-libstdc++ -Qunused-arguments" 2>&1 | grep -iE "error" || true
-  "$TC/llvm-strip$EXT" -o "$OUT/$abi/libstockfish11.so" stockfish
-  ls -la "$OUT/$abi/libstockfish11.so"
-}
-
-build11 x86_64    x86-64-modern x86_64-linux-android29
-build11 arm64-v8a general-64    aarch64-linux-android29
-"$MAKE" clean >/dev/null 2>&1 || true
-
-echo ">> OK"#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Builds Stockfish for Android (x86_64 emulator + arm64-v8a phones) with the NDK
 # and drops the binaries into app/src/main/jniLibs/<abi>/libstockfish.so.
 #

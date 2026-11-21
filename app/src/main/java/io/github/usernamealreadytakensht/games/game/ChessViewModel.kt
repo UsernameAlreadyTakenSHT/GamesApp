@@ -67,7 +67,8 @@ data class GameState(
     /** The side whose pieces the screen's user moves now: theirs, or either side with two players. */
     val mover: Side get() = if (config.twoPlayers) sideToMove else playerSide
     /** Side shown at the bottom of the board (and of the clocks). */
-    val bottomSide: Side get() = if (config.twoPlayers) (if (flipped) Side.BLACK else Side.WHITE) else playerSide
+    /** Follows the board: `flipped` is "black at the bottom", set at the start for a player with black. */
+    val bottomSide: Side get() = if (flipped) Side.BLACK else Side.WHITE
     val topSide: Side get() = if (bottomSide == Side.WHITE) Side.BLACK else Side.WHITE
     /** Name for a side's bar: you / the engine, or the colour with two players. */
     fun sideLabel(side: Side): String = when {
@@ -246,6 +247,8 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         }
         // The clock restarts for the side to move; time already spent is not refunded.
         chargeRunningClock()
+        // Except with a time per move: a move taken back is a move to play again, on a full budget.
+        (_state.value.config.timeControl as? TimeControl.PerMove)?.let { whiteBaseMs = it.perMoveMs; blackBaseMs = it.perMoveMs }
         restartTurnClock()
         publish()
         persist()
@@ -435,7 +438,6 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val gen = ++generation
         val config = _state.value.config
         val moves = uciMoves.toList()
-        val moveTime = engineMoveTimeMs()
         val startFen = if (session.chess960) session.startFen else null
         _state.update { it.copy(thinking = true) }
         publish()
@@ -450,6 +452,9 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
                     // Cancelled while waiting for the hint or the engine: the "stop" went out
                     // before this search, which would run its full time for nothing.
                     if (gen != generation) return@launch
+                    // Only now: starting the engine (after Resume, or a restart) can take seconds
+                    // of its clock, and a budget set before that would run past the flag.
+                    val moveTime = engineMoveTimeMs()
                     val uci = eng.bestMove(moves, moveTime, eng.nodesFor(config.strength), eng.depthFor(config.strength), startFen)
                     if (gen != generation) return@launch // game changed meanwhile
                     move = uci?.let { session.parseUci(it) }
@@ -766,12 +771,15 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
         val moves = uciMoves.toList()
         val startFen = if (session.chess960) session.startFen else null
         _state.update { it.copy(hintLoading = true) }
+        hintStopped = false
         hintJob = viewModelScope.launch {
             val uci = runCatching {
                 val eng = engineLock.withLock { liveEngine(config, restart = false) }
                 try {
                     eng.configure(null) // full strength for the hint
-                    eng.bestMove(moves, HINT_MS, null, null, startFen)
+                    // Stopped while the engine was getting ready: that "stop" came before the
+                    // search and was lost on the engine, so do not start it.
+                    if (hintStopped) null else eng.bestMove(moves, HINT_MS, null, null, startFen)
                 } finally {
                     withContext(NonCancellable) { eng.configure(config.strength) }
                 }
@@ -792,6 +800,12 @@ class ChessViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The player moved while a hint was being searched: end that search now. */
     private fun stopHint() {
-        if (hintJob?.isActive == true) engine?.stop()
+        if (hintJob?.isActive == true) {
+            hintStopped = true
+            engine?.stop()
+        }
     }
+
+    /** Set by [stopHint]; read by the hint coroutine right before it searches. */
+    @Volatile private var hintStopped = false
 }

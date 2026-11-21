@@ -77,7 +77,9 @@ object Fox {
             if (over < 0 || pos[over] != HUNTER || over in captures) continue
             val land = b.step(over, d)
             if (land < 0 || (pos[land] != EMPTY && land != path.first())) continue
-            if (land in path) continue
+            // A chain may come back to where it started (the fox left that point), but not pass
+            // twice through another point. No goose is jumped twice either way.
+            if (land in path && land != path.first()) continue
             extended = true
             collectJumps(pos, land, path + land, captures + over, out)
         }

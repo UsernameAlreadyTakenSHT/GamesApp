@@ -34,6 +34,9 @@ class TinyUciEngine(private val context: Context, override val kind: EngineKind)
     override val weights: String? = null
 
     private var process: Process? = null
+
+    /** Set by quit(): a start() still under way (copying assets) then ends its new process itself. */
+    @Volatile private var quitRequested = false
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
 
@@ -43,15 +46,24 @@ class TinyUciEngine(private val context: Context, override val kind: EngineKind)
     /** A `go infinite` is running and has not been sent its `stop` yet. */
     private val stoppable = AtomicBoolean(false)
 
+    /** Orders a search's `go infinite` before any `stop` meant for it. */
+    private val stopLock = Any()
+
     override val isRunning: Boolean get() = process?.isAlive == true
 
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
+        quitRequested = false
         if (!executable.canExecute()) {
             throw IOException("${kind.label} binary not found for this ABI: ${executable.path}")
         }
         val p = ProcessBuilder(executable.absolutePath).redirectErrorStream(true).start()
         process = p
+        if (quitRequested) {
+            p.destroy()
+            process = null
+            throw IOException("Engine stopped while it was starting")
+        }
         writer = p.outputStream.bufferedWriter()
         reader = p.inputStream.bufferedReader()
 
@@ -84,8 +96,12 @@ class TinyUciEngine(private val context: Context, override val kind: EngineKind)
                 val start = if (startFen == null) "position startpos" else "position fen $startFen"
                 // These parsers expect the `moves` keyword even when no move follows.
                 send("$start moves ${moves.joinToString(" ")}".trimEnd())
-                stoppable.set(true)
-                send("go infinite")
+                // One step with sendStopOnce(): a stop written before this "go" would be read as
+                // an unknown command, and the search would then wait for a stop that never comes.
+                synchronized(stopLock) {
+                    send("go infinite")
+                    stoppable.set(true)
+                }
                 coroutineScope {
                     val timer = launch { delay(moveTimeMs.toLong()); sendStopOnce() }
                     try {
@@ -118,7 +134,7 @@ class TinyUciEngine(private val context: Context, override val kind: EngineKind)
         return reached >= depth
     }
 
-    private fun sendStopOnce() {
+    private fun sendStopOnce() = synchronized(stopLock) {
         if (stoppable.compareAndSet(true, false)) runCatching { send("stop") }
     }
 
@@ -126,6 +142,7 @@ class TinyUciEngine(private val context: Context, override val kind: EngineKind)
     override fun stop() = sendStopOnce()
 
     override fun quit() {
+        quitRequested = true
         // `quit` is only heard between searches: end the one in progress first.
         sendStopOnce()
         runCatching { send("quit") }

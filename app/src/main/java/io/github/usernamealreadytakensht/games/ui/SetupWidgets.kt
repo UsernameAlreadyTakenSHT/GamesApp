@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -77,7 +78,9 @@ internal fun SetupScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        // Edge to edge, the window no longer shrinks for the keyboard: this padding does it, so
+        // the custom clock fields at the bottom of the screen scroll into view above it.
+        modifier = Modifier.fillMaxSize().imePadding(),
         bottomBar = {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                 if (summary != null) {

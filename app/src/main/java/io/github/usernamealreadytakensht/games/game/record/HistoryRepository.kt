@@ -39,12 +39,21 @@ class HistoryRepository(context: Context) {
 
     fun clear() = synchronized(LOCK) { write(emptyList()) }
 
+    /**
+     * Never throws: the callers are fire-and-forget coroutines, where an exception (a full
+     * disk, typically) would take the whole app down. A failed write leaves the old history.
+     */
     private fun write(records: List<GameRecord>) {
         val tmp = File(file.parentFile, "history.json.tmp")
-        tmp.writeText(JSONArray().apply { records.forEach { put(it.toJson()) } }.toString())
-        // rename() replaces the old file atomically; deleting it first would open a window
-        // where a crash loses the whole history.
-        if (!tmp.renameTo(file)) Log.w(TAG, "Could not save the history")
+        try {
+            tmp.writeText(JSONArray().apply { records.forEach { put(it.toJson()) } }.toString())
+            // rename() replaces the old file atomically; deleting it first would open a window
+            // where a crash loses the whole history.
+            if (!tmp.renameTo(file)) Log.w(TAG, "Could not save the history")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not save the history", e)
+            tmp.delete()
+        }
         VERSION.value++
     }
 

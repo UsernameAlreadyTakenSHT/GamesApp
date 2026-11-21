@@ -209,6 +209,8 @@ class CheckersViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(selected = null, partialPath = emptyList(), targets = emptySet(), engineError = null) }
         // Time already spent on this turn is not refunded.
         chargeRunningClock()
+        // Except with a time per move: a move taken back is a move to play again, on a full budget.
+        (_state.value.config.timeControl as? TimeControl.PerMove)?.let { whiteBaseMs = it.perMoveMs; blackBaseMs = it.perMoveMs }
         restartTurnClock()
         publish()
         persist()

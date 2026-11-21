@@ -45,6 +45,9 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
 
     private val executable = File(context.applicationInfo.nativeLibraryDir, kind.binary)
     private var process: Process? = null
+
+    /** Set by quit(): a start() still under way (copying assets) then ends its new process itself. */
+    @Volatile private var quitRequested = false
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
 
@@ -55,6 +58,7 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
 
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
+        quitRequested = false
         if (!executable.canExecute()) {
             throw IOException("${kind.label} binary not found for this ABI: ${executable.path}")
         }
@@ -64,6 +68,11 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
             .redirectErrorStream(true)
             .start()
         process = p
+        if (quitRequested) {
+            p.destroy()
+            process = null
+            throw IOException("Engine stopped while it was starting")
+        }
         writer = p.outputStream.bufferedWriter()
         reader = p.inputStream.bufferedReader()
 
@@ -103,6 +112,7 @@ class HubEngine(private val context: Context, override val kind: DraughtsEngineK
     }
 
     override fun quit() {
+        quitRequested = true
         runCatching { send("quit") }
         // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->

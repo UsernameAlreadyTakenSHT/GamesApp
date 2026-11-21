@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,13 +37,21 @@ import io.github.usernamealreadytakensht.games.game.SavedFoxGame
 import io.github.usernamealreadytakensht.games.game.SavedTaflGame
 
 /** One tile of the home grid. */
-private class GameTile(val title: String, val icon: Int, val resumable: Boolean, val onOpen: () -> Unit, val onResume: () -> Unit)
+private class GameTile(val title: String, val icon: Int, val onOpen: () -> Unit, val resumes: List<Resume>) {
+    constructor(title: String, icon: Int, resumable: Boolean, onOpen: () -> Unit, onResume: () -> Unit) :
+        this(title, icon, onOpen, if (resumable) listOf(Resume("Resume", onResume)) else emptyList())
+}
+
+/** A "Resume" link on a tile: one per game in progress (draughts keeps one per rule set). */
+private class Resume(val label: String, val onResume: () -> Unit)
 
 /** Main screen: a two-column grid of games. A saved game adds a "Resume" link to its tile. */
 @Composable
 fun HomeScreen(
     savedChess: SavedGame?,
     savedDraughts: SavedDraughtsGame?,
+    savedCheckers: SavedDraughtsGame?,
+    onResumeCheckers: () -> Unit,
     onChess: () -> Unit,
     onResumeChess: () -> Unit,
     onDraughts: () -> Unit,
@@ -62,7 +72,15 @@ fun HomeScreen(
 ) {
     val tiles = listOf(
         GameTile("Chess", R.drawable.piece_ln, savedChess != null, onChess, onResumeChess),
-        GameTile("Draughts", R.drawable.stone_l2, savedDraughts != null, onDraughts, onResumeDraughts),
+        // Both rule sets can have a game in progress: each gets its own link, named by its board
+        // when there are two ("Resume" twice would not fit the tile).
+        GameTile(
+            "Draughts", R.drawable.stone_l2, onDraughts,
+            listOfNotNull(
+                savedDraughts?.let { Resume(if (savedCheckers != null) "10\u00D710" else "Resume", onResumeDraughts) },
+                savedCheckers?.let { Resume(if (savedDraughts != null) "8\u00D78" else "Resume", onResumeCheckers) },
+            ),
+        ),
         GameTile("Shogi", R.drawable.ic_shogi_board, savedShogi != null, onShogi, onResumeShogi),
         GameTile("Nine Men's Morris", R.drawable.ic_morris_board, savedMorris != null, onMorris, onResumeMorris),
         GameTile("Hnefatafl", R.drawable.ic_tafl_board, savedTafl != null, onTafl, onResumeTafl),
@@ -73,6 +91,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
+                // Split screen, a large display size: the grid scrolls instead of losing its last row.
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -105,19 +125,20 @@ private fun GameCard(tile: GameTile, modifier: Modifier) {
                 Text(tile.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             }
             // The resume link sits over the top-right corner, so a saved game never resizes the tile.
-            if (tile.resumable) {
-                Surface(
-                    onClick = tile.onResume,
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                ) {
-                    Text(
-                        "Resume",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
+            // One link sits in the top-right corner; two take a corner each, clear of the icon.
+            Row(
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(6.dp),
+                horizontalArrangement = if (tile.resumes.size > 1) Arrangement.SpaceBetween else Arrangement.End,
+            ) {
+                tile.resumes.forEach { resume ->
+                    Surface(onClick = resume.onResume, shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary) {
+                        Text(
+                            resume.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
                 }
             }
         }

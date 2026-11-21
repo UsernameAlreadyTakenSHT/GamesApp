@@ -30,6 +30,9 @@ class SanmillEngine(
 
     private val executable = File(context.applicationInfo.nativeLibraryDir, kind.binary)
     private var process: Process? = null
+
+    /** Set by quit(): a start() still under way (copying assets) then ends its new process itself. */
+    @Volatile private var quitRequested = false
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
 
@@ -43,6 +46,7 @@ class SanmillEngine(
 
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
+        quitRequested = false
         if (!executable.canExecute()) {
             throw IOException("Sanmill binary not found for this ABI: ${executable.path}")
         }
@@ -50,6 +54,11 @@ class SanmillEngine(
             .redirectErrorStream(true)
             .start()
         process = p
+        if (quitRequested) {
+            p.destroy()
+            process = null
+            throw IOException("Engine stopped while it was starting")
+        }
         writer = p.outputStream.bufferedWriter()
         reader = p.inputStream.bufferedReader()
 
@@ -83,6 +92,7 @@ class SanmillEngine(
 
             stopRequested = false
             val tokens = history.flatMap { it.toUciTokens() }.toMutableList()
+            val started = System.nanoTime()
             val first = ask(tokens, depth, moveTimeMs) ?: return@withContext null
             val (from, to) = parseStep(first) ?: return@withContext null
             val candidates = legal.filter { it.from == from && it.to == to }
@@ -90,8 +100,13 @@ class SanmillEngine(
             if (!candidates[0].closesMill || stopRequested) return@withContext candidates[0]
 
             // The move closes a mill: ask which man to take (the engine now expects "xNN").
+            // Both searches share the one budget: the removal gets what the move left of it, and
+            // a quarter at least (choosing the man to take is a much smaller search). A second
+            // full budget would run the engine past a per-move clock.
             tokens += first
-            val removal = ask(tokens, depth, moveTimeMs)
+            val spentMs = ((System.nanoTime() - started) / 1_000_000).toInt()
+            val removalMs = (moveTimeMs - spentMs).coerceAtLeast(moveTimeMs / 4).coerceAtLeast(50)
+            val removal = ask(tokens, depth, removalMs)
             val point = removal?.takeIf { it.startsWith("x") }?.let { Morris.pointOf(it.substring(1)) }
             candidates.firstOrNull { it.remove == point } ?: candidates[0]
         }
@@ -124,6 +139,7 @@ class SanmillEngine(
     }
 
     override fun quit() {
+        quitRequested = true
         runCatching { send("quit") }
         // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->

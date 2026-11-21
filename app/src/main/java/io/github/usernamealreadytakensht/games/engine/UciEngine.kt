@@ -30,6 +30,9 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
     override val weights: String? = kind.weightsFor(strength)
 
     private var process: Process? = null
+
+    /** Set by quit(): a start() still under way (copying assets) then ends its new process itself. */
+    @Volatile private var quitRequested = false
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
 
@@ -41,6 +44,7 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
     /** Launches the process, performs the UCI handshake and loads the network if any. */
     override suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
+        quitRequested = false
         if (!executable.canExecute()) {
             throw IOException("${kind.label} binary not found for this ABI: ${executable.path}")
         }
@@ -54,6 +58,11 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
             .apply { if (workDir != null) directory(workDir) }
             .start()
         process = p
+        if (quitRequested) {
+            p.destroy()
+            process = null
+            throw IOException("Engine stopped while it was starting")
+        }
         writer = p.outputStream.bufferedWriter()
         reader = p.inputStream.bufferedReader()
 
@@ -146,6 +155,7 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
     }
 
     override fun quit() {
+        quitRequested = true
         runCatching { send("quit") }
         // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->

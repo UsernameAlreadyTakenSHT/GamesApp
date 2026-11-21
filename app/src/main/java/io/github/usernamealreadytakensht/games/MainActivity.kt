@@ -221,14 +221,15 @@ private fun App() {
     when (val s = screen) {
         Screen.Home -> HomeScreen(
             savedChess = repo.loadGame(),
-            savedDraughts = repo.loadLatestDraughtsGame(),
+            savedDraughts = repo.loadDraughtsGame(DraughtsVariant.INTERNATIONAL),
+            savedCheckers = repo.loadDraughtsGame(DraughtsVariant.ENGLISH),
+            onResumeCheckers = { screen = Screen.DraughtsGame(DraughtsLaunch.Resume(DraughtsVariant.ENGLISH)) },
             onChess = { draft = repo.loadLastConfig(); screen = Screen.GameSetup },
             onResumeChess = { screen = Screen.ChessGame(ChessLaunch.Resume) },
             onDraughts = { draughtsDraft = repo.loadLastDraughtsConfig(); screen = Screen.DraughtsSetup },
             // The rules of the game to resume are fixed here, at the tap: the latest save.
             onResumeDraughts = {
-                val variant = repo.loadLatestDraughtsGame()?.config?.variant ?: DraughtsVariant.INTERNATIONAL
-                screen = Screen.DraughtsGame(DraughtsLaunch.Resume(variant))
+                screen = Screen.DraughtsGame(DraughtsLaunch.Resume(DraughtsVariant.INTERNATIONAL))
             },
             savedMorris = repo.loadMorrisGame(),
             onMorris = { morrisDraft = repo.loadLastMorrisConfig(); screen = Screen.MorrisSetup },

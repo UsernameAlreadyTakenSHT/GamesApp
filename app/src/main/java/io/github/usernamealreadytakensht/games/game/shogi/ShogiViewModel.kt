@@ -236,6 +236,8 @@ class ShogiViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(engineError = null) }
         // Time already spent on this turn is not refunded, byoyomi included when the same side moves again.
         chargeRunningClock()
+        // Except with a time per move: a move taken back is a move to play again, on a full budget.
+        (_state.value.config.timeControl as? TimeControl.PerMove)?.let { senteBaseMs = it.perMoveMs; goteBaseMs = it.perMoveMs }
         if (running == game.position.sideToMove) byoyomiCarryMs = byoyomiUsed
         restartTurnClock()
         publish()

@@ -169,6 +169,8 @@ class TaflViewModel(app: Application) : AndroidViewModel(app) {
         clearSelection()
         // Time already spent on this turn is not refunded.
         chargeRunningClock()
+        // Except with a time per move: a move taken back is a move to play again, on a full budget.
+        (_state.value.config.timeControl as? TimeControl.PerMove)?.let { attackersBaseMs = it.perMoveMs; defendersBaseMs = it.perMoveMs }
         restartTurnClock()
         publish()
         persist()

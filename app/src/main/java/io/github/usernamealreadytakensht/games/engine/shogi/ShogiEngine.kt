@@ -23,6 +23,9 @@ class ShogiEngine(private val context: Context) {
 
     private val executable = File(context.applicationInfo.nativeLibraryDir, "libfairy.so")
     private var process: Process? = null
+
+    /** Set by quit(): a start() still under way (copying assets) then ends its new process itself. */
+    @Volatile private var quitRequested = false
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
     private val ioLock = Mutex()
@@ -31,10 +34,16 @@ class ShogiEngine(private val context: Context) {
 
     suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (isRunning) return@withContext
+        quitRequested = false
         if (!executable.canExecute()) throw IOException("Fairy-Stockfish binary not found: ${executable.path}")
         val net = NetAssets.ensure(context, NET)
         val p = ProcessBuilder(executable.absolutePath).redirectErrorStream(true).start()
         process = p
+        if (quitRequested) {
+            p.destroy()
+            process = null
+            throw IOException("Engine stopped while it was starting")
+        }
         writer = p.outputStream.bufferedWriter()
         reader = p.inputStream.bufferedReader()
         ioLock.withLock {
@@ -85,6 +94,7 @@ class ShogiEngine(private val context: Context) {
     }
 
     fun quit() {
+        quitRequested = true
         runCatching { send("quit") }
         // Let the engine exit on its own, off the caller's thread; destroy it if it lingers.
         process?.let { p ->

@@ -116,6 +116,27 @@ class FoxTest {
     }
 
     @Test
+    fun aChainMayComeBackToItsStartingPoint() {
+        val v = FoxVariant.GEESE
+        val board = IntArray(33)
+        fun at(name: String) = (0 until 33).first { v.board.name(it) == name }
+        board[at("c5")] = Fox.FOX
+        board[at("d5")] = Fox.HUNTER // c5 over d5 to e5,
+        board[at("e4")] = Fox.HUNTER // e5 over e4 to e3,
+        board[at("d4")] = Fox.HUNTER // e3 over d4 (a diagonal) back to c5
+        val pos = Fox.Position(v, board, Side.FOX)
+        val jumps = Fox.legalMoves(pos).filter { it.isJump }.map { Fox.notation(v, it) }.toSet()
+        // The triangle, either way round: three geese, the fox ends where it began. (From e5 the
+        // fox may also turn down the diagonal over d4 to c3, for two geese.)
+        assertEquals(setOf("c5xe5xe3xc5", "c5xe3xe5xc5", "c5xe5xc3"), jumps)
+        val loop = Fox.parse(v, pos, "c5xe5xe3xc5")!!
+        assertEquals(3, loop.captures.size)
+        val after = Fox.play(pos, loop)
+        assertEquals(0, after.hunters())
+        assertEquals(Fox.FOX, after[at("c5")])
+    }
+
+    @Test
     fun foxWinsWithFewGeese() {
         val v = FoxVariant.GEESE
         val board = IntArray(33)

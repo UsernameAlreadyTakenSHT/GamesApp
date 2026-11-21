@@ -80,14 +80,17 @@ class FoxEngine {
         var beta = betaIn
         table[pos]?.let { e ->
             if (e.depth >= depth) {
+                val value = fromTable(e.value, ply)
                 when (e.flag) {
-                    0 -> return e.value
-                    1 -> if (e.value > alpha) alpha = e.value
-                    2 -> if (e.value < beta) beta = e.value
+                    0 -> return value
+                    1 -> if (value > alpha) alpha = value
+                    2 -> if (value < beta) beta = value
                 }
-                if (alpha >= beta) return e.value
+                if (alpha >= beta) return value
             }
         }
+        // The window actually searched, once the table narrowed it: what the result is a bound of.
+        val alphaSearched = alpha
 
         val moves = Fox.legalMoves(pos).sortedByDescending { it.captures.size }
         var best = -INF
@@ -98,10 +101,26 @@ class FoxEngine {
             if (alpha >= beta) break
         }
         if (!aborted) {
-            val flag = if (best <= alphaIn) 2 else if (best >= betaIn) 1 else 0
-            table[pos] = Entry(depth, best, flag)
+            val flag = if (best <= alphaSearched) 2 else if (best >= beta) 1 else 0
+            table[pos] = Entry(depth, toTable(best, ply), flag)
         }
         return best
+    }
+
+    /**
+     * Win scores count the plies from the root ([WIN] - ply), but a table entry is met again at
+     * other plies: it keeps the distance from its own position, converted back on the way out.
+     */
+    private fun toTable(value: Int, ply: Int) = when {
+        value >= WIN_BOUND -> value + ply
+        value <= -WIN_BOUND -> value - ply
+        else -> value
+    }
+
+    private fun fromTable(value: Int, ply: Int) = when {
+        value >= WIN_BOUND -> value - ply
+        value <= -WIN_BOUND -> value + ply
+        else -> value
     }
 
     /** Static evaluation from the side to move's point of view (positive = good for it). */
@@ -145,6 +164,9 @@ class FoxEngine {
     companion object {
         private const val INF = 1_000_000
         private const val WIN = 100_000
+
+        /** Scores beyond this are wins or losses at some distance, never evaluations. */
+        private const val WIN_BOUND = WIN - 1_000
         private const val MAX_DEPTH = 40
         private const val HUNTER_CODE = Fox.HUNTER
     }
