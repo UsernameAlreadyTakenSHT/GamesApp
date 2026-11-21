@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 — 2026-11-21
 
 Fixes from a bug hunt over the whole app; no new feature.
 
