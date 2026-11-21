@@ -16,7 +16,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Drives a UCI engine process (Stockfish or Lc0).
+ * Drives a UCI engine process (Stockfish, Lc0, Gaia...).
  *
  * Binaries ship inside the APK as `lib*.so` files (jniLibs): Android extracts them into
  * `nativeLibraryDir`, the only location an app may execute a native binary from (API 29+).
@@ -90,12 +90,15 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
 
     /**
      * Applies a strength setting. For Elo-based engines this sets `UCI_LimitStrength`
-     * (null = full strength); node-limited engines are handled per search instead.
+     * (null = full strength) and for Gaia its `Skill Level`; node- and depth-limited engines
+     * are handled per search instead.
      */
     override suspend fun configure(strength: Int?): Unit = withContext(Dispatchers.IO) {
-        if (kind.strength != StrengthKind.ELO) return@withContext
+        if (kind.strength != StrengthKind.ELO && kind.strength != StrengthKind.LEVEL) return@withContext
         ioLock.withLock {
-            if (strength == null) {
+            if (kind.strength == StrengthKind.LEVEL) {
+                send("setoption name Skill Level value ${strength?.coerceIn(1, GAIA_FULL_STRENGTH) ?: GAIA_FULL_STRENGTH}")
+            } else if (strength == null) {
                 send("setoption name UCI_LimitStrength value false")
             } else {
                 send("setoption name UCI_LimitStrength value true")
@@ -177,5 +180,8 @@ class UciEngine(private val context: Context, override val kind: EngineKind, str
 
     companion object {
         private const val TAG = "UciEngine"
+
+        /** Gaia's top `Skill Level`: the engine unweakened. */
+        private const val GAIA_FULL_STRENGTH = 20
     }
 }

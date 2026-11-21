@@ -108,6 +108,7 @@ private val EngineFamily.iconRes: Int?
         EngineFamily.BERSERK -> R.drawable.ic_engine_berserk
         EngineFamily.PLENTY -> R.drawable.ic_engine_plenty
         EngineFamily.FAIRY -> R.drawable.ic_engine_fairy
+        EngineFamily.GAIA -> R.drawable.ic_engine_gaia
         else -> null
     }
 
@@ -170,12 +171,14 @@ fun OpponentSetupScreen(
                 (if (strength == null) "time-based" else "node${if (strength > 1) "s" else ""} per move")
             StrengthKind.DEPTH -> (strength?.toString() ?: "Max") to
                 (if (strength == null) "time-based" else "plies deep")
+            StrengthKind.LEVEL -> (strength?.toString() ?: "Max") to (if (strength == null) "full strength" else "level of 20")
         }
         val (lo, hi) = when (engine.strength) {
             StrengthKind.ELO -> "${engine.eloMin}" to "Max"
             StrengthKind.HUMAN_ELO -> "${engine.eloMin}" to "${engine.eloMax}"
             StrengthKind.NODES -> "1 node" to "Max"
             StrengthKind.DEPTH -> "Depth 1" to "Max"
+            StrengthKind.LEVEL -> "Level 1" to "Max"
         }
         StrengthCard(
             big = big,

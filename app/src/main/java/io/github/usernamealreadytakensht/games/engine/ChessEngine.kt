@@ -16,7 +16,7 @@ interface ChessEngine {
 
     suspend fun start()
 
-    /** Applies a strength setting where the engine supports one (Stockfish `UCI_Elo`). */
+    /** Applies a strength setting where the engine supports one (Stockfish `UCI_Elo`, Gaia `Skill Level`). */
     suspend fun configure(strength: Int?)
 
     suspend fun newGame()
@@ -61,6 +61,8 @@ interface ChessEngine {
         // Node/depth-limited searches finish early; the cap only guards against slow cases.
         StrengthKind.NODES -> if (strength == null) 2000 else 8000
         StrengthKind.DEPTH -> if (strength == null) 1500 else 8000
+        // Gaia's levels stop at a depth of their own, never on the clock.
+        StrengthKind.LEVEL -> if (strength == null) 1500 else 8000
         StrengthKind.HUMAN_ELO -> 2000
     }
 

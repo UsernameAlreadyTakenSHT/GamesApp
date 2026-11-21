@@ -13,6 +13,7 @@ enum class EngineFamily(val label: String, val tagline: String, val monogram: St
     LC0("Leela Chess Zero", "Neural networks, positional style.", "Lc0", 150f),
     MAIA("Maia", "Plays like a human of any level.", "Ma", 330f),
     RODENT("Rodent", "Seven personalities.", "Ro", 100f),
+    GAIA("Gaia", "Twenty levels of play.", "Ga", 130f),
     RECKLESS("Reckless", "Top-tier engine in Rust.", "Rk", 30f),
     PLENTY("PlentyChess", "Top-tier engine in C++.", "Pc", 280f),
     BERSERK("Berserk", "Top-tier engine in C.", "Bk", 0f),
@@ -38,6 +39,8 @@ enum class StrengthKind {
     HUMAN_ELO,
     /** Fixed search depth per move (alpha-beta engines without a UCI_Elo option); null = time-based. */
     DEPTH,
+    /** Gaia's `Skill Level` (1-19, each a designed opponent); null = level 20, full strength. */
+    LEVEL,
 }
 
 /**
@@ -76,6 +79,11 @@ enum class EngineKind(
         EngineFamily.LC0, "T1 256x10", "liblc0.so", StrengthKind.NODES,
         "Official 256x10 distilled network: stronger than Bad Gyal per node, but ~6x slower on CPU.",
         weights = "t1-256x10.lc0",
+    ),
+    GAIA_4(
+        EngineFamily.GAIA, "Gaia 4.4", "libgaia.so", StrengthKind.LEVEL,
+        "Top-tier Rust engine with twenty levels that are opponents in their own right: the low " +
+            "ones overlook moves and leave pieces hanging like a beginner, instead of only searching less far.",
     ),
     RECKLESS_09(
         EngineFamily.RECKLESS, "Reckless 0.9", "libreckless.so", StrengthKind.DEPTH,
@@ -164,6 +172,7 @@ enum class EngineKind(
             StrengthKind.NODES -> NODE_PRESETS
             StrengthKind.HUMAN_ELO -> (eloMin..eloMax step 100).toList()
             StrengthKind.DEPTH -> DEPTH_PRESETS
+            StrengthKind.LEVEL -> GAIA_LEVELS.indices.map { it + 1 } + listOf(null)
         }
 
     /** Sensible starting strength when this variant is first selected. */
@@ -173,6 +182,7 @@ enum class EngineKind(
             StrengthKind.NODES -> 64
             StrengthKind.HUMAN_ELO -> 1500
             StrengthKind.DEPTH -> 5
+            StrengthKind.LEVEL -> 8
         }
 
     /**
@@ -215,6 +225,8 @@ enum class EngineKind(
             value <= 10 -> "Expert"
             else -> "Master level and beyond"
         }
+        StrengthKind.LEVEL -> GAIA_LEVELS.getOrNull((value ?: 0) - 1)
+            ?.let { (elo, feel) -> "~$elo Elo: $feel" } ?: "Full strength, unbeatable"
         StrengthKind.NODES -> when {
             value == null -> "Full strength (time-based)"
             value == 1 -> "Network intuition only"
@@ -229,11 +241,23 @@ enum class EngineKind(
         StrengthKind.NODES -> if (value == null) "Max" else "$value node${if (value > 1) "s" else ""}"
         StrengthKind.HUMAN_ELO -> "Elo ${value ?: defaultStrength}"
         StrengthKind.DEPTH -> if (value == null) "Max" else "Depth $value"
+        StrengthKind.LEVEL -> if (value == null) "Max" else "Level $value"
     }
 
     companion object {
         val NODE_PRESETS: List<Int?> = listOf(1, 4, 16, 64, 256, 1000, null)
         val DEPTH_PRESETS: List<Int?> = listOf(1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, null)
+
+        /** Gaia's levels 1-19: the rating and the kind of player its authors give for each. */
+        val GAIA_LEVELS: List<Pair<Int, String>> = listOf(
+            580 to "just learned the moves", 700 to "learning the pieces", 820 to "first few games",
+            940 to "beginner", 1060 to "improving beginner", 1180 to "casual player",
+            1300 to "keen amateur", 1420 to "club player", 1540 to "solid club player",
+            1660 to "steady club player", 1750 to "strong club player", 1840 to "tournament player",
+            1970 to "tournament regular", 2090 to "candidate master", 2200 to "expert",
+            2310 to "national master", 2420 to "strong master", 2530 to "international master",
+            2640 to "grandmaster",
+        )
 
         fun of(family: EngineFamily): List<EngineKind> = entries.filter { it.family == family }
     }
@@ -315,7 +339,7 @@ enum class ThinkingTime(val label: String, val factor: Double) {
 
 /**
  * Settings of a chess game.
- * `strength` is an Elo or a node count depending on the engine (see [EngineKind.strength]);
+ * `strength` is an Elo, a node count, a depth or a level depending on the engine (see [EngineKind.strength]);
  * null = maximum. `playerSide` null = random.
  */
 data class GameConfig(

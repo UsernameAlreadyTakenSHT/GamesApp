@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Chess**: new opponent, **Gaia** 4.4 (Rust). Twenty levels, from about 580 Elo to grandmaster and then full strength: the low levels play like a beginner (they overlook moves and leave pieces hanging) instead of only searching less far.
+
 ## 0.5.8 — 2026-11-20
 
 Fixes from a full review of the code; no new feature.

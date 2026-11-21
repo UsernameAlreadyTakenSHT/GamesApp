@@ -31,6 +31,7 @@ depends on how the engine can be limited.
 | | | Maia (1100 → 1900, one network per rating) | Human rating | Elo 1100–1900, no search: plays like a human of that level |
 | <img src="app/src/main/res/drawable-nodpi/logo_maia.png" width="32" alt=""> | **Maia 3** (5M) | Transformer exported to ONNX, runs in-process | Human rating | Elo 600–2600, no search: one model imitating any level |
 | <img src="app/src/main/res/drawable-nodpi/logo_rodent.png" width="32" alt=""> | **Rodent V** (Go) | Personalities: Rodent, Tal, Tal (hybrid), Ampere, Chaotic, Hector, Nimzoid | `UCI_Elo` | 800–3000, or Max; each personality has its own style, network and opening book |
+| | **Gaia** 4.4 (Rust) | — | `Skill Level` | Levels 1–19 (about 580 → 2640 Elo by its authors' estimate), or Max; each level is a designed opponent, the low ones overlook moves and hang pieces |
 | <img src="app/src/main/res/drawable-nodpi/logo_reckless.png" width="32" alt=""> | **Reckless** 0.9 (Rust) | — | Search depth | 1 → 20 plies, or time-based |
 | | **PlentyChess** 8.0 (C++) | — | Search depth | 1 → 20 plies, or time-based |
 | | **Berserk** 14 (C) | — | Search depth | 1 → 20 plies, or time-based |
@@ -42,7 +43,9 @@ app (`game/ChessSession.kt`: chesslib 1.3.x gets 960 castling wrong), checked by
 Fairy-Stockfish. Castling is played by tapping the rook (or the king's destination square).
 
 Rough feel: the Maia models are the only opponents that play *like a human* (Maia 3 covers 600–2600, the Lc0 Maia networks 1100–1900). Stockfish's Elo
-mode is adjustable but artificial (perfect moves with random errors). The depth-limited
+mode is adjustable but artificial (perfect moves with random errors). Gaia's levels sit in
+between: an engine weakened on purpose in several ways at once (shallower search, cruder
+evaluation, moves it fails to notice), the same at every level whatever the phone. The depth-limited
 engines stay solid even at depth 1 (~1600+) because their evaluation is strong; they simply
 stop seeing tactics. Sunfish is the genuinely weak one.
 
@@ -125,13 +128,14 @@ engine's tactics.
 ## Building
 
 The Android project builds with Android Studio as usual, **but the engine binaries and
-networks are not committed** (they weigh ~280 MB per ABI). Generate them once with the
+networks are not committed** (they weigh ~375 MB per ABI). Generate them once with the
 scripts below (Git Bash on Windows; they use the NDK from the Android SDK):
 
 ```
 ./stockfish/build.sh      # Stockfish 19 + 11
 ./lc0/build.sh            # Lc0 + Bad Gyal, T1 and Maia networks
 ./reckless/build.sh       # needs rustup (installed by the script's instructions)
+./gaia/build.sh           # needs rustup too, and a host gcc; downloads Gaia's 113 MB network
 ./plentychess/build.sh    # needs a running x86_64 emulator (network pre-processing)
 ./berserk/build.sh
 ./rodent/build.sh         # needs Go (a plain unzip of the official SDK is enough)
@@ -162,6 +166,7 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Sunfish](https://github.com/thomasahle/sunfish),
   [Rodent V](https://github.com/nescitus/Rodent-V),
   [Fairy-Stockfish](https://github.com/fairy-stockfish/Fairy-Stockfish),
+  [Gaia](https://github.com/jromang/gaiachess) (GPL-3.0-or-later),
   [Scan](https://github.com/rhalbersma/scan), [Moby Dam](https://github.com/rhalbersma/mobydam) — GPL-3.0;
   [Marcher](https://github.com/Stermere/Checkers-Engine) — MIT;
   [Reckless](https://github.com/codedeliveryservice/Reckless),
@@ -172,7 +177,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   [Maia 3](https://github.com/CSSLab/maia3) (AGPL-3.0),
   [Bad Gyal](https://github.com/dkappe/leela-chess-weights), T1 256x10 (lczero.org),
   Fairy-Stockfish's chess (Stockfish nn-46832cfbead3) and shogi
-  [NNUE networks](https://fairy-stockfish.github.io/nnue/).
+  [NNUE networks](https://fairy-stockfish.github.io/nnue/),
+  Gaia's [GaiaNet-T7](https://huggingface.co/jromanghf/gaiachess-networks) (embedded in its binary).
   The Maia authors ask that their papers be cited:
   [Aligning Superhuman AI with Human Behavior](https://arxiv.org/abs/2006.01855) (KDD 2020) and
   [Chessformer](https://arxiv.org/abs/2605.19091) (ICLR 2026).
@@ -180,7 +186,8 @@ See [THIRD_PARTY.md](THIRD_PARTY.md) for the full table. In short:
   Maia platform, Reckless, Sunfish, Rodent V and Sanmill logos from their repositories. PlentyChess has
   no logo and Berserk's README art is from the manga (not ours to redistribute), so those two
   get original glyphs drawn for this app (a cornucopia and a double-bit axe), as do
-  Fairy-Stockfish (sparkles, no logo upstream) and the draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
+  Fairy-Stockfish (sparkles, no logo upstream), Gaia (a globe: its own icon is built from a
+  piece set its authors use with the artist's permission, which does not extend to this app) and the draughts engines Scan (radar sweep) and Moby Dam (sperm whale).
 - Pieces: Cburnett chess set (GFDL / CC BY-SA 3.0), Antonsusi draughts stones (public domain),
   both from Wikimedia Commons — see [art/pieces/README.md](art/pieces/README.md). The hnefatafl,
   fox-game and shogi pieces and board icons are drawn for this app (shogi pieces are drawn in

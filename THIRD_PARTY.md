@@ -14,6 +14,7 @@ piece art are downloaded / copied by those scripts and `art/pieces/README.md`.
 | Antonsusi draughts stones | Wikimedia Commons | Public domain |
 | chesslib | https://github.com/bhlangonijr/chesslib | Apache-2.0 |
 | Reckless 0.9.0 | https://github.com/codedeliveryservice/Reckless | AGPL-3.0 |
+| Gaia 4.4.4 (engine only, built without its graphical interface; + network GaiaNet-T7, embedded) | https://github.com/jromang/gaiachess · https://huggingface.co/jromanghf/gaiachess-networks | GPL-3.0-or-later (engine; the network is published by the same authors, no separate license stated) |
 | PlentyChess 8.0.0 (+ network 0178r) | https://github.com/Yoshie2000/PlentyChess | GPL-3.0 |
 | Berserk 14 (+ network 9b84c340af7e) | https://github.com/jhonnold/berserk | GPL-3.0 |
 | Fairy-Stockfish (master 2024-09-26, largeboards build; Chess960 and shogi opponent) | https://github.com/fairy-stockfish/Fairy-Stockfish | GPL-3.0 |
@@ -52,13 +53,14 @@ but the polite thing to do):
 
 Each engine is built from source by its `*/build.sh`, at the exact revision below (commits are
 pinned in the scripts; tags for the engines that publish releases). Downloaded networks are
-checked against SHA-256 sums in `lc0/build.sh` and `fairy/build.sh`.
+checked against SHA-256 sums in `lc0/build.sh`, `fairy/build.sh` and `gaia/build.sh`.
 
 | Engine | Revision |
 |--------|----------|
 | Stockfish 19 / 11 | tags `sf_19` / `sf_11` |
 | Leela Chess Zero | tag `v0.32.1` |
 | Reckless | tag `v0.9.0` |
+| Gaia | tag `v4.4.4` (`85f8c96b5251241b03958710b9e5860334fdd44b`) |
 | PlentyChess | tag `b-v8.0.0` |
 | Berserk | tag `14` (`8ae895a6151695be4a50d4fb65b0c131659c513a`) |
 | Rodent V | tag `Rodent_v_1.2` (`b53ffaf670590932957cb63b7b6d871f6f33b7d8`) |

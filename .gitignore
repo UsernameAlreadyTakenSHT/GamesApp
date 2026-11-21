@@ -29,6 +29,10 @@ local.properties
 /plentychess/src/
 /berserk/src/
 
+# Gaia: cloned sources and downloaded network (see gaia/build.sh)
+/gaia/src/
+/gaia/nets/
+
 # IDE
 /.idea/
 
